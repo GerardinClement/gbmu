@@ -3,8 +3,26 @@ use std::fmt;
 
 use crate::Registers;
 
+enum ArithmeticTarget {
+	A, B, C, D, E, H, L,
+}
+
+enum JumpTest {
+	None,
+	Zero,
+	NotZero,
+	Carry,
+	NotCarry,
+}
+
+enum JumpTarget {
+	A16,
+	HL,
+}
+
 enum Instruction {
 	ADD(ArithmeticTarget),
+	JP(JumpTest, JumpTarget),
 }
 
 impl Instruction {
@@ -19,21 +37,19 @@ impl Instruction {
 	fn from_byte_prefixed(byte: u8) -> Option<Instruction> {
 		match byte {
 			0x80 => Some(Instruction::ADD(ArithmeticTarget::B)),
-			_ => panic!("Instruction {} not set", byte)
+			0xE9 => Some(Instruction::JP(JumpTest::None, JumpTarget::HL)),
+			_ => panic!("Prefixed instruction {} not set", byte)
 		}
 	}
 
 	fn from_byte_not_prefixed(byte: u8) -> Option<Instruction> {
 		match byte {
 			0x80 => Some(Instruction::ADD(ArithmeticTarget::B)),
-			_ => panic!("Instruction {} not set", byte)
+			_ => panic!("Not prefixed instruction {} not set", byte)
 		}
 	}
 }
 
-enum ArithmeticTarget {
-	A, B, C, D, E, H, L,
-}
 
 pub struct CPU {
 	pub registers: Registers,
@@ -42,6 +58,31 @@ pub struct CPU {
 }
 
 impl CPU {
+	fn check_test(&mut self, test: JumpTest) -> bool {
+		match test {
+			JumpTest::Carry => {
+				println!("Test carry");
+				true
+			},
+			JumpTest::NotCarry => {
+				println!("Test not carry");
+				true
+			},
+			JumpTest::Zero => {
+				println!("Test zero");
+				true
+			},
+			JumpTest::NotZero => {
+				println!("Test not zero");
+				true
+			},
+			JumpTest::None => {
+				println!("Test none");
+				true
+			},
+		}
+	}
+
 	fn step(&mut self) {
 		let mut instruction_byte = self.bus.read_byte(self.pc);
 		let prefixed = instruction_byte == 0xCB;
@@ -66,9 +107,30 @@ impl CPU {
 					ArithmeticTarget::C => {
 						let value = self.registers.c;
 						self.registers.a = self.add(value);
-						return self.pc.wrapping_add(1);
+						self.pc.wrapping_add(1)
 					},
 					_ => panic!("target not covered")
+				}
+			},
+			Instruction::JP(condition, target) => {
+				if !self.check_test(condition) {
+					self.pc.wrapping_add(3)
+				} else {
+					match target {
+						JumpTarget::HL => {
+							let value = self.registers.get_hl();
+							self.jump(value);
+							self.pc
+						},
+						JumpTarget::A16 => {
+							let least_significant_byte = self.bus.read_byte(self.pc + 1) as u16;
+							let most_significant_byte = self.bus.read_byte(self.pc + 2) as u16;
+							let value = (most_significant_byte << 8) | least_significant_byte;
+							self.jump(value);
+							self.pc
+						}
+						_ => panic!("target not covered")
+					}
 				}
 			}
 			_ => panic!("Unknown execute instruction")
@@ -83,11 +145,15 @@ impl CPU {
 		self.registers.f.half_carry = (self.registers.a & 0xF) + (value & 0xF) > 0xF;
 		new_value
 	}
+
+	pub fn jump(&mut self, value: u16) {
+		self.pc = value;
+	}
+
 }
 
 impl fmt::Display for CPU {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Par exemple, tu affiches les registres et le PC :
         write!(
             f,
             "Registers:\nA: {:02X}, B: {:02X}, C: {:02X}, D: {:02X}, E: {:02X}, H: {:02X}, L: {:02X}\nPC: {:04X}",
@@ -115,8 +181,8 @@ impl Default for CPU {
 	}
 }
 
-struct MemoryBus {
-    memory: [u8; 0xFFFF]
+pub struct MemoryBus {
+    pub memory: [u8; 0xFFFF]
 }
 
 
