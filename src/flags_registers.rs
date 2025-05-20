@@ -3,10 +3,11 @@ const SUBTRACT_FLAG_BYTE_POSITION: u8 = 6;
 const HALF_CARRY_FLAG_BYTE_POSITION: u8 = 5;
 const CARRY_FLAG_BYTE_POSITION: u8 = 4;
 
+#[derive(Clone)]
 pub struct FlagsRegister {
     pub zero: bool,
     pub subtract: bool,
-    pub half_carry: bool,
+        pub half_carry: bool,
     pub carry: bool
 }
 
