@@ -1,14 +1,14 @@
 use crate::flags_registers::FlagsRegister;
 
 pub struct Registers {
-	a: u8,
-	b: u8,
-	c: u8,
-	d: u8,
-	e: u8,
-	h: u8,
-	f: FlagsRegister,
-	l: u8,
+	pub a: u8,
+	pub b: u8,
+	pub c: u8,
+	pub d: u8,
+	pub e: u8,
+	pub h: u8,
+	pub f: FlagsRegister,
+	pub l: u8,
 }
 
 impl Registers {
@@ -49,4 +49,19 @@ impl Registers {
 		self.h = ((value & 0xFF00) >> 8) as u8;
 		self.l = (value & 0xFF) as u8;
 	}
+}
+
+impl Default for Registers {
+    fn default() -> Self {
+        Registers {
+            a: 0,
+            b: 0,
+            c: 0,
+            d: 0,
+            e: 0,
+            h: 0,
+            l: 0,
+            f: FlagsRegister::default(),
+        }
+    }
 }

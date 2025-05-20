@@ -1,16 +1,22 @@
 mod registers;
 mod flags_registers;
+mod cpu;
+
+use registers::Registers;
 
 use crate::flags_registers::FlagsRegister;
+use crate::cpu::CPU;
+
 
 fn main() {
     let flags = FlagsRegister {
-        zero: true,
+        zero: false,
         subtract: false,
-        half_carry: true,
+        half_carry: false,
         carry: false,
     };
 
-    println!("{}", flags.zero);
-    // Utilisation...
+    let mut cpu = CPU::default();
+    cpu.registers.a = cpu.add(5);
+    println!("{}", cpu);
 }

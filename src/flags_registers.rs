@@ -7,7 +7,7 @@ const CARRY_FLAG_BYTE_POSITION: u8 = 4;
 pub struct FlagsRegister {
     pub zero: bool,
     pub subtract: bool,
-        pub half_carry: bool,
+    pub half_carry: bool,
     pub carry: bool
 }
 
@@ -34,4 +34,15 @@ impl std::convert::From<u8> for FlagsRegister {
             carry
         }
 	}
+}
+
+impl Default for FlagsRegister {
+    fn default() -> Self {
+        FlagsRegister {
+            zero: false,
+            subtract: false,
+            half_carry: false,
+            carry: false,
+        }
+    }
 }
