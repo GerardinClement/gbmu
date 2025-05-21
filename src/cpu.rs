@@ -2,54 +2,7 @@ use std::fmt;
 
 
 use crate::Registers;
-
-enum ArithmeticTarget {
-	A, B, C, D, E, H, L,
-}
-
-enum JumpTest {
-	None,
-	Zero,
-	NotZero,
-	Carry,
-	NotCarry,
-}
-
-enum JumpTarget {
-	A16,
-	HL,
-}
-
-enum Instruction {
-	ADD(ArithmeticTarget),
-	JP(JumpTest, JumpTarget),
-}
-
-impl Instruction {
-	fn from_byte(byte: u8, prefixed: bool) -> Option<Instruction> {
-		if prefixed {
-			Instruction::from_byte_prefixed(byte)
-		} else {
-			Instruction::from_byte_not_prefixed(byte)
-		}
-	}
-
-	fn from_byte_prefixed(byte: u8) -> Option<Instruction> {
-		match byte {
-			0x80 => Some(Instruction::ADD(ArithmeticTarget::B)),
-			0xE9 => Some(Instruction::JP(JumpTest::None, JumpTarget::HL)),
-			_ => panic!("Prefixed instruction {} not set", byte)
-		}
-	}
-
-	fn from_byte_not_prefixed(byte: u8) -> Option<Instruction> {
-		match byte {
-			0x80 => Some(Instruction::ADD(ArithmeticTarget::B)),
-			_ => panic!("Not prefixed instruction {} not set", byte)
-		}
-	}
-}
-
+use crate::instruction::*;
 
 pub struct CPU {
 	pub registers: Registers,
@@ -90,7 +43,7 @@ impl CPU {
 			instruction_byte = self.bus.read_byte(self.pc + 1)
 		}
 
-		let next_pc = if let Some(instruction) = Instruction::from_byte(instruction_byte, prefixed) {
+		let next_pc = if let Some(instruction) = Instructions::from_byte(instruction_byte, prefixed) {
 			self.execute(instruction)
 		} else {
 			let description = format!("0x{}{:x}", if prefixed { "cb" } else { "" }, instruction_byte);
@@ -100,9 +53,9 @@ impl CPU {
 		self.pc = next_pc;
 	}
 
-	fn execute(&mut self, instruction: Instruction) -> u16 {
+	fn execute(&mut self, instruction: Instructions) -> u16 {
 		match instruction {
-			Instruction::ADD(target) => {
+			Instructions::ADD(target) => {
 				match target {
 					ArithmeticTarget::C => {
 						let value = self.registers.c;
@@ -112,7 +65,7 @@ impl CPU {
 					_ => panic!("target not covered")
 				}
 			},
-			Instruction::JP(condition, target) => {
+			Instructions::JP(condition, target) => {
 				if !self.check_test(condition) {
 					self.pc.wrapping_add(3)
 				} else {
@@ -132,6 +85,41 @@ impl CPU {
 						_ => panic!("target not covered")
 					}
 				}
+			},
+			Instructions::LD(target, source ) => {
+				let source_value = match source {
+					LoadSource::A => self.registers.a,
+					LoadSource::B => self.registers.b,
+					LoadSource::C => self.registers.c,
+					LoadSource::D => self.registers.d,
+					LoadSource::E => self.registers.e,
+					LoadSource::H => self.registers.h,
+					LoadSource::L => self.registers.l,
+					LoadSource::HL => self.bus.read_byte(self.registers.get_hl()),
+					LoadSource::BC => self.bus.read_byte(self.registers.get_bc()),
+					LoadSource::DE => self.bus.read_byte(self.registers.get_de()),
+					LoadSource::D8 => {
+						let value = self.bus.read_byte(self.pc + 1);
+						value
+					},
+					LoadSource::D16 => {
+						let least_significant_byte = self.bus.read_byte(self.pc + 1) as u16;
+						let most_significant_byte = self.bus.read_byte(self.pc + 2) as u16;
+						let value = (most_significant_byte << 8) | least_significant_byte;
+						value as u8
+					},
+					//TODO: implement all sources
+					_ => { panic!("source doesn't exist") }
+				};
+				match target {
+					LoadTarget::A => self.registers.a = source_value,
+					//TODO: implement all target
+					_ => { panic!("target doesn't exist") }
+				};
+				match source {
+					LoadSource::D8  => self.pc.wrapping_add(2),
+					_                   => self.pc.wrapping_add(1),
+				  }
 			}
 			_ => panic!("Unknown execute instruction")
 		}
