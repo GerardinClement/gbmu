@@ -20,7 +20,12 @@ pub enum LoadSource {
 }
 
 pub enum LoadTarget {
-	A, B, C, D, E, H, L, BC, BCAddr, DE, DEAddr, HL, HLAddr, N16
+	A, B, C, D, E, H, L, BC, BCAddr, DE, DEAddr, HL, HLAddr, N16, HLI, HLD
+}
+
+pub enum Is16BitLoad {
+	True,
+	False
 }
 
 pub enum Instructions {
@@ -46,6 +51,22 @@ impl Instructions {
 
 	fn from_byte_not_prefixed(byte: u8) -> Option<Instructions> {
 		match byte {
+			0x02 => Some(Instructions::LD(LoadTarget::BC, LoadSource::A)),
+			0x06 => Some(Instructions::LD(LoadTarget::B, LoadSource::D8)),
+			0x0A => Some(Instructions::LD(LoadTarget::A, LoadSource::BC)),
+			0x0E => Some(Instructions::LD(LoadTarget::C, LoadSource::D8)),
+			0x12 => Some(Instructions::LD(LoadTarget::DE, LoadSource::A)),
+			0x16 => Some(Instructions::LD(LoadTarget::D, LoadSource::D8)),
+			0x1A => Some(Instructions::LD(LoadTarget::A, LoadSource::DE)),
+			0x1E => Some(Instructions::LD(LoadTarget::E, LoadSource::D8)),
+			0x22 => Some(Instructions::LD(LoadTarget::HLI, LoadSource::A)),
+			0x26 => Some(Instructions::LD(LoadTarget::H, LoadSource::D8)),
+			0x2A => Some(Instructions::LD(LoadTarget::A, LoadSource::HLI)),
+			0x2E => Some(Instructions::LD(LoadTarget::L, LoadSource::D8)),
+			0x32 => Some(Instructions::LD(LoadTarget::HLD, LoadSource::A)),
+			0x36 => Some(Instructions::LD(LoadTarget::HL, LoadSource::D8)),
+			0x3A => Some(Instructions::LD(LoadTarget::HLD, LoadSource::A)),
+			0x3E => Some(Instructions::LD(LoadTarget::A, LoadSource::D8)),
 			// LD B, r
 			0x40 => Some(Instructions::LD(LoadTarget::B, LoadSource::B)),
 			0x41 => Some(Instructions::LD(LoadTarget::B, LoadSource::C)),
