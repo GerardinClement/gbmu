@@ -1,6 +1,7 @@
 mod registers;
 mod flags_registers;
 mod cpu;
+mod instruction;
 
 use registers::Registers;
 
