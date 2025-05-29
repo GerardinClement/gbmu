@@ -1,7 +1,7 @@
 mod registers;
 mod flags_registers;
 mod cpu;
-mod instruction;
+mod instructions;
 
 use registers::Registers;
 
@@ -17,7 +17,6 @@ fn main() {
         carry: false,
     };
 
-    let mut cpu = CPU::default();
-    cpu.registers.a = cpu.add(5);
+    let cpu = CPU::default();
     println!("{}", cpu);
 }
