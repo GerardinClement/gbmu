@@ -1,7 +1,9 @@
-use crate::{cpu::MemoryBus, flags_registers::FlagsRegister};
+use crate::memory::MemoryBus;
+use crate::cpu::flags_registers::FlagsRegister;
 
 
 #[repr(u8)]
+#[derive(Clone, Copy)]
 pub enum R8 {
 	B = 0,
 	C = 1,
@@ -11,6 +13,22 @@ pub enum R8 {
 	L = 5,
 	HLIndirect = 6,
 	A = 7,
+}
+
+impl From<u8> for R8 {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => R8::B,
+            1 => R8::C,
+            3 => R8::D,
+            4 => R8::E,
+            5 => R8::H,
+            6 => R8::L,
+            7 => R8::HLIndirect,
+            8 => R8::A,
+            _ => panic!("Invalid value for R8: {}", value),
+        }
+    }
 }
 
 #[repr(u8)]
@@ -92,10 +110,89 @@ impl Registers {
         let (new_value, did_overflow) = r16_value.overflowing_add(value);
         
         self.set_r16_value(target, new_value);
-        self.f.zero = value == 0;
-        self.f.subtract = false;
-        self.f.carry = did_overflow;
-        self.f.half_carry = (r16_value & 0xFFF) + (value & 0xFFF) > 0xFFF;
+        let zero = value == 0;
+        let subtract = false;
+        let carry = did_overflow;
+        let half_carry = (r16_value & 0xFFF) + (value & 0xFFF) > 0xFFF;
+        self.f.set_all(zero, subtract, half_carry, carry);
+    }
+
+    pub fn rotate_left(&mut self, target: R8, carry: bool) {
+        let r8 = self.get_r8_value(target);
+        let outgoing_bit = (r8 & 0b10000000) >> 7;
+    
+        let bit: u8 = if carry {
+            (r8 & 0b10000000) >> 7
+        } else {
+            if self.f.get_carry() { 1 } else { 0 }
+        };
+        
+    
+        let result = r8.rotate_left(1) | bit;
+    
+        self.set_r8_value(target, result);
+        self.set_carry_flag(outgoing_bit == 1);
+        self.set_zero_flag(false);
+        self.set_subtract_flag(false);
+        self.set_half_carry_flag(false);
+    }
+    
+
+    pub fn rotate_right(&mut self, target: R8, carry: bool) {
+        let r8 = self.get_r8_value(target);
+        let outgoing_bit = r8 & 0b00000001;
+    
+        let bit: u8 = if carry {
+            r8 & 0b00000001
+        } else {
+            if self.f.get_carry() { 0b10000000 } else { 0 }
+        };
+        
+    
+        let result = if carry {
+            r8.rotate_right(1)
+        } else {
+            r8.rotate_right(1) | bit
+        };
+    
+        self.set_r8_value(target, result);
+        self.set_carry_flag(outgoing_bit == 1);
+        self.set_zero_flag(false);
+        self.set_subtract_flag(false);
+        self.set_half_carry_flag(false);
+    }
+
+
+    pub fn set_zero_flag(&mut self, value: bool) {
+        self.f.set_zero(value);
+    }
+
+    pub fn set_subtract_flag(&mut self, value: bool) {
+        self.f.set_subtract(value);
+    }
+
+    pub fn set_half_carry_flag(&mut self, value: bool) {
+        self.f.set_half_carry(value);
+    }
+
+    pub fn set_carry_flag(&mut self, value: bool) {
+        self.f.set_carry(value);
+    }
+
+    pub fn get_zero_flag(&mut self) -> bool {
+        self.f.get_zero()
+    }
+
+    pub fn get_subtract_flag(&mut self) -> bool {
+        self.f.get_subtract()
+    }
+
+    pub fn get_half_carry_flag(&mut self) -> bool {
+        self.f.get_half_carry()
+    }
+
+    pub fn get_carry_flag(&mut self) -> bool {
+        self.f.get_carry()
     }
 
 	pub fn get_a(&self) -> u8 {

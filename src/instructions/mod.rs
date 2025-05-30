@@ -1,6 +1,7 @@
 pub mod block0;
+pub mod conditions;
 
-use crate::cpu::CPU;
+use crate::cpu::cpu::CPU;
 
 pub fn execute_instruction(cpu: &mut CPU, instruction: u8) {
 	let block_mask = 0b11000000;
