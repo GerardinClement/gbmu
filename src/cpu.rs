@@ -1,7 +1,7 @@
 use std::fmt;
 
 
-use crate::Registers;
+use crate::registers::Registers;
 use crate::instruction::*;
 
 pub struct CPU {
