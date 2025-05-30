@@ -1,12 +1,12 @@
-use crate::memory::mapping_memory::MemoryRegion;
+use crate::memory::region::MemoryRegion;
 
-pub struct Memory {
+pub struct MemoryBus {
     data: [u8; 0x10000], // 10000 = 65536 = 0xFFFF
 }
 
-impl Memory {
+impl MemoryBus {
     pub fn new() -> Self {
-        Memory { 
+        MemoryBus { 
             data: [0; 0x10000],
         }
     }
@@ -39,25 +39,25 @@ impl Memory {
 
 #[cfg(test)]
 mod tests {
-    use super::Memory;
+    use super::MemoryBus;
 
     #[test]
     fn basic_ram_read_write() {
-        let mut mem = Memory::new();
+        let mut mem = MemoryBus::new();
         mem.write_byte(0xC000, 0x42);
         assert_eq!(mem.read_byte(0xC000), 0x42);
     }
 
     #[test]
     fn vram_read_write() {
-        let mut mem = Memory::new();
+        let mut mem = MemoryBus::new();
         mem.write_byte(0x8100, 0x42);
         assert_eq!(mem.read_byte(0x8100), 0x42);
     }
 
     #[test]
     fn io_registers_read_write() {
-        let mut mem = Memory::new();
+        let mut mem = MemoryBus::new();
         let io1 = 0xFF00;
         let io2 = 0xFF7F;
         mem.write_byte(io1, 0x11);
@@ -68,7 +68,7 @@ mod tests {
 
     #[test]
     fn rom_is_read_only() {
-        let mut mem = Memory::new();
+        let mut mem = MemoryBus::new();
         let rom_addr = 0x2000;
         mem.write_byte(rom_addr, 0x99);
         assert_eq!(mem.read_byte(rom_addr), 0x00);
@@ -76,7 +76,7 @@ mod tests {
 
     #[test]
     fn echo_ram_mirrors_wram() {
-        let mut mem = Memory::new();
+        let mut mem = MemoryBus::new();
         let echo = 0xE456;
         let real = 0xC456;
         mem.write_byte(echo, 0xCD);
@@ -85,7 +85,7 @@ mod tests {
 
     #[test]
     fn echo_ram_mirrors_backwards() {
-        let mut mem = Memory::new();
+        let mut mem = MemoryBus::new();
         let echo = 0xE567;
         let real = 0xC567;
         mem.write_byte(real, 0xCF);
@@ -94,7 +94,7 @@ mod tests {
 
     #[test]
     fn unusable_region_reads_ff() {
-        let mem = Memory::new();
+        let mem = MemoryBus::new();
         // Underlying data is zero, but prohibited reads return 0xFF
         assert_eq!(mem.read_byte(0xFEA0), 0xFF);
         assert_eq!(mem.read_byte(0xFEFF), 0xFF);
@@ -102,7 +102,7 @@ mod tests {
 
     #[test]
     fn unusable_region_write_is_ignored() {
-        let mut mem = Memory::new();
+        let mut mem = MemoryBus::new();
         // Write to Unusable; then underlying data stays at 0x00 (not 0x77)
         mem.write_byte(0xFEB0, 0x77);
         // If we bypass the Unusable barrier:

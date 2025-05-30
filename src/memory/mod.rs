@@ -1,4 +1,4 @@
-pub mod mapping_memory;
-pub mod read_write_memory;
+pub mod region;
+pub mod bus;
 
-pub use read_write_memory::Memory;
+pub use bus::MemoryBus;
