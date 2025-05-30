@@ -12,7 +12,7 @@
 |0xD000–0xDFFF	 |   4 KiB	 |   [Work RAM Bank 1–7 (WRAM1–7)](#5-work-ram-0xc000-0xdfff) |	Additional banks on CGB (color mode); on DMG always bank 1.                                      |
 |0xE000–0xFDFF	 |   7.5 KiB |	[Echo RAM](#6-echo-ram-0xe000-0xfdff)                     |	Mirror of 0xC000–0xDDFF. Reads/writes act exactly like WRAM.                                  |
 |0xFE00–0xFE9F	 |   160 B	 |   [OAM (Sprite Attribute Table)](#7-oam-0xfe00-0xfe9f)|	40 sprites × 4 B each: Y, X, tile#, flags.          |
-|0xFEA0–0xFEFF	 |   96 B	 |   [Not Usable](#8-not-usable-0xfea0-0xfeff)                  |	Forbidden. Returns open-bus or $FF.                 |
+|0xFEA0–0xFEFF	 |   96 B	 |   [Unusable](#8-unusable-0xfea0-0xfeff)                  |	Forbidden. Returns open-bus or $FF.                 |
 |0xFF00–0xFF7F	 |   128 B	 |   [I/O Registers](#9-io-registers-0xff00-0xff7f)               |	Joypad, serial, timer/divider, interrupts, audio, LCD control, DMA, CGB extras. Reads/writes dispatch to hardware modules.          |
 |0xFF80–0xFFFE	 |   127 B	 |   [High RAM (HRAM)](#10-high-ram-0xff80-0xfffe)             |	Fast “zero-page” RAM for critical data.             |
 |0xFFFF–0xFFFF	 |   1 B	 |   [Interrupt-Enable (IE)](#11-interrupt-enable-0xffff)       |	Bitmask enabling V-Blank, LCD STAT, Timer, Serial, Joypad interrupts.                          |
@@ -55,7 +55,7 @@
 
 - **DMA**: a write to `0xFF46` starts a quick 160 B copy from `val<<8` → `0xFE00–0xFE9F`.
 
-#### 8. Not Usable (`0xFEA0-0xFEFF`)
+#### 8. Unusable (`0xFEA0-0xFEFF`)
 - Forbidden. Games must not use this.
 - On DMG/CGB reads usually return `$FF` or open bus; writes do nothing.
 
