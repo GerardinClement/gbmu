@@ -18,8 +18,12 @@ impl CPU {
 		self.pc = self.pc.wrapping_add(1); // Implement PC
 	}
 
-	pub fn load(&mut self, source: u16, target:u8) {
+	pub fn load_r16(&mut self, source: u16, target:u8) {
 		self.registers.set_r16_value(target, source);
+	}
+
+	pub fn load_r8(&mut self, source: u8, target: u8) {
+		self.registers.set_r8_value(target, source);
 	}
 
 	// pub fn add(&mut self, value: u8) -> u8 {

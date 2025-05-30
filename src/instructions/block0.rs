@@ -61,12 +61,40 @@ pub fn match_instruction_block0(cpu: &mut CPU, instruction: u8) {
 	let opcode = get_instruction_block0(instruction);
 
 	match opcode {
-		0b00000001 => {
-			let lsb = cpu.bus.read_byte(cpu.pc + 1) as u16; // poids faible
-			let msb = cpu.bus.read_byte(cpu.pc + 2) as u16; // poids fort
-			let imm16 = (msb << 8) | lsb;
-			cpu.load(imm16, (instruction & r16_mask) >> 4);
-		}, // ld r16, imm16
+		0b00000000 => { cpu.pc += 1; }, // nop
+		0b00000001 => load_r16_imm16(cpu, instruction),
+		0b00000010 => load_r16mem_a(cpu, instruction),
+		0b00001010 => load_a_r16mem(cpu, instruction),
+		//TODO: Implement ld [imm16], sp
 		_ => panic!("Unknown opcode: {:#04x}", opcode),
 	}
+}
+
+fn load_r16_imm16(cpu: &mut CPU, instruction: u8) {
+	let lsb = cpu.bus.read_byte(cpu.pc + 1) as u16;
+	let msb = cpu.bus.read_byte(cpu.pc + 2) as u16;
+	let imm16 = (msb << 8) | lsb;
+	cpu.load_r16(imm16, (instruction & 0b00110000) >> 4);
+	cpu.pc += 2; // Increment PC by 2 to skip the immediate value bytes
+}
+
+fn load_r16mem_a(cpu: &mut CPU, instruction: u8) {
+	let r16_index = (instruction & 0b00110000) >> 4;
+	let a_value = cpu.registers.get_a();
+	cpu.registers.set_r16_mem_value(&mut cpu.bus, r16_index, a_value);
+	cpu.pc += 1; // Increment PC by 1 to skip the instruction byte
+}
+
+fn load_a_r16mem(cpu: &mut CPU, instruction: u8) {
+	let r16_index = (instruction & 0b00110000) >> 4;
+	let value = cpu.registers.get_r16_mem_value(&cpu.bus, r16_index);
+	cpu.load_r8(value, 7);
+	cpu.pc += 1; // Increment PC by 1 to skip the instruction byte
+}
+
+fn inc_r16(cpu: &mut CPU, instruction: u8) {
+	let r16_index = (instruction & 0b00110000) >> 4;
+	let value = cpu.registers.get_r16_value(r16_index);
+	cpu.registers.set_r16_value(r16_index, value.wrapping_add(1));
+	cpu.pc += 1; // Increment PC by 1 to skip the instruction byte
 }
