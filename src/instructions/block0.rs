@@ -1,4 +1,7 @@
 use crate::cpu::CPU;
+use crate::registers::{R16, R8};
+
+const R16_MASK: u8 = 0b00110000;
 
 const INSTRUCTIONS_BLOCK0: [u8; 22] = [
 	0b00000000, //nop
@@ -56,7 +59,6 @@ fn get_instruction_block0(instruction: u8) -> u8 {
 }
 
 pub fn match_instruction_block0(cpu: &mut CPU, instruction: u8) {
-	let r16_mask = 0b00110000;
 	// let cond_mask = 0b00011000;
 	let opcode = get_instruction_block0(instruction);
 
@@ -74,27 +76,35 @@ fn load_r16_imm16(cpu: &mut CPU, instruction: u8) {
 	let lsb = cpu.bus.read_byte(cpu.pc + 1) as u16;
 	let msb = cpu.bus.read_byte(cpu.pc + 2) as u16;
 	let imm16 = (msb << 8) | lsb;
-	cpu.load_r16(imm16, (instruction & 0b00110000) >> 4);
+	let r16 = R16::from((instruction & R16_MASK) >> 4);
+
+	cpu.registers.set_r16_value(r16, imm16);
 	cpu.pc += 2; // Increment PC by 2 to skip the immediate value bytes
 }
 
 fn load_r16mem_a(cpu: &mut CPU, instruction: u8) {
-	let r16_index = (instruction & 0b00110000) >> 4;
+	let r16_index = (instruction & R16_MASK) >> 4;
+	let r16 = R16::from(r16_index);
 	let a_value = cpu.registers.get_a();
-	cpu.registers.set_r16_mem_value(&mut cpu.bus, r16_index, a_value);
+
+	cpu.registers.set_r16_mem_value(&mut cpu.bus, r16, a_value);
 	cpu.pc += 1; // Increment PC by 1 to skip the instruction byte
 }
 
 fn load_a_r16mem(cpu: &mut CPU, instruction: u8) {
-	let r16_index = (instruction & 0b00110000) >> 4;
-	let value = cpu.registers.get_r16_mem_value(&cpu.bus, r16_index);
+	let r16_index = (instruction & R16_MASK) >> 4;
+	let r16 = R16::from(r16_index);
+	let value = cpu.registers.get_r16_mem_value(&cpu.bus, r16);
+
 	cpu.load_r8(value, 7);
 	cpu.pc += 1; // Increment PC by 1 to skip the instruction byte
 }
 
 fn inc_r16(cpu: &mut CPU, instruction: u8) {
-	let r16_index = (instruction & 0b00110000) >> 4;
-	let value = cpu.registers.get_r16_value(r16_index);
-	cpu.registers.set_r16_value(r16_index, value.wrapping_add(1));
+	let r16_index = (instruction & R16_MASK) >> 4;
+	let r16 = R16::from(r16_index);
+	let value = cpu.registers.get_r16_value(r16);
+
+	cpu.registers.set_r16_value(r16, value.wrapping_add(1));
 	cpu.pc += 1; // Increment PC by 1 to skip the instruction byte
 }

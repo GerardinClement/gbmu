@@ -2,6 +2,7 @@ use std::fmt;
 use crate::Registers;
 
 use crate::instructions::execute_instruction;
+use crate::registers::R8;
 
 
 pub struct CPU {
@@ -16,10 +17,6 @@ impl CPU {
 		execute_instruction(self, instruction_byte);
 
 		self.pc = self.pc.wrapping_add(1); // Implement PC
-	}
-
-	pub fn load_r16(&mut self, source: u16, target:u8) {
-		self.registers.set_r16_value(target, source);
 	}
 
 	pub fn load_r8(&mut self, source: u8, target: u8) {
@@ -46,13 +43,13 @@ impl fmt::Display for CPU {
         write!(
             f,
             "Registers:\nA: {:02X}, B: {:02X}, C: {:02X}, D: {:02X}, E: {:02X}, H: {:02X}, L: {:02X}\nPC: {:04X}",
-			self.registers.get_a(),
-			self.registers.get_b(),
-			self.registers.get_c(),
-			self.registers.get_d(),
-			self.registers.get_e(),
-			self.registers.get_h(),
-			self.registers.get_l(),
+			self.registers.get_r8_value(R8::A),
+			self.registers.get_r8_value(R8::B),
+			self.registers.get_r8_value(R8::C),
+			self.registers.get_r8_value(R8::D),
+			self.registers.get_r8_value(R8::E),
+			self.registers.get_r8_value(R8::H),
+			self.registers.get_r8_value(R8::L),
             self.pc,
         )
     }

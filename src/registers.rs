@@ -1,152 +1,175 @@
 use crate::{cpu::MemoryBus, flags_registers::FlagsRegister};
 
+/*
+
+ * Registers structure for the CPU.
+ * r8 -> [
+ 	* 0: B,
+	* 1: C,
+	* 2: D,
+	* 3: E,
+	* 4: H,
+	* 5: L,
+	* 6: [HL] (to be implemented),
+	* 7: A
+ * ]
+ 
+ */
 pub struct Registers {
-	a: u8,
-	b: u8,
-	c: u8,
-	d: u8,
-	e: u8,
-	h: u8,
-	f: FlagsRegister,
-	l: u8,
+    r8: [u8; 8], // B, C, D, E, H, L, [HL], A
+    f: FlagsRegister,
+}
+
+#[repr(u8)]
+pub enum R8 {
+    B = 0,
+    C = 1,
+    D = 2,
+    E = 3,
+    H = 4,
+    L = 5,
+    HLIndirect = 6,
+    A = 7,
+}
+
+#[repr(u8)]
+#[derive(Clone, Copy)]
+pub enum R16 {
+    BC = 0,
+    DE = 1,
+    HL = 2,
+    SP = 3, // To be implemented
+}
+
+impl From<u8> for R16 {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => R16::BC,
+            1 => R16::DE,
+            2 => R16::HL,
+            3 => R16::SP,
+            _ => panic!("Invalid value for R16: {}", value),
+        }
+    }
 }
 
 impl Registers {
-	pub fn set_r8_value(&mut self, target: u8, value: u8) {
-		match target {
-			0 => self.b = value,
-			1 => self.c = value,
-			2 => self.d = value,
-			3 => self.e = value,
-			4 => self.h = value,
-			5 => self.l = value,
-			6 => self.l = value, //replace with [HL] when implemented
-			7 => self.a = value,
-			_ => panic!("Invalid register index: {}", target),
-		}
-	}
+    pub fn set_r8_value(&mut self, target: u8, value: u8) {
+        self.r8[target as usize] = value;
+    }
 
-	pub fn get_r16_value(&self, target: u8) -> u16 {
-		match target {
-			0 => self.get_bc(),
-			1 => self.get_de(),
-			2 => self.get_hl(),
-			3 => self.get_hl(), //replace with SP when implemented
-			_ => panic!("Invalid 16-bit register index: {}", target),
-		}
-	}
+    pub fn get_r8_value(&self, target: R8) -> u8 {
+        self.r8[target as usize]
+    }
 
-	pub fn set_r16_value(&mut self, target: u8, value: u16) {
-		match target {
-			0 => self.set_bc(value),
-			1 => self.set_de(value),
-			2 => self.set_hl(value),
-			3 => self.set_hl(value), //replace with SP when implemented
-			_ => panic!("Invalid 16-bit register index: {}", target),
-		}
-	}
+    pub fn get_r16_value(&self, target: R16) -> u16 {
+        match target {
+            R16::BC => self.get_bc(),
+            R16::DE => self.get_de(),
+            R16::HL => self.get_hl(),
+            R16::SP => self.get_hl(), // replace with SP when implemented
+        }
+    }
 
-	pub fn set_r16_mem_value(&mut self, memory: &mut MemoryBus, target: u8, value: u8) {
-		match target {
-			0 => memory.write_byte(self.get_bc(), value),
-			1 => memory.write_byte(self.get_de(), value),
-			2 => memory.write_byte(self.get_hl(), value),
-			3 => memory.write_byte(self.get_hl(), value), //replace with SP when implemented
-			_ => panic!("Invalid 16-bit register index: {}", target),
-		}
-	}
+    pub fn set_r16_value(&mut self, target: R16, value: u16) {
+        match target {
+            R16::BC => self.set_bc(value),
+            R16::DE => self.set_de(value),
+            R16::HL => self.set_hl(value),
+            R16::SP => self.set_hl(value), // replace with SP when implemented
+        }
+    }
 
-	pub fn get_r16_mem_value(&self, memory: &MemoryBus, target: u8) -> u8 {
-		match target {
-			0 => memory.read_byte(self.get_bc()),
-			1 => memory.read_byte(self.get_de()),
-			2 => memory.read_byte(self.get_hl()),
-			3 => memory.read_byte(self.get_hl()), //replace with SP when implemented
-			_ => panic!("Invalid 16-bit register index: {}", target),
-		}
-	}
+    pub fn set_r16_mem_value(&mut self, memory: &mut MemoryBus, target: R16, value: u8) {
+        let addr = match target {
+            R16::BC => self.get_bc(),
+            R16::DE => self.get_de(),
+            R16::HL => self.get_hl(),
+            R16::SP => self.get_hl(), // replace with SP when implemented
+        };
+        memory.write_byte(addr, value);
+    }
+
+    pub fn get_r16_mem_value(&self, memory: &MemoryBus, target: R16) -> u8 {
+        let addr = match target {
+            R16::BC => self.get_bc(),
+            R16::DE => self.get_de(),
+            R16::HL => self.get_hl(),
+            R16::SP => self.get_hl(), // replace with SP when implemented
+        };
+        memory.read_byte(addr)
+    }
 
 	pub fn get_a(&self) -> u8 {
-		return self.a.clone();
+		self.r8[R8::A as usize]
 	}
 
 	pub fn get_b(&self) -> u8 {
-		return self.b.clone();
+		self.r8[R8::B as usize]
 	}
 
 	pub fn get_c(&self) -> u8 {
-		return self.c.clone();
+		self.r8[R8::C as usize]
 	}
 
 	pub fn get_d(&self) -> u8 {
-		return self.d.clone();
+		self.r8[R8::D as usize]
 	}
 
 	pub fn get_e(&self) -> u8 {
-		return self.e.clone();
+		self.r8[R8::E as usize]
 	}
 
 	pub fn get_h(&self) -> u8 {
-		return self.h.clone();
+		self.r8[R8::H as usize]
 	}
 
 	pub fn get_l(&self) -> u8 {
-		return self.l.clone();
+		self.r8[R8::L as usize]
 	}
 
-	pub fn get_f(&self) -> FlagsRegister {
-		return self.f.clone();
-	}
+    pub fn get_af(&self) -> u16 {
+        let byte: u8 = u8::from(self.f.clone());
+        ((self.r8[R8::A as usize] as u16) << 8) | (byte as u16)
+    }
 
-	pub fn get_af(&self) -> u16 {
-		let byte: u8 = u8::from(self.f.clone());
-		return (self.a as u16) << 8 | byte as u16;
-	}
+    pub fn set_af(&mut self, value: u16) {
+        self.r8[R8::A as usize] = ((value & 0xFF00) >> 8) as u8;
+        self.f = FlagsRegister::from((value & 0xFF) as u8);
+    }
 
-	pub fn set_af(&mut self, value: u16) {
-		let flags: FlagsRegister = FlagsRegister::from((value & 0xFF) as u8);
-		self.a = ((value & 0xFF00) >> 8) as u8;
-		self.f = flags;
-	}
+    pub fn get_bc(&self) -> u16 {
+        ((self.r8[R8::B as usize] as u16) << 8) | (self.r8[R8::C as usize] as u16)
+    }
 
-	pub fn get_bc(&self) -> u16 {
-		return (self.b as u16) << 8 | self.c as u16;
-	}
+    pub fn set_bc(&mut self, value: u16) {
+        self.r8[R8::B as usize] = ((value & 0xFF00) >> 8) as u8;
+        self.r8[R8::C as usize] = (value & 0xFF) as u8;
+    }
 
-	pub fn set_bc(&mut self, value: u16) {
-		self.b = ((value & 0xFF00) >> 8) as u8;
-		self.c = (value & 0xFF) as u8;
-	}
+    pub fn get_de(&self) -> u16 {
+        ((self.r8[R8::D as usize] as u16) << 8) | (self.r8[R8::E as usize] as u16)
+    }
 
-	pub fn get_de(&self) -> u16 {
-		return (self.d as u16) << 8 | self.e as u16;
-	}
+    pub fn set_de(&mut self, value: u16) {
+        self.r8[R8::D as usize] = ((value & 0xFF00) >> 8) as u8;
+        self.r8[R8::E as usize] = (value & 0xFF) as u8;
+    }
 
-	pub fn set_de(&mut self, value: u16) {
-		self.d = ((value & 0xFF00) >> 8) as u8;
-		self.e = (value & 0xFF) as u8;
-	}
+    pub fn get_hl(&self) -> u16 {
+        ((self.r8[R8::H as usize] as u16) << 8) | (self.r8[R8::L as usize] as u16)
+    }
 
-	pub fn get_hl(&self) -> u16 {
-		return (self.h as u16) << 8 | self.l as u16;
-	}
-
-	pub fn set_hl(&mut self, value: u16) {
-		self.h = ((value & 0xFF00) >> 8) as u8;
-		self.l = (value & 0xFF) as u8;
-	}
+    pub fn set_hl(&mut self, value: u16) {
+        self.r8[R8::H as usize] = ((value & 0xFF00) >> 8) as u8;
+        self.r8[R8::L as usize] = (value & 0xFF) as u8;
+    }
 }
 
 impl Default for Registers {
     fn default() -> Self {
         Registers {
-            a: 0,
-            b: 0,
-            c: 0,
-            d: 0,
-            e: 0,
-            h: 0,
-            l: 0,
+            r8: [0; 8],
             f: FlagsRegister::default(),
         }
     }
