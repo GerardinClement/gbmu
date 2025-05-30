@@ -1,60 +1,47 @@
 use crate::{cpu::MemoryBus, flags_registers::FlagsRegister};
 
-/*
-
- * Registers structure for the CPU.
- * r8 -> [
- 	* 0: B,
-	* 1: C,
-	* 2: D,
-	* 3: E,
-	* 4: H,
-	* 5: L,
-	* 6: [HL] (to be implemented),
-	* 7: A
- * ]
- 
- */
-pub struct Registers {
-    r8: [u8; 8], // B, C, D, E, H, L, [HL], A
-    f: FlagsRegister,
-}
 
 #[repr(u8)]
 pub enum R8 {
-    B = 0,
-    C = 1,
-    D = 2,
-    E = 3,
-    H = 4,
-    L = 5,
-    HLIndirect = 6,
-    A = 7,
+	B = 0,
+	C = 1,
+	D = 2,
+	E = 3,
+	H = 4,
+	L = 5,
+	HLIndirect = 6,
+	A = 7,
 }
 
 #[repr(u8)]
 #[derive(Clone, Copy)]
 pub enum R16 {
-    BC = 0,
-    DE = 1,
-    HL = 2,
-    SP = 3, // To be implemented
+	BC = 0,
+	DE = 1,
+	HL = 2,
+	SP = 3, // To be implemented
 }
 
 impl From<u8> for R16 {
-    fn from(value: u8) -> Self {
-        match value {
-            0 => R16::BC,
-            1 => R16::DE,
-            2 => R16::HL,
-            3 => R16::SP,
-            _ => panic!("Invalid value for R16: {}", value),
-        }
-    }
+	fn from(value: u8) -> Self {
+		match value {
+			0 => R16::BC,
+			1 => R16::DE,
+			2 => R16::HL,
+			3 => R16::SP,
+			_ => panic!("Invalid value for R16: {}", value),
+		}
+	}
 }
 
+pub struct Registers {
+    r8: [u8; 8],
+    f: FlagsRegister,
+}
+
+
 impl Registers {
-    pub fn set_r8_value(&mut self, target: u8, value: u8) {
+    pub fn set_r8_value(&mut self, target: R8, value: u8) {
         self.r8[target as usize] = value;
     }
 
@@ -98,6 +85,17 @@ impl Registers {
             R16::SP => self.get_hl(), // replace with SP when implemented
         };
         memory.read_byte(addr)
+    }
+
+    pub fn add_to_r16(&mut self, target: R16, value: u16) {
+        let r16_value = self.get_r16_value(target);
+        let (new_value, did_overflow) = r16_value.overflowing_add(value);
+        
+        self.set_r16_value(target, new_value);
+        self.f.zero = value == 0;
+        self.f.subtract = false;
+        self.f.carry = did_overflow;
+        self.f.half_carry = (r16_value & 0xFFF) + (value & 0xFFF) > 0xFFF;
     }
 
 	pub fn get_a(&self) -> u8 {

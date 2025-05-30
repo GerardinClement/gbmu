@@ -19,10 +19,6 @@ impl CPU {
 		self.pc = self.pc.wrapping_add(1); // Implement PC
 	}
 
-	pub fn load_r8(&mut self, source: u8, target: u8) {
-		self.registers.set_r8_value(target, source);
-	}
-
 	// pub fn add(&mut self, value: u8) -> u8 {
 	// 	let (new_value, did_overflow) = self.registers.a.overflowing_add(value);
 	// 	self.registers.f.zero = new_value == 0;
