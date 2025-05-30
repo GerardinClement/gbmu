@@ -2,6 +2,7 @@ use crate::cpu::CPU;
 use crate::registers::{R16, R8};
 
 const R16_MASK: u8 = 0b00110000;
+const R8_MASK: u8 = 0b00111000;
 const COND_MASK: u8 = 0b00011000;
 
 const INSTRUCTIONS_BLOCK0: [u8; 22] = [
@@ -74,6 +75,12 @@ pub fn match_instruction_block0(cpu: &mut CPU, instruction: u8) {
 		//TODO: Implement ld [imm16], sp
 		0b00000011 => inc_r16(cpu, instruction),
 		0b00001011 => dec_r16(cpu, instruction),
+		0b00001001 => add_hl_r16(cpu, instruction),
+		0b00000100 => inc_r8(cpu, instruction),
+		0b00000101 => dec_r8(cpu, instruction),
+		0b00000110 => ld_r8_imm8(cpu, instruction),
+		0b00000111 => rlca(cpu),
+		0b00001111 => rrca(cpu),
 		_ => panic!("Unknown opcode: {:#04x}", opcode),
 	}
 }
@@ -83,6 +90,11 @@ fn convert_index_to_r16(instruction: u8) -> R16 {
 	R16::from(r16_index)
 }
 
+fn convert_index_to_r8(instruction: u8) -> R8 {
+	let r8_index: u8 = (instruction & R8_MASK) >> 3;
+	R8::from(r8_index)
+}
+
 fn load_r16_imm16(cpu: &mut CPU, instruction: u8) {
 	let lsb = cpu.bus.read_byte(cpu.pc + 1) as u16;
 	let msb = cpu.bus.read_byte(cpu.pc + 2) as u16;
@@ -90,7 +102,7 @@ fn load_r16_imm16(cpu: &mut CPU, instruction: u8) {
 	let r16 = R16::from((instruction & R16_MASK) >> 4);
 
 	cpu.registers.set_r16_value(r16, imm16);
-	cpu.pc += 3; // Increment PC by 2 to skip the immediate value bytes
+	cpu.pc += 3;
 }
 
 fn load_r16mem_a(cpu: &mut CPU, instruction: u8) {
@@ -98,7 +110,7 @@ fn load_r16mem_a(cpu: &mut CPU, instruction: u8) {
 	let a_value = cpu.registers.get_a();
 
 	cpu.registers.set_r16_mem_value(&mut cpu.bus, r16, a_value);
-	cpu.pc += 1; // Increment PC by 1 to skip the instruction byte
+	cpu.pc += 1;
 }
 
 fn load_a_r16mem(cpu: &mut CPU, instruction: u8) {
@@ -106,7 +118,7 @@ fn load_a_r16mem(cpu: &mut CPU, instruction: u8) {
 	let value = cpu.registers.get_r16_mem_value(&cpu.bus, r16);
 
 	cpu.registers.set_r8_value(R8::A, value);
-	cpu.pc += 1; // Increment PC by 1 to skip the instruction byte
+	cpu.pc += 1;
 }
 
 fn inc_r16(cpu: &mut CPU, instruction: u8) {
@@ -114,7 +126,7 @@ fn inc_r16(cpu: &mut CPU, instruction: u8) {
 	let value = cpu.registers.get_r16_value(r16);
 
 	cpu.registers.set_r16_value(r16, value.wrapping_add(1));
-	cpu.pc += 1; // Increment PC by 1 to skip the instruction byte
+	cpu.pc += 1;
 }
 
 fn dec_r16(cpu: &mut CPU, instruction: u8) {
@@ -122,13 +134,56 @@ fn dec_r16(cpu: &mut CPU, instruction: u8) {
 	let value = cpu.registers.get_r16_value(r16);
 
 	cpu.registers.set_r16_value(r16, value.wrapping_sub(1));
-	cpu.pc += 1; // Increment PC by 1 to skip the instruction byte
+	cpu.pc += 1;
 }
 
 fn add_hl_r16(cpu: &mut CPU, instruction: u8) {
 	let r16 = convert_index_to_r16(instruction);
 	let value = cpu.registers.get_r16_value(r16);
 	cpu.registers.add_to_r16(R16::HL, value);
+}
+
+fn inc_r8(cpu: &mut CPU, instruction: u8) {
+	let r8 = convert_index_to_r8(instruction);
+	let value = cpu.registers.get_r8_value(r8);
+	let new_value = value.wrapping_add(1);
+
+	cpu.registers.set_zero_flag(new_value == 0);
+	cpu.registers.set_subtract_flag(false);
+	cpu.registers.set_half_carry_flag((new_value & 0x0F) + 1 > 0x0F);
+
+	cpu.registers.set_r8_value(r8, new_value);
+	cpu.pc += 1;
+}
+
+fn dec_r8(cpu: &mut CPU, instruction: u8) {
+	let r8 = convert_index_to_r8(instruction);
+	let value = cpu.registers.get_r8_value(r8);
+	let new_value = value.wrapping_sub(1);
+
+	cpu.registers.set_zero_flag(new_value == 0);
+	cpu.registers.set_subtract_flag(true);
+	cpu.registers.set_half_carry_flag((new_value & 0x0F) + 1 > 0x0F);
+	cpu.registers.set_r8_value(r8, new_value);
+	cpu.pc += 1;
+}
+
+fn ld_r8_imm8(cpu: &mut CPU, instruction: u8) {
+	let imm8 = cpu.bus.read_byte(cpu.pc + 1);
+	let r8 = convert_index_to_r8(instruction);
+
+	cpu.registers.set_r8_value(r8, imm8);
+	cpu.pc += 2;
+}
+
+fn rlca(cpu: &mut CPU) {
+	cpu.registers.rotate_left(R8::A,true);
+	cpu.pc += 1;
+}
+
+fn rrca(cpu: &mut CPU) {
+	cpu.registers.rotate_right(R8::A, true);
+	cpu.pc += 1;
 }
 
 
