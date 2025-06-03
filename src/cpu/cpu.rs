@@ -1,7 +1,7 @@
 use std::fmt;
 use crate::cpu::registers::{Registers, R8};
 
-use crate::instructions::execute_instruction;
+use crate::instructions::block0;
 use crate::memory::MemoryBus;
 
 pub struct CPU {
@@ -11,12 +11,23 @@ pub struct CPU {
 }
 
 impl CPU {
+	fn execute_instruction(&mut self, instruction: u8) {
+		let block_mask = 0b11000000;
+		let block = (instruction & block_mask) >> 6;
+		match block {
+			0b00 => block0::match_instruction_block0(self, instruction),
+			// TODO Add more blocks here as needed
+			_ => panic!("Unknown instruction block: {}", block),
+		}
+	}
+
 	fn step(&mut self) {
 		let instruction_byte = self.bus.read_byte(self.pc);
-		execute_instruction(self, instruction_byte);
+		self.execute_instruction(instruction_byte);
 
-		self.pc = self.pc.wrapping_add(1); // Implement PC
+		self.pc = self.pc.wrapping_add(1);
 	}
+
 }
 
 impl fmt::Display for CPU {
@@ -43,7 +54,6 @@ impl Default for CPU {
 			registers: Registers::default(),
 			bus: MemoryBus::new(),
     		pc: 0,
-
 		}
 	}
 }

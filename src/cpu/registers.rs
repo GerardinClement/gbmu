@@ -72,7 +72,7 @@ impl Registers {
             R16::BC => self.get_bc(),
             R16::DE => self.get_de(),
             R16::HL => self.get_hl(),
-            R16::SP => self.get_hl(), // replace with SP when implemented
+            R16::SP => self.get_hl(), // TODO replace with SP when implemented
         }
     }
 
@@ -81,7 +81,7 @@ impl Registers {
             R16::BC => self.set_bc(value),
             R16::DE => self.set_de(value),
             R16::HL => self.set_hl(value),
-            R16::SP => self.set_hl(value), // replace with SP when implemented
+            R16::SP => self.set_hl(value), // TODO replace with SP when implemented
         }
     }
 
@@ -90,7 +90,7 @@ impl Registers {
             R16::BC => self.get_bc(),
             R16::DE => self.get_de(),
             R16::HL => self.get_hl(),
-            R16::SP => self.get_hl(), // replace with SP when implemented
+            R16::SP => self.get_hl(), // TODO replace with SP when implemented
         };
         memory.write_byte(addr, value);
     }
@@ -100,7 +100,7 @@ impl Registers {
             R16::BC => self.get_bc(),
             R16::DE => self.get_de(),
             R16::HL => self.get_hl(),
-            R16::SP => self.get_hl(), // replace with SP when implemented
+            R16::SP => self.get_hl(), // TODO replace with SP when implemented
         };
         memory.read_byte(addr)
     }
