@@ -1,13 +1,13 @@
 use crate::memory::region::MemoryRegion;
 
 pub struct MemoryBus {
-    data: [u8; 0x10000], // 10000 = 65536 = 0xFFFF
+    data: [u8; 0xFFFF], // 0xFFFF = 65535
 }
 
 impl MemoryBus {
     pub fn new() -> Self {
         MemoryBus { 
-            data: [0; 0x10000],
+            data: [0; 0xFFFF],
         }
     }
 
