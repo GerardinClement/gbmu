@@ -5,10 +5,10 @@ const CARRY_FLAG_BYTE_POSITION: u8 = 4;
 
 #[derive(Clone)]
 pub struct FlagsRegister {
-    pub zero: bool,
-    pub subtract: bool,
-    pub half_carry: bool,
-    pub carry: bool
+    zero: bool,
+    subtract: bool,
+    half_carry: bool,
+    carry: bool
 }
 
 impl std::convert::From<FlagsRegister> for u8 {
@@ -34,6 +34,47 @@ impl std::convert::From<u8> for FlagsRegister {
             carry
         }
 	}
+}
+
+impl FlagsRegister {
+    pub fn set_zero(&mut self, value: bool) {
+        self.zero = value;
+    } 
+    
+    pub fn get_zero(&self) -> bool {
+        self.zero
+    }
+
+    pub fn set_subtract(&mut self, value: bool) {
+        self.subtract = value;
+    } 
+
+    pub fn get_subtract(&self) -> bool {
+        self.subtract
+    } 
+
+    pub fn set_half_carry(&mut self, value: bool) {
+        self.half_carry = value;
+    } 
+
+    pub fn get_half_carry(&self) -> bool {
+        self.half_carry
+    }
+
+    pub fn set_carry(&mut self, value: bool) {
+        self.carry = value;
+    }
+
+    pub fn get_carry(&self) -> bool {
+        self.carry
+    }
+
+    pub fn set_all(&mut self, zero: bool, subtract: bool, half_carry: bool, carry: bool) {
+        self.zero = zero;
+        self.subtract = subtract;
+        self.half_carry = half_carry;
+        self.carry = carry;
+    }
 }
 
 impl Default for FlagsRegister {
