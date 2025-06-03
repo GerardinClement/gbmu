@@ -23,7 +23,7 @@ impl MemoryBus {
         self.data[phys as usize]
     }
 
-    pub fn write_byte(&mut self, addr: u16, val: u8) { // mut means that we have a mutable borrow, writes will change data.
+    pub fn write_byte(&mut self, addr: u16, val: u8) {
         let region = MemoryRegion::from(addr);
     
         if !region.is_writable() {
