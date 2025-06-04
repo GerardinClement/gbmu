@@ -37,7 +37,6 @@ pub enum R16 {
 	BC = 0,
 	DE = 1,
 	HL = 2,
-	SP = 3, // To be implemented
 }
 
 impl From<u8> for R16 {
@@ -46,7 +45,6 @@ impl From<u8> for R16 {
 			0 => R16::BC,
 			1 => R16::DE,
 			2 => R16::HL,
-			3 => R16::SP,
 			_ => panic!("Invalid value for R16: {}", value),
 		}
 	}
@@ -71,8 +69,7 @@ impl Registers {
         match target {
             R16::BC => self.get_bc(),
             R16::DE => self.get_de(),
-            R16::HL => self.get_hl(),
-            R16::SP => self.get_hl(), // TODO replace with SP when implemented
+            R16::HL => self.get_hl()
         }
     }
 
@@ -81,7 +78,6 @@ impl Registers {
             R16::BC => self.set_bc(value),
             R16::DE => self.set_de(value),
             R16::HL => self.set_hl(value),
-            R16::SP => self.set_hl(value), // TODO replace with SP when implemented
         }
     }
 
@@ -90,7 +86,6 @@ impl Registers {
             R16::BC => self.get_bc(),
             R16::DE => self.get_de(),
             R16::HL => self.get_hl(),
-            R16::SP => self.get_hl(), // TODO replace with SP when implemented
         };
         memory.write_byte(addr, value);
     }
@@ -100,7 +95,6 @@ impl Registers {
             R16::BC => self.get_bc(),
             R16::DE => self.get_de(),
             R16::HL => self.get_hl(),
-            R16::SP => self.get_hl(), // TODO replace with SP when implemented
         };
         memory.read_byte(addr)
     }
