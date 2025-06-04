@@ -36,6 +36,7 @@ pub(crate) enum MemoryRegion {
     IE, // 0xFFFF-0xFFFF
 }
 
+// TODO refacto in order to have multiple structs instead of one
 impl MemoryRegion {
     // Given any address, pick its region.
     pub(crate) fn from(addr: u16) -> Self {
