@@ -57,7 +57,7 @@ impl MemoryRegion {
     }
 
     pub(crate) fn is_readable(&self) -> bool { !matches!(self, MemoryRegion::Unusable) }
-    pub(crate) fn is_writable(&self) -> bool { !matches!(self, MemoryRegion::RomBank0 | MemoryRegion::Unusable) }
+    pub(crate) fn is_writable(&self) -> bool { !matches!(self, MemoryRegion::Unusable) }
 
     pub(crate) fn translate_into_physical_address(&self, addr: u16) -> u16 {
         match self {

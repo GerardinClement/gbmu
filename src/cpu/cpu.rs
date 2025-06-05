@@ -6,6 +6,7 @@ use crate::memory::MemoryBus;
 
 pub struct CPU {
 	pub registers: Registers,
+	pub sp: u16,
 	pub pc: u16,
 	pub bus: MemoryBus,
 }
@@ -52,8 +53,9 @@ impl Default for CPU {
 	fn default() -> Self {
 		CPU {
 			registers: Registers::default(),
-			bus: MemoryBus::new(),
-    		pc: 0,
+			bus: MemoryBus::new(vec![0; 0x4000]),
+			sp: 0xFFFE,
+    		pc: 0x0100,
 		}
 	}
 }

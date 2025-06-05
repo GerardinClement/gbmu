@@ -69,11 +69,11 @@ pub fn match_instruction_block0(cpu: &mut CPU, instruction: u8) {
 	let opcode = get_instruction_block0(instruction);
 
 	match opcode {
-		0b00000000 => { cpu.pc += 1; }, // nop
+		0b00000000 => { cpu.pc += 1; },
 		0b00000001 => load_r16_imm16(cpu, instruction),
 		0b00000010 => load_r16mem_a(cpu, instruction),
 		0b00001010 => load_a_r16mem(cpu, instruction),
-		//TODO: Implement ld [imm16], sp
+		0b00001000 => load_mem_imm16_sp(cpu),
 		0b00000011 => inc_r16(cpu, instruction),
 		0b00001011 => dec_r16(cpu, instruction),
 		0b00001001 => add_hl_r16(cpu, instruction),
@@ -134,6 +134,20 @@ fn load_a_r16mem(cpu: &mut CPU, instruction: u8) {
 
 	cpu.registers.set_r8_value(R8::A, value);
 	cpu.pc += 1;
+}
+
+fn load_mem_imm16_sp(cpu: &mut CPU) {
+	let sp_msb = (cpu.sp >> 8) as u8;
+	let sp_lsb = (cpu.sp & 0xFF) as u8;
+
+	let imm16_lsb = cpu.bus.read_byte(cpu.pc + 1) as u16;
+	let imm16_msb = cpu.bus.read_byte(cpu.pc + 2) as u16;
+	let imm16 = (imm16_msb << 8) | imm16_lsb;
+
+	cpu.bus.write_byte(imm16, sp_lsb);
+	cpu.bus.write_byte(imm16 + 1, sp_msb);
+
+	cpu.pc = cpu.pc.wrapping_add(3);
 }
 
 fn inc_r16(cpu: &mut CPU, instruction: u8) {
@@ -312,6 +326,25 @@ mod tests {
         assert_eq!(cpu.registers.get_a(), 0xAB);
     }
 
+	#[test]
+	fn test_ld_mem_imm16_sp() {
+		let mut cpu = CPU::default();
+	
+		// Simuler l'instruction en mémoire : opcode = 0x08, suivi de l'adresse imm16 (par ex. 0x1234)
+		cpu.bus.write_byte(cpu.pc, 0x08);      // opcode LD (n16), SP
+		cpu.bus.write_byte(cpu.pc + 1, 0x34);      // low byte de l’adresse
+		cpu.bus.write_byte(cpu.pc + 2, 0x12);      // high byte de l’adresse
+	
+		cpu.sp = 0xC123;
+	
+		// Exécuter l'instruction
+		match_instruction_block0(&mut cpu, 0x08);
+	
+		// Vérifier que SP a bien été écrit à l'adresse 0x1234
+		assert_eq!(cpu.bus.read_byte(0x1234), 0x23); // low byte
+		assert_eq!(cpu.bus.read_byte(0x1235), 0xC1); // high byte
+	}
+	
     #[test]
     fn test_inc_r16() {
         let mut cpu = CPU::default();
