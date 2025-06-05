@@ -6,7 +6,7 @@ pub mod conditions;
 pub mod flags_registers;
 pub mod registers;
 
-use crate::cpu::registers::{R8, Registers};
+use crate::cpu::registers::{R8, R16, Registers};
 use crate::memory::MemoryBus;
 use std::fmt;
 
@@ -33,6 +33,26 @@ impl Cpu {
         self.execute_instruction(instruction_byte);
 
         self.pc = self.pc.wrapping_add(1);
+    }
+
+    pub fn get_r8_value(&self, r: R8) -> u8 {
+        match r {
+            R8::HLIndirect => {
+                let addr = self.registers.get_r16_value(R16::HL);
+                self.bus.read_byte(addr)
+            }
+            _ => self.registers.get_r8_value(r),
+        }
+    }
+
+    pub fn set_r8_value(&mut self, r: R8, value: u8) {
+        match r {
+            R8::HLIndirect => {
+                let addr = self.registers.get_r16_value(R16::HL);
+                self.bus.write_byte(addr, value);
+            }
+            _ => self.registers.set_r8_value(r, value),
+        }
     }
 }
 

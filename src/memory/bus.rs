@@ -41,17 +41,17 @@ impl MemoryBus {
             return 0xFF;
         }
 
-        match region {
-            MemoryRegion::RomBank0 => {
-                return self.rom_banks[0][addr as usize];
-            }
-            MemoryRegion::RomBank1N => {
-                let offset = (addr - 0x4000) as usize;
+        // match region {
+        //     MemoryRegion::RomBank0 => {
+        //         return self.rom_banks[0][addr as usize];
+        //     }
+        //     MemoryRegion::RomBank1N => {
+        //         let offset = (addr - 0x4000) as usize;
 
-                return self.rom_banks[self.current_rom_bank][offset];
-            }
-            _ => {}
-        }
+        //         return self.rom_banks[self.current_rom_bank][offset];
+        //     }
+        //     _ => {}
+        // }
 
         let phys = region.translate_into_physical_address(addr);
 
