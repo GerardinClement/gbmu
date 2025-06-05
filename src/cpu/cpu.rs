@@ -53,7 +53,7 @@ impl Default for CPU {
 	fn default() -> Self {
 		CPU {
 			registers: Registers::default(),
-			bus: MemoryBus::new(),
+			bus: MemoryBus::new(vec![0; 0x4000]),
 			sp: 0xFFFE,
     		pc: 0x0100,
 		}
