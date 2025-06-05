@@ -134,7 +134,7 @@ fn load_a_r16mem(cpu: &mut Cpu, instruction: u8) {
     let r16 = convert_index_to_r16(instruction);
     let value = cpu.registers.get_r16_mem_value(&cpu.bus, r16);
 
-    cpu.registers.set_r8_value(R8::A, value);
+    cpu.set_r8_value(R8::A, value);
     cpu.pc += 1;
 }
 
@@ -176,28 +176,26 @@ fn add_hl_r16(cpu: &mut Cpu, instruction: u8) {
 
 fn inc_r8(cpu: &mut Cpu, instruction: u8) {
     let r8 = convert_index_to_r8(instruction);
-    let value = cpu.registers.get_r8_value(r8);
+    let value = cpu.get_r8_value(r8);
     let new_value = value.wrapping_add(1);
 
     cpu.registers.set_zero_flag(new_value == 0);
     cpu.registers.set_subtract_flag(false);
-    cpu.registers
-        .set_half_carry_flag((new_value & 0x0F) + 1 > 0x0F);
+    cpu.registers.set_half_carry_flag((value & 0x0F) + 1 > 0x0F);
 
-    cpu.registers.set_r8_value(r8, new_value);
+    cpu.set_r8_value(r8, new_value);
     cpu.pc += 1;
 }
 
 fn dec_r8(cpu: &mut Cpu, instruction: u8) {
     let r8 = convert_index_to_r8(instruction);
-    let value = cpu.registers.get_r8_value(r8);
+    let value = cpu.get_r8_value(r8);
     let new_value = value.wrapping_sub(1);
 
     cpu.registers.set_zero_flag(new_value == 0);
     cpu.registers.set_subtract_flag(true);
-    cpu.registers
-        .set_half_carry_flag((new_value & 0x0F) + 1 > 0x0F);
-    cpu.registers.set_r8_value(r8, new_value);
+    cpu.registers.set_half_carry_flag((value & 0x0F) + 1 > 0x0F);
+    cpu.set_r8_value(r8, new_value);
     cpu.pc += 1;
 }
 
@@ -205,7 +203,7 @@ fn ld_r8_imm8(cpu: &mut Cpu, instruction: u8) {
     let imm8 = cpu.bus.read_byte(cpu.pc + 1);
     let r8 = convert_index_to_r8(instruction);
 
-    cpu.registers.set_r8_value(r8, imm8);
+    cpu.set_r8_value(r8, imm8);
     cpu.pc += 2;
 }
 
@@ -230,7 +228,7 @@ fn daa(cpu: &mut Cpu) {
             adjust += 0x3C;
         }
         a -= adjust;
-        cpu.registers.set_r8_value(R8::A, a);
+        cpu.set_r8_value(R8::A, a);
     } else {
         if cpu.registers.get_half_carry_flag() || (a & 0b00001111) > 0b00001001 {
             adjust += 0x6;
@@ -240,7 +238,7 @@ fn daa(cpu: &mut Cpu) {
             cpu.registers.set_carry_flag(true);
         }
         a += adjust;
-        cpu.registers.set_r8_value(R8::A, a);
+        cpu.set_r8_value(R8::A, a);
     }
     if a == 0 {
         cpu.registers.set_zero_flag(true);
@@ -250,9 +248,9 @@ fn daa(cpu: &mut Cpu) {
 }
 
 fn cpl(cpu: &mut Cpu) {
-    let a = cpu.registers.get_r8_value(R8::A);
+    let a = cpu.get_r8_value(R8::A);
     let new_value = !a;
-    cpu.registers.set_r8_value(R8::A, new_value);
+    cpu.set_r8_value(R8::A, new_value);
     cpu.registers.set_subtract_flag(true);
     cpu.registers.set_half_carry_flag(true);
     cpu.pc += 1;
@@ -295,25 +293,25 @@ mod tests {
     fn test_nop() {
         let mut cpu = Cpu::default();
         match_instruction_block0(&mut cpu, 0x00); // NOP
-        assert_eq!(cpu.pc, 1);
+        assert_eq!(cpu.pc, 0x0100 + 1);
     }
 
     #[test]
     fn test_ld_r16_imm16_bc() {
         let mut cpu = Cpu::default();
-        cpu.bus.write_byte(1, 0x34); // LSB
-        cpu.bus.write_byte(2, 0x12); // MSB
+        cpu.bus.write_byte(cpu.pc + 1, 0x34); // LSB
+        cpu.bus.write_byte(cpu.pc + 2, 0x12); // MSB
         match_instruction_block0(&mut cpu, 0x01); // LD BC, 0x1234
 
         assert_eq!(cpu.registers.get_r16_value(R16::BC), 0x1234);
-        assert_eq!(cpu.pc, 3);
+        assert_eq!(cpu.pc, 0x0100 + 3);
     }
 
     #[test]
     fn test_ld_r16mem_a() {
         let mut cpu = Cpu::default();
         cpu.registers.set_r16_value(R16::DE, 0xC000);
-        cpu.registers.set_r8_value(R8::A, 0x42);
+        cpu.set_r8_value(R8::A, 0x42);
         match_instruction_block0(&mut cpu, 0x12); // LD [DE], A
 
         assert_eq!(cpu.bus.read_byte(0xC000), 0x42);
@@ -349,6 +347,21 @@ mod tests {
     }
 
     #[test]
+    fn test_inc_indirect_hl() {
+        let mut cpu = Cpu::default();
+        cpu.registers.set_r16_value(R16::HL, 0xC000);
+        cpu.bus.write_byte(0xC000, 0x3F);
+
+        match_instruction_block0(&mut cpu, 0x34); // INC [HL]
+
+        let result = cpu.bus.read_byte(0xC000);
+        assert_eq!(result, 0x40);
+        assert!(!cpu.registers.get_zero_flag());
+        assert!(!cpu.registers.get_subtract_flag());
+        assert!(cpu.registers.get_half_carry_flag()); // 0x3F -> 0x40 déclenche un half carry
+    }
+
+    #[test]
     fn test_inc_r16() {
         let mut cpu = Cpu::default();
         cpu.registers.set_r16_value(R16::BC, 0x1234);
@@ -376,7 +389,7 @@ mod tests {
     #[test]
     fn test_rlca() {
         let mut cpu = Cpu::default();
-        cpu.registers.set_r8_value(R8::A, 0b1001_0001); // A = 0x91
+        cpu.set_r8_value(R8::A, 0b1001_0001); // A = 0x91
         cpu.registers.set_carry_flag(false);
 
         match_instruction_block0(&mut cpu, 0x07); // RLCA
@@ -384,13 +397,13 @@ mod tests {
         assert_eq!(cpu.registers.get_a(), 0b0010_0011); // rotation gauche
         assert!(cpu.registers.get_carry_flag()); // bit 7 = 1
         assert!(!cpu.registers.get_zero_flag()); // toujours false
-        assert_eq!(cpu.pc, 1);
+        assert_eq!(cpu.pc, 0x0100 + 1);
     }
 
     #[test]
     fn test_rrca() {
         let mut cpu = Cpu::default();
-        cpu.registers.set_r8_value(R8::A, 0b0000_0001); // A = 0x01
+        cpu.set_r8_value(R8::A, 0b0000_0001); // A = 0x01
         cpu.registers.set_carry_flag(false);
 
         match_instruction_block0(&mut cpu, 0x0F); // RRCA
@@ -398,13 +411,13 @@ mod tests {
         assert_eq!(cpu.registers.get_a(), 0b1000_0000); // rotation droite
         assert!(cpu.registers.get_carry_flag()); // bit 7 = 1
         assert!(!cpu.registers.get_zero_flag()); // toujours false
-        assert_eq!(cpu.pc, 1);
+        assert_eq!(cpu.pc, 0x0100 + 1);
     }
 
     #[test]
     fn test_rla() {
         let mut cpu = Cpu::default();
-        cpu.registers.set_r8_value(R8::A, 0b0101_0101); // A = 0x55
+        cpu.set_r8_value(R8::A, 0b0101_0101); // A = 0x55
         cpu.registers.set_carry_flag(true); // carry = 1
 
         match_instruction_block0(&mut cpu, 0x17); // RLA
@@ -412,13 +425,13 @@ mod tests {
         assert_eq!(cpu.registers.get_a(), 0b1010_1011);
         assert!(!cpu.registers.get_carry_flag()); // bit 7 = 0
         assert!(!cpu.registers.get_zero_flag());
-        assert_eq!(cpu.pc, 1);
+        assert_eq!(cpu.pc, 0x0100 + 1);
     }
 
     #[test]
     fn test_rra() {
         let mut cpu = Cpu::default();
-        cpu.registers.set_r8_value(R8::A, 0b0000_0000); // A = 0x00
+        cpu.set_r8_value(R8::A, 0b0000_0000); // A = 0x00
         cpu.registers.set_carry_flag(true); // carry = 1
 
         match_instruction_block0(&mut cpu, 0x1F); // RRA
@@ -426,37 +439,37 @@ mod tests {
         assert_eq!(cpu.registers.get_a(), 0b1000_0000); // carry passé en bit 7
         assert!(!cpu.registers.get_carry_flag()); // bit 0 = 0
         assert!(!cpu.registers.get_zero_flag());
-        assert_eq!(cpu.pc, 1);
+        assert_eq!(cpu.pc, 0x0100 + 1);
     }
 
     #[test]
     fn test_daa_addition_no_carry() {
         let mut cpu = Cpu::default();
-        cpu.registers.set_r8_value(R8::A, 0x09);
+        cpu.set_r8_value(R8::A, 0x09);
         cpu.registers.set_subtract_flag(false); // addition
         cpu.registers.set_half_carry_flag(true); // A & 0xF > 9 → BCD adjust
         cpu.registers.set_carry_flag(false);
 
         match_instruction_block0(&mut cpu, 0x27); // DAA
 
-        assert_eq!(cpu.registers.get_r8_value(R8::A), 0xF); // 0x09 + 0x06
+        assert_eq!(cpu.get_r8_value(R8::A), 0xF); // 0x09 + 0x06
         assert!(!cpu.registers.get_zero_flag());
         assert!(!cpu.registers.get_half_carry_flag()); // cleared
         assert!(!cpu.registers.get_carry_flag());
-        assert_eq!(cpu.pc, 1);
+        assert_eq!(cpu.pc, 0x0100 + 1);
     }
 
     #[test]
     fn test_daa_addition_with_carry() {
         let mut cpu = Cpu::default();
-        cpu.registers.set_r8_value(R8::A, 0x9A); // A invalide en BCD
+        cpu.set_r8_value(R8::A, 0x9A); // A invalide en BCD
         cpu.registers.set_subtract_flag(false); // addition
         cpu.registers.set_half_carry_flag(false);
         cpu.registers.set_carry_flag(false);
 
         match_instruction_block0(&mut cpu, 0x27); // DAA
 
-        assert_eq!(cpu.registers.get_r8_value(R8::A), 0xDC); // 0x9A + 0x66 = 0x100 → overflow
+        assert_eq!(cpu.get_r8_value(R8::A), 0xDC); // 0x9A + 0x66 = 0x100 → overflow
         assert!(!cpu.registers.get_zero_flag());
         assert!(cpu.registers.get_carry_flag()); // overflow → carry
         assert!(!cpu.registers.get_half_carry_flag());

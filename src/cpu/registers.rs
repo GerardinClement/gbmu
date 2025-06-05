@@ -5,7 +5,7 @@ use crate::cpu::flags_registers::FlagsRegister;
 use crate::memory::MemoryBus;
 
 #[repr(u8)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum R8 {
     B = 0,
     C = 1,
