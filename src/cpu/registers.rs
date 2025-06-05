@@ -20,12 +20,12 @@ impl From<u8> for R8 {
         match value {
             0 => R8::B,
             1 => R8::C,
-            3 => R8::D,
-            4 => R8::E,
-            5 => R8::H,
-            6 => R8::L,
-            7 => R8::HLIndirect,
-            8 => R8::A,
+            2 => R8::D,
+            3 => R8::E,
+            4 => R8::H,
+            5 => R8::L,
+            6 => R8::HLIndirect,
+            7 => R8::A,
             _ => panic!("Invalid value for R8: {}", value),
         }
     }
