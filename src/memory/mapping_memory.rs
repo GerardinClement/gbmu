@@ -1,3 +1,7 @@
+#![allow(unused_variables)]
+#![allow(dead_code)]
+
+
 pub struct Memory {
     data: [u8; 0x10000],
 }

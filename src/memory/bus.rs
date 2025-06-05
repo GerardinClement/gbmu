@@ -1,3 +1,6 @@
+#![allow(unused_variables)]
+#![allow(dead_code)]
+
 use crate::memory::region::MemoryRegion;
 
 pub struct MemoryBus {
@@ -12,18 +15,18 @@ pub struct MemoryBus {
 impl MemoryBus {
     // Init with a full .gb ROM image
     pub fn new(rom: Vec<u8>) -> Self {
-        let mut banks  = rom
+        let mut banks = rom
             // slice every 0x4000
-            .chunks(0x4000) 
+            .chunks(0x4000)
             // chunks returns borrowed array so map convert into vectors
             .map(|chunk| chunk.to_vec())
             // gathers into Vec<Vec<u8>>
             .collect::<Vec<_>>();
 
         if banks.len() == 1 {
-            banks.push(vec![0;0x4000]);
+            banks.push(vec![0; 0x4000]);
         }
-        
+
         MemoryBus {
             data: [0; 0x10000],
             rom_banks: banks,
@@ -33,7 +36,7 @@ impl MemoryBus {
 
     pub fn read_byte(&self, addr: u16) -> u8 {
         let region = MemoryRegion::from(addr);
-        
+
         if !region.is_readable() {
             return 0xFF;
         }
@@ -57,9 +60,9 @@ impl MemoryBus {
 
     pub fn write_byte(&mut self, addr: u16, val: u8) {
         let region = MemoryRegion::from(addr);
-    
+
         if !region.is_writable() {
-            return ;
+            return;
         }
 
         let phys = region.translate_into_physical_address(addr);
@@ -67,7 +70,6 @@ impl MemoryBus {
         self.data[phys as usize] = val;
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -84,7 +86,7 @@ mod tests {
         // - bank 1 is all 0xBB
         // (each bank is 0x4000 bytes long)
         let mut fake_rom = vec![0xAA; 0x4000];
-        
+
         fake_rom.extend(vec![0xBB; 0x4000]);
 
         // Initialize MemoryBus with that ROM

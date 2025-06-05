@@ -8,7 +8,7 @@
 |0x4000–0x7FFF	 |   16 KiB	 |   [ROM Bank 1–N](#2-switchable-rom-0x4000-0x7fff)                |	Switchable game code/data via MBC (bank-switching). |
 |0x8000–0x9FFF	 |   8 KiB	 |   [Video RAM (VRAM)](#3-vram-0x8000-0x9fff)            |	Tile pixel data (0x8000–0x8FFF), tile maps (0x9800–0x9BFF & 0x9C00–0x9FFF).                    |
 |0xA000–0xBFFF	 |   8 KiB	 |   [External RAM](#4-external-ram-0xa000-0xbfff)	             |  Cartridge RAM (battery-backed save data). May be banked by MBC.                               |
-|0xC000–0xCFFF	 |   4 KiB	 |   [Work RAM Bank 0 (WRAM0)](#5-work-ram-0xc000-0xdfff)     |	Main CPU RAM.                                       |
+|0xC000–0xCFFF	 |   4 KiB	 |   [Work RAM Bank 0 (WRAM0)](#5-work-ram-0xc000-0xdfff)     |	Main Cpu RAM.                                       |
 |0xD000–0xDFFF	 |   4 KiB	 |   [Work RAM Bank 1–7 (WRAM1–7)](#5-work-ram-0xc000-0xdfff) |	Additional banks on CGB (color mode); on DMG always bank 1.                                      |
 |0xE000–0xFDFF	 |   7.5 KiB |	[Echo RAM](#6-echo-ram-0xe000-0xfdff)                     |	Mirror of 0xC000–0xDDFF. Reads/writes act exactly like WRAM.                                  |
 |0xFE00–0xFE9F	 |   160 B	 |   [OAM (Sprite Attribute Table)](#7-oam-0xfe00-0xfe9f)|	40 sprites × 4 B each: Y, X, tile#, flags.          |
@@ -20,7 +20,7 @@
 ## Region-by-Region Breakdown
 
 #### 1. ROM Bank 0 (`0x0000-0x3FFF`)
-- CPU’s first instructions and RST vectors.
+- Cpu’s first instructions and RST vectors.
 - **Cartridge header** (`0x0100–0x014F`): title, CGB flag, MBC type, ROM/RAM sizes, checksum.
 - Writes here become MBC commands (do not overwrite code).
 

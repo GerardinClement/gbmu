@@ -1,11 +1,12 @@
+#![allow(unused_variables)]
+#![allow(dead_code)]
+
 mod cpu;
-mod instructions;
 mod memory;
 
-use crate::cpu::cpu::CPU;
-
+use crate::cpu::Cpu;
 
 fn main() {
-    let cpu = CPU::default();
+    let cpu = Cpu::default();
     println!("{}", cpu);
 }
