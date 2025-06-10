@@ -52,10 +52,18 @@ impl From<u8> for R16 {
     }
 }
 
-#[derive(Default)]
 pub struct Registers {
     r8: [u8; 8],
     f: FlagsRegister,
+}
+
+impl Default for Registers{
+    fn default() -> Self {
+        Registers { 
+            r8: [0x01, 0xB0, 0x00, 0x13, 0x00, 0xD8, 0x01, 0x4D],
+            f: FlagsRegister::default(),
+        }
+    }
 }
 
 impl Registers {

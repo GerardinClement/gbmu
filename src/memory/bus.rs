@@ -27,8 +27,16 @@ impl MemoryBus {
             banks.push(vec![0; 0x4000]);
         }
 
+        let mut data =  [0; 0x10000];
+        let mut rom_address = 0x4000;
+
+        for byte in rom {
+            data[rom_address] = byte;
+            rom_address = rom_address.wrapping_add(1);
+        }
+        
         MemoryBus {
-            data: [0; 0x10000],
+            data: data,
             rom_banks: banks,
             current_rom_bank: 1, // bank 1 is the default switchable region
         }
@@ -41,17 +49,21 @@ impl MemoryBus {
             return 0xFF;
         }
 
-        // match region {
-        //     MemoryRegion::RomBank0 => {
-        //         return self.rom_banks[0][addr as usize];
-        //     }
-        //     MemoryRegion::RomBank1N => {
-        //         let offset = (addr - 0x4000) as usize;
+        if addr == 0xFF44 {
+            return 0x90;
+        }
 
-        //         return self.rom_banks[self.current_rom_bank][offset];
-        //     }
-        //     _ => {}
-        // }
+        match region {
+            MemoryRegion::RomBank0 => {
+                return self.rom_banks[0][addr as usize];
+            }
+            MemoryRegion::RomBank1N => {
+                let offset = (addr - 0x4000) as usize;
+
+                return self.rom_banks[self.current_rom_bank][offset];
+            }
+            _ => {}
+        }
 
         let phys = region.translate_into_physical_address(addr);
 
@@ -68,6 +80,16 @@ impl MemoryBus {
         let phys = region.translate_into_physical_address(addr);
 
         self.data[phys as usize] = val;
+    }
+}
+
+impl Default for MemoryBus {
+    fn default() -> Self {
+        MemoryBus { 
+            data: [0; 0x10000], 
+            rom_banks: Vec::new(), 
+            current_rom_bank: 1 
+        }
     }
 }
 

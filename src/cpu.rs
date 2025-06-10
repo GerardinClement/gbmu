@@ -18,21 +18,35 @@ pub struct Cpu {
 }
 
 impl Cpu {
+    pub fn new(rom: Vec<u8>) -> Self {
+        Cpu {
+            registers: Registers::default(),
+            bus: MemoryBus::new(rom),
+            sp: 0xFFFE,
+            pc: 0x0100,
+        }
+    }
+
     fn execute_instruction(&mut self, instruction: u8) {
         let block_mask = 0b11000000;
         let block = (instruction & block_mask) >> 6;
         match block {
             0b00 => block0::match_instruction_block0(self, instruction),
             // TODO Add more blocks here as needed
-            _ => panic!("Unknown instruction block: {}", block),
+            _ => {
+                println!("Unknown instruction block: {}", block);
+                self.pc = self.pc.wrapping_add(1);
+            },
         }
     }
 
-    fn step(&mut self) {
+    pub fn step(&mut self) {
         let instruction_byte = self.bus.read_byte(self.pc);
+        println!("pc: 0x{:02X}", self.pc);
+        println!("opcode: 0x{:02X}", instruction_byte);
         self.execute_instruction(instruction_byte);
-
-        self.pc = self.pc.wrapping_add(1);
+        println!("{}", self);
+        println!("---------------------------------------------------------------------------------------------")
     }
 
     pub fn get_r8_value(&self, r: R8) -> u8 {
@@ -60,7 +74,7 @@ impl fmt::Display for Cpu {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "Registers:\nA: {:02X}, B: {:02X}, C: {:02X}, D: {:02X}, E: {:02X}, H: {:02X}, L: {:02X}\nPC: {:04X}",
+            "Registers:\nA: {:02X} B: {:02X} C: {:02X} D: {:02X} E: {:02X} H: {:02X} L: {:02X} SP: {:04x} PC: {:04X}",
             self.registers.get_r8_value(R8::A),
             self.registers.get_r8_value(R8::B),
             self.registers.get_r8_value(R8::C),
@@ -68,6 +82,7 @@ impl fmt::Display for Cpu {
             self.registers.get_r8_value(R8::E),
             self.registers.get_r8_value(R8::H),
             self.registers.get_r8_value(R8::L),
+            self.sp,
             self.pc,
         )
     }
@@ -77,7 +92,7 @@ impl Default for Cpu {
     fn default() -> Self {
         Cpu {
             registers: Registers::default(),
-            bus: MemoryBus::new(vec![0; 0x4000]),
+            bus: MemoryBus::default(),
             sp: 0xFFFE,
             pc: 0x0100,
         }
