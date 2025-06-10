@@ -1,11 +1,13 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
+#[derive(Debug)]
 pub enum Cond {
     NZ = 0,
     Z = 1,
     NC = 2,
     C = 3,
+    None = 4,
 }
 
 impl From<u8> for Cond {
@@ -15,7 +17,7 @@ impl From<u8> for Cond {
             1 => Cond::Z,
             2 => Cond::NC,
             3 => Cond::C,
-            _ => panic!("Invalid value for Cond: {}", value),
+            _ => Cond::None,
         }
     }
 }
@@ -27,6 +29,7 @@ impl Cond {
             Cond::Z => z,
             Cond::NC => !c,
             Cond::C => c,
+            Cond::None => true,
         }
     }
 }
