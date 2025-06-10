@@ -15,26 +15,18 @@ pub struct MemoryBus {
 impl MemoryBus {
     // Init with a full .gb ROM image
     pub fn new(rom: Vec<u8>) -> Self {
-        let mut banks = rom
-            // slice every 0x4000
-            .chunks(0x4000)
-            // chunks returns borrowed array so map convert into vectors
-            .map(|chunk| chunk.to_vec())
-            // gathers into Vec<Vec<u8>>
-            .collect::<Vec<_>>();
-
-        if banks.len() == 1 {
-            banks.push(vec![0; 0x4000]);
-        }
-
-        let mut data =  [0; 0x10000];
-        let mut rom_address = 0x4000;
-
-        for byte in rom {
-            data[rom_address] = byte;
-            rom_address = rom_address.wrapping_add(1);
+        let banks = Vec::new();
+    
+        let mut data = [0; 0x10000];
+        
+        for (i, byte) in rom.iter().enumerate() {
+            if i >= 0x8000 {
+                break;
+            }
+            data[i] = *byte;
         }
         
+
         MemoryBus {
             data: data,
             rom_banks: banks,
@@ -53,17 +45,17 @@ impl MemoryBus {
             return 0x90;
         }
 
-        match region {
-            MemoryRegion::RomBank0 => {
-                return self.rom_banks[0][addr as usize];
-            }
-            MemoryRegion::RomBank1N => {
-                let offset = (addr - 0x4000) as usize;
+        // match region {
+        //     MemoryRegion::RomBank0 => {
+        //         return self.rom_banks[0][addr as usize];
+        //     }
+        //     MemoryRegion::RomBank1N => {
+        //         let offset = (addr - 0x4000) as usize;
 
-                return self.rom_banks[self.current_rom_bank][offset];
-            }
-            _ => {}
-        }
+        //         return self.rom_banks[self.current_rom_bank][offset];
+        //     }
+        //     _ => {}
+        // }
 
         let phys = region.translate_into_physical_address(addr);
 
@@ -85,10 +77,10 @@ impl MemoryBus {
 
 impl Default for MemoryBus {
     fn default() -> Self {
-        MemoryBus { 
-            data: [0; 0x10000], 
-            rom_banks: Vec::new(), 
-            current_rom_bank: 1 
+        MemoryBus {
+            data: [0; 0x10000],
+            rom_banks: Vec::new(),
+            current_rom_bank: 1,
         }
     }
 }

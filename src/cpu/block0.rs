@@ -3,10 +3,9 @@
 
 use crate::cpu::Cpu;
 use crate::cpu::conditions::Cond;
-use crate::cpu::registers::{R8, R16};
+use crate::cpu::registers::{R8, R16, R16Mem};
+use crate::cpu::utils;
 
-const R16_MASK: u8 = 0b00110000;
-const R8_MASK: u8 = 0b00111000;
 const COND_MASK: u8 = 0b00011000;
 
 const INSTRUCTIONS_BLOCK0: [u8; 22] = [
@@ -43,12 +42,16 @@ fn get_instruction_block0(instruction: u8) -> u8 {
     if INSTRUCTIONS_BLOCK0.contains(&instruction) {
         return instruction;
     }
-
+    
     let mut match_opcode: Vec<u8> = INSTRUCTIONS_BLOCK0
-        .iter()
-        .cloned()
-        .filter(|&opcode| (instruction & mask3) == (opcode & mask3))
-        .collect();
+    .iter()
+    .cloned()
+    .filter(|&opcode| (instruction & mask3) == (opcode & mask3))
+    .collect();
+
+    if match_opcode.len() == 1 {
+        return match_opcode[0];
+    }
 
     match_opcode.retain(|&opcode| (instruction & mask4) == (opcode & mask4));
     if match_opcode.len() > 1 {
@@ -93,18 +96,8 @@ pub fn match_instruction_block0(cpu: &mut Cpu, instruction: u8) {
         0b00011000 => jr(cpu, instruction, false),
         0b00100000 => jr(cpu, instruction, true),
         //implement STOP
-        _ => { cpu.pc = cpu.pc.wrapping_add(1)},
+        _ => cpu.pc = cpu.pc.wrapping_add(1),
     }
-}
-
-fn convert_index_to_r16(instruction: u8) -> R16 {
-    let r16_index = (instruction & R16_MASK) >> 4;
-    R16::from(r16_index)
-}
-
-fn convert_index_to_r8(instruction: u8) -> R8 {
-    let r8_index: u8 = (instruction & R8_MASK) >> 3;
-    R8::from(r8_index)
 }
 
 fn convert_index_to_cond(instruction: u8) -> Cond {
@@ -113,38 +106,41 @@ fn convert_index_to_cond(instruction: u8) -> Cond {
 }
 
 fn load_r16_imm16(cpu: &mut Cpu, instruction: u8) {
-    let lsb = cpu.bus.read_byte(cpu.pc + 1) as u16;
-    let msb = cpu.bus.read_byte(cpu.pc + 2) as u16;
-    let imm16 = (msb << 8) | lsb;
-    let r16 = R16::from((instruction & R16_MASK) >> 4);
+    let imm16 = utils::get_imm16(cpu);
+    let r16 = R16::from((instruction & utils::R16_MASK) >> 4);
 
     cpu.registers.set_r16_value(r16, imm16);
     cpu.pc += 3;
 }
 
 fn load_r16mem_a(cpu: &mut Cpu, instruction: u8) {
-    let r16 = convert_index_to_r16(instruction);
+    let r16_mem = utils::convert_index_to_r16_mem(instruction);
     let a_value = cpu.registers.get_a();
 
-    cpu.registers.set_r16_mem_value(&mut cpu.bus, r16, a_value);
+    cpu.registers.set_r16_mem_value(&mut cpu.bus, R16::from(r16_mem), a_value);
+    if r16_mem == R16Mem::HLincrement || r16_mem == R16Mem::HLdecrement {
+        utils::modify_hl(cpu, r16_mem);
+    }
     cpu.pc += 1;
 }
 
 fn load_a_r16mem(cpu: &mut Cpu, instruction: u8) {
-    let r16 = convert_index_to_r16(instruction);
-    let value = cpu.registers.get_r16_mem_value(&cpu.bus, r16);
-
+    let r16_mem = utils::convert_index_to_r16_mem(instruction);
+    let value = cpu.registers.get_r16_mem_value(&cpu.bus, R16::from(r16_mem));
+    
     cpu.set_r8_value(R8::A, value);
+    if r16_mem == R16Mem::HLincrement || r16_mem == R16Mem::HLdecrement {
+        utils::modify_hl(cpu, r16_mem);
+    }
+
     cpu.pc += 1;
 }
 
 fn load_mem_imm16_sp(cpu: &mut Cpu) {
-    let sp_msb = (cpu.sp >> 8) as u8;
-    let sp_lsb = (cpu.sp & 0xFF) as u8;
+    let sp_msb = (cpu.registers.get_sp() >> 8) as u8;
+    let sp_lsb = (cpu.registers.get_sp() & 0xFF) as u8;
 
-    let imm16_lsb = cpu.bus.read_byte(cpu.pc + 1) as u16;
-    let imm16_msb = cpu.bus.read_byte(cpu.pc + 2) as u16;
-    let imm16 = (imm16_msb << 8) | imm16_lsb;
+    let imm16 = utils::get_imm16(cpu);
 
     cpu.bus.write_byte(imm16, sp_lsb);
     cpu.bus.write_byte(imm16 + 1, sp_msb);
@@ -153,7 +149,7 @@ fn load_mem_imm16_sp(cpu: &mut Cpu) {
 }
 
 fn inc_r16(cpu: &mut Cpu, instruction: u8) {
-    let r16 = convert_index_to_r16(instruction);
+    let r16 = utils::convert_index_to_r16(instruction);
     let value = cpu.registers.get_r16_value(r16);
 
     cpu.registers.set_r16_value(r16, value.wrapping_add(1));
@@ -161,7 +157,7 @@ fn inc_r16(cpu: &mut Cpu, instruction: u8) {
 }
 
 fn dec_r16(cpu: &mut Cpu, instruction: u8) {
-    let r16 = convert_index_to_r16(instruction);
+    let r16 = utils::convert_index_to_r16(instruction);
     let value = cpu.registers.get_r16_value(r16);
 
     cpu.registers.set_r16_value(r16, value.wrapping_sub(1));
@@ -169,14 +165,14 @@ fn dec_r16(cpu: &mut Cpu, instruction: u8) {
 }
 
 fn add_hl_r16(cpu: &mut Cpu, instruction: u8) {
-    let r16 = convert_index_to_r16(instruction);
+    let r16 = utils::convert_index_to_r16(instruction);
     let value = cpu.registers.get_r16_value(r16);
     cpu.registers.add_to_r16(R16::HL, value);
 }
 
 fn inc_r8(cpu: &mut Cpu, instruction: u8) {
-    let r8 = convert_index_to_r8(instruction);
-    let value = cpu.get_r8_value(r8);
+    let r8 = utils::convert_dest_index_to_r8(instruction);
+    let value = cpu.registers.get_r8_value(r8);
     let new_value = value.wrapping_add(1);
 
     cpu.registers.set_zero_flag(new_value == 0);
@@ -188,20 +184,20 @@ fn inc_r8(cpu: &mut Cpu, instruction: u8) {
 }
 
 fn dec_r8(cpu: &mut Cpu, instruction: u8) {
-    let r8 = convert_index_to_r8(instruction);
-    let value = cpu.get_r8_value(r8);
+    let r8 = utils::convert_dest_index_to_r8(instruction);
+    let value = cpu.registers.get_r8_value(r8);
     let new_value = value.wrapping_sub(1);
 
     cpu.registers.set_zero_flag(new_value == 0);
     cpu.registers.set_subtract_flag(true);
-    cpu.registers.set_half_carry_flag((value & 0x0F) + 1 > 0x0F);
+    cpu.registers.set_half_carry_flag((value & 0x0F) == 0x00);
     cpu.set_r8_value(r8, new_value);
     cpu.pc += 1;
 }
 
 fn ld_r8_imm8(cpu: &mut Cpu, instruction: u8) {
     let imm8 = cpu.bus.read_byte(cpu.pc + 1);
-    let r8 = convert_index_to_r8(instruction);
+    let r8 = utils::convert_dest_index_to_r8(instruction);
 
     cpu.set_r8_value(r8, imm8);
     cpu.pc += 2;
@@ -277,11 +273,12 @@ fn jr(cpu: &mut Cpu, instruction: u8, has_cond: bool) {
         let carry = cpu.registers.get_carry_flag();
         let zero = cpu.registers.get_zero_flag();
         if !cond.test(zero, carry) {
+            cpu.pc = cpu.pc.wrapping_add(2);
             return;
         }
     }
     let offset = cpu.bus.read_byte(cpu.pc + 1) as i8;
-    cpu.pc = ((cpu.pc as i16) + 2 + (offset as i16)) as u16;
+    cpu.pc = cpu.pc.wrapping_add(2).wrapping_add(offset as u16);
 }
 
 #[cfg(test)]
@@ -336,7 +333,7 @@ mod tests {
         cpu.bus.write_byte(cpu.pc + 1, 0x34); // low byte de l’adresse
         cpu.bus.write_byte(cpu.pc + 2, 0x12); // high byte de l’adresse
 
-        cpu.sp = 0xC123;
+        cpu.registers.set_sp(0xC123);
 
         // Exécuter l'instruction
         match_instruction_block0(&mut cpu, 0x08);
@@ -538,5 +535,60 @@ mod tests {
         jr(&mut cpu, 0x38, true); // JR C, +3 → condition fausse
 
         assert_eq!(cpu.pc, 0x0100);
+    }
+
+    #[test]
+    fn test_load_a_r16mem_hl_increment() {
+        let mut cpu = Cpu::default();
+        cpu.registers.set_r16_value(R16::HL, 0xC000);
+        cpu.bus.write_byte(0xC000, 0x42);
+        match_instruction_block0(&mut cpu, 0x2A); // LD A, [HL+]
+
+        assert_eq!(cpu.registers.get_a(), 0x42);
+        assert_eq!(cpu.registers.get_r16_value(R16::HL), 0xC001); // HL incremented
+    }
+
+    #[test]
+    fn test_load_a_r16mem_hl_decrement() {
+        let mut cpu = Cpu::default();
+        cpu.registers.set_r16_value(R16::HL, 0xC001);
+        cpu.bus.write_byte(0xC001, 0x42);
+        match_instruction_block0(&mut cpu, 0x3A); // LD A, [HL-]
+
+        assert_eq!(cpu.registers.get_a(), 0x42);
+        assert_eq!(cpu.registers.get_r16_value(R16::HL), 0xC000); // HL decremented
+    }
+
+    #[test]
+    fn test_load_a_r16mem_standard() {
+        let mut cpu = Cpu::default();
+        cpu.registers.set_r16_value(R16::DE, 0xC000);
+        cpu.bus.write_byte(0xC000, 0x42);
+        match_instruction_block0(&mut cpu, 0x1A); // LD A, [DE]
+
+        assert_eq!(cpu.registers.get_a(), 0x42);
+        assert_eq!(cpu.registers.get_r16_value(R16::DE), 0xC000); // DE unchanged
+    }
+
+    #[test]
+    fn test_load_a_r16mem_hl_boundary_increment() {
+        let mut cpu = Cpu::default();
+        cpu.registers.set_r16_value(R16::HL, 0xFFFF);
+        cpu.bus.write_byte(0xFFFF, 0x42);
+        match_instruction_block0(&mut cpu, 0x2A); // LD A, [HL+]
+
+        assert_eq!(cpu.registers.get_a(), 0x42);
+        assert_eq!(cpu.registers.get_r16_value(R16::HL), 0x0000); // HL wraps around
+    }
+
+    #[test]
+    fn test_load_a_r16mem_hl_boundary_decrement() {
+        let mut cpu = Cpu::default();
+        cpu.registers.set_r16_value(R16::HL, 0x0000);
+        cpu.bus.write_byte(0x0000, 0x42);
+        match_instruction_block0(&mut cpu, 0x3A); // LD A, [HL-]
+
+        assert_eq!(cpu.registers.get_a(), 0x42);
+        assert_eq!(cpu.registers.get_r16_value(R16::HL), 0xFFFF); // HL wraps around
     }
 }
