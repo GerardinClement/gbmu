@@ -33,7 +33,7 @@ fn main() {
         args.pop()
             .expect("Expected a ROM name as the second argument")
     } else {
-        "roms/individual/01-special.gb".to_string()
+        "roms/individual/03-op sp,hl.gb".to_string()
     };
 
     let rom_data: Vec<u8> = read_rom(rom_path);

@@ -206,6 +206,22 @@ impl Registers {
         self.f.set_all(zero, subtract, half_carry, carry);
     }
 
+    pub fn add_sp_i8(&mut self, offset: i8) {
+        let sp = self.sp;
+        let offset_u16 = offset as i16 as u16; // pour faire l'addition signée
+        let result = sp.wrapping_add(offset_u16);
+    
+        // Flags
+        self.set_zero_flag(false);
+        self.set_subtract_flag(false);
+    
+        self.set_half_carry_flag(((sp & 0xF) + (offset_u16 & 0xF)) > 0xF);
+        self.set_carry_flag(((sp & 0xFF) + (offset_u16 & 0xFF)) > 0xFF);
+    
+        self.sp = result;
+    }
+    
+
     pub fn rotate_left(&mut self, target: R8, carry: bool) {
         let r8 = self.get_r8_value(target);
         let outgoing_bit = (r8 & 0b10000000) >> 7;

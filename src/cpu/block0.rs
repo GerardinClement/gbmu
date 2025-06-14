@@ -202,7 +202,7 @@ fn dec_r8(cpu: &mut Cpu, instruction: u8) {
     cpu.registers.set_subtract_flag(true);
     cpu.registers.set_half_carry_flag((value & 0x0F) == 0x00);
     cpu.set_r8_value(r8, new_value);
-    cpu.pc += 1;
+    cpu.pc = cpu.pc.wrapping_add(1);
 }
 
 fn ld_r8_imm8(cpu: &mut Cpu, instruction: u8) {
@@ -210,17 +210,17 @@ fn ld_r8_imm8(cpu: &mut Cpu, instruction: u8) {
     let r8 = utils::convert_dest_index_to_r8(instruction);
 
     cpu.set_r8_value(r8, imm8);
-    cpu.pc += 2;
+    cpu.pc = cpu.pc.wrapping_add(2);
 }
 
 fn rotate_left(cpu: &mut Cpu, carry: bool) {
     cpu.registers.rotate_left(R8::A, carry);
-    cpu.pc += 1;
+    cpu.pc = cpu.pc.wrapping_add(1);
 }
 
 fn rotate_right(cpu: &mut Cpu, carry: bool) {
     cpu.registers.rotate_right(R8::A, carry);
-    cpu.pc += 1;
+    cpu.pc = cpu.pc.wrapping_add(1);
 }
 
 fn daa(cpu: &mut Cpu) {
@@ -248,7 +248,7 @@ fn daa(cpu: &mut Cpu) {
     }
     cpu.registers.set_zero_flag(a == 0);
     cpu.registers.set_half_carry_flag(false);
-    cpu.pc += 1;
+    cpu.pc = cpu.pc.wrapping_add(1);
 }
 
 fn cpl(cpu: &mut Cpu) {
@@ -257,14 +257,14 @@ fn cpl(cpu: &mut Cpu) {
     cpu.set_r8_value(R8::A, new_value);
     cpu.registers.set_subtract_flag(true);
     cpu.registers.set_half_carry_flag(true);
-    cpu.pc += 1;
+    cpu.pc = cpu.pc.wrapping_add(1);
 }
 
 fn scf(cpu: &mut Cpu) {
     cpu.registers.set_subtract_flag(false);
     cpu.registers.set_half_carry_flag(false);
     cpu.registers.set_carry_flag(true);
-    cpu.pc += 1;
+    cpu.pc = cpu.pc.wrapping_add(1);
 }
 
 fn ccf(cpu: &mut Cpu) {
@@ -272,7 +272,7 @@ fn ccf(cpu: &mut Cpu) {
     cpu.registers.set_subtract_flag(false);
     cpu.registers.set_half_carry_flag(false);
     cpu.registers.set_carry_flag(!carry_value);
-    cpu.pc += 1;
+    cpu.pc = cpu.pc.wrapping_add(1);
 }
 
 fn jr(cpu: &mut Cpu, instruction: u8, has_cond: bool) {
