@@ -16,16 +16,15 @@ impl MemoryBus {
     // Init with a full .gb ROM image
     pub fn new(rom: Vec<u8>) -> Self {
         let banks = Vec::new();
-    
+
         let mut data = [0; 0x10000];
-        
+
         for (i, byte) in rom.iter().enumerate() {
             if i >= 0x8000 {
                 break;
             }
             data[i] = *byte;
         }
-        
 
         MemoryBus {
             data: data,

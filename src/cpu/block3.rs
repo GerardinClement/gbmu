@@ -2,6 +2,7 @@
 #![allow(dead_code)]
 
 use crate::cpu::Cpu;
+use crate::cpu::block_prefix;
 use crate::cpu::conditions::Cond;
 use crate::cpu::registers::{R8, R16};
 use crate::cpu::utils;
@@ -77,12 +78,11 @@ fn get_instruction_block3(instruction: u8) -> u8 {
     if INSTRUCTIONS_BLOCK3.contains(&instruction) {
         return instruction;
     }
-    
+
     let stack_instruction = check_stack_stk16_instruction(instruction);
     if stack_instruction != 0 {
         return stack_instruction;
     }
-
 
     let match_opcode: Vec<u8> = INSTRUCTIONS_BLOCK3
         .iter()
@@ -105,7 +105,7 @@ fn get_instruction_block3(instruction: u8) -> u8 {
     }
 }
 
-pub fn match_instruction_block3(cpu: &mut Cpu, instruction: u8) {
+pub fn execute_instruction_block3(cpu: &mut Cpu, instruction: u8) {
     let opcode = get_instruction_block3(instruction);
 
     match opcode {
@@ -202,14 +202,14 @@ fn or_a_imm8(cpu: &mut Cpu) {
     cpu.registers.set_half_carry_flag(false);
     cpu.registers.set_carry_flag(false);
 
-    cpu.pc = cpu.pc.wrapping_add(2)
+    cpu.pc = cpu.pc.wrapping_add(2);
 }
 
 fn cp_a_imm8(cpu: &mut Cpu) {
     let imm8 = cpu.bus.read_byte(cpu.pc + 1);
     let a_value = cpu.get_r8_value(R8::A);
 
-    let value = a_value - imm8;
+    let value = a_value.wrapping_sub(imm8);
 
     cpu.registers.set_zero_flag(value == 0);
     cpu.registers.set_subtract_flag(true);
@@ -217,7 +217,7 @@ fn cp_a_imm8(cpu: &mut Cpu) {
         .set_half_carry_flag((a_value & 0x0F) < (value & 0x0F));
     cpu.registers.set_carry_flag(a_value < imm8);
 
-    cpu.pc = cpu.pc.wrapping_add(2)
+    cpu.pc = cpu.pc.wrapping_add(2);
 }
 
 fn ret(cpu: &mut Cpu, instruction: u8, with_cond: bool) {
@@ -312,7 +312,8 @@ fn push_af(cpu: &mut Cpu) {
 
 fn prefix(cpu: &mut Cpu) {
     let next_instruction = cpu.bus.read_byte(cpu.pc + 1);
-    //implement execute prefix instruction
+    block_prefix::execute_instruction_block_prefix(cpu, next_instruction);
+    // cpu.pc = cpu.pc.wrapping_add(1);
 }
 
 fn ldh_c_a(cpu: &mut Cpu) {
@@ -400,7 +401,7 @@ mod tests {
         let mut cpu = Cpu::default();
         cpu.set_r8_value(R8::A, 0x10);
         cpu.bus.write_byte(cpu.pc + 1, 0x20);
-        match_instruction_block3(&mut cpu, 0xC6); // ADD A, imm8
+        execute_instruction_block3(&mut cpu, 0xC6); // ADD A, imm8
 
         assert_eq!(cpu.get_r8_value(R8::A), 0x30);
         assert_eq!(cpu.pc, 0x0100 + 2);
@@ -412,7 +413,7 @@ mod tests {
         cpu.set_r8_value(R8::A, 0x10);
         cpu.bus.write_byte(cpu.pc + 1, 0x20);
         cpu.registers.set_carry_flag(true);
-        match_instruction_block3(&mut cpu, 0xCE); // ADC A, imm8
+        execute_instruction_block3(&mut cpu, 0xCE); // ADC A, imm8
 
         assert_eq!(cpu.get_r8_value(R8::A), 0x31);
         assert_eq!(cpu.pc, 0x0100 + 2);
@@ -423,7 +424,7 @@ mod tests {
         let mut cpu = Cpu::default();
         cpu.set_r8_value(R8::A, 0x30);
         cpu.bus.write_byte(cpu.pc + 1, 0x10);
-        match_instruction_block3(&mut cpu, 0xD6); // SUB A, imm8
+        execute_instruction_block3(&mut cpu, 0xD6); // SUB A, imm8
 
         assert_eq!(cpu.get_r8_value(R8::A), 0x20);
         assert_eq!(cpu.pc, 0x0100 + 2);
@@ -435,7 +436,7 @@ mod tests {
         cpu.set_r8_value(R8::A, 0x30);
         cpu.bus.write_byte(cpu.pc + 1, 0x10);
         cpu.registers.set_carry_flag(true);
-        match_instruction_block3(&mut cpu, 0xDE); // SBC A, imm8
+        execute_instruction_block3(&mut cpu, 0xDE); // SBC A, imm8
 
         assert_eq!(cpu.get_r8_value(R8::A), 0x1F);
         assert_eq!(cpu.pc, 0x0100 + 2);
@@ -446,7 +447,7 @@ mod tests {
         let mut cpu = Cpu::default();
         cpu.set_r8_value(R8::A, 0b1100);
         cpu.bus.write_byte(cpu.pc + 1, 0b1010);
-        match_instruction_block3(&mut cpu, 0xE6); // AND A, imm8
+        execute_instruction_block3(&mut cpu, 0xE6); // AND A, imm8
 
         assert_eq!(cpu.get_r8_value(R8::A), 0b1000);
         assert_eq!(cpu.pc, 0x0100 + 2);
@@ -457,7 +458,7 @@ mod tests {
         let mut cpu = Cpu::default();
         cpu.set_r8_value(R8::A, 0b1100);
         cpu.bus.write_byte(cpu.pc + 1, 0b1010);
-        match_instruction_block3(&mut cpu, 0xEE); // XOR A, imm8
+        execute_instruction_block3(&mut cpu, 0xEE); // XOR A, imm8
 
         assert_eq!(cpu.get_r8_value(R8::A), 0b0110);
         assert_eq!(cpu.pc, 0x0100 + 2);
@@ -468,7 +469,7 @@ mod tests {
         let mut cpu = Cpu::default();
         cpu.set_r8_value(R8::A, 0b1100);
         cpu.bus.write_byte(cpu.pc + 1, 0b1010);
-        match_instruction_block3(&mut cpu, 0xF6); // OR A, imm8
+        execute_instruction_block3(&mut cpu, 0xF6); // OR A, imm8
 
         assert_eq!(cpu.get_r8_value(R8::A), 0b1110);
         assert_eq!(cpu.pc, 0x0100 + 2);
@@ -479,7 +480,7 @@ mod tests {
         let mut cpu = Cpu::default();
         cpu.set_r8_value(R8::A, 0x20);
         cpu.bus.write_byte(cpu.pc + 1, 0x20);
-        match_instruction_block3(&mut cpu, 0xFE); // CP A, imm8
+        execute_instruction_block3(&mut cpu, 0xFE); // CP A, imm8
 
         assert!(cpu.registers.get_zero_flag());
         assert_eq!(cpu.pc, 0x0100 + 2);
@@ -490,7 +491,7 @@ mod tests {
         let mut cpu = Cpu::default();
         cpu.bus.write_byte(cpu.pc + 1, 0x34); // LSB
         cpu.bus.write_byte(cpu.pc + 2, 0x12); // MSB
-        match_instruction_block3(&mut cpu, 0xC3); // JP imm16
+        execute_instruction_block3(&mut cpu, 0xC3); // JP imm16
 
         assert_eq!(cpu.pc, 0x1234);
     }
@@ -501,7 +502,7 @@ mod tests {
         cpu.bus.write_byte(cpu.pc + 1, 0x34); // LSB
         cpu.bus.write_byte(cpu.pc + 2, 0x12); // MSB
         cpu.registers.set_zero_flag(true); // Condition Z = true
-        match_instruction_block3(&mut cpu, 0xCA); // JP Z, imm16
+        execute_instruction_block3(&mut cpu, 0xCA); // JP Z, imm16
 
         assert_eq!(cpu.pc, 0x1234);
     }
@@ -512,7 +513,7 @@ mod tests {
         cpu.bus.write_byte(cpu.pc + 1, 0x34); // LSB
         cpu.bus.write_byte(cpu.pc + 2, 0x12); // MSB
         cpu.registers.set_zero_flag(false); // Condition Z = false
-        match_instruction_block3(&mut cpu, 0xCA); // JP Z, imm16
+        execute_instruction_block3(&mut cpu, 0xCA); // JP Z, imm16
 
         assert_eq!(cpu.pc, 0x0100 + 3); // Pas de saut
     }
@@ -521,7 +522,7 @@ mod tests {
     fn test_jp_hl() {
         let mut cpu = Cpu::default();
         cpu.registers.set_r16_value(R16::HL, 0x1234);
-        match_instruction_block3(&mut cpu, 0xE9); // JP HL
+        execute_instruction_block3(&mut cpu, 0xE9); // JP HL
 
         assert_eq!(cpu.pc, 0x1234);
     }
@@ -531,7 +532,7 @@ mod tests {
         let mut cpu = Cpu::default();
         cpu.bus.write_byte(cpu.pc + 1, 0x34); // LSB
         cpu.bus.write_byte(cpu.pc + 2, 0x12); // MSB
-        match_instruction_block3(&mut cpu, 0xCD); // CALL imm16
+        execute_instruction_block3(&mut cpu, 0xCD); // CALL imm16
 
         assert_eq!(cpu.pc, 0x1234);
         assert_eq!(cpu.registers.pop_sp(&cpu.bus), 0x0103);
@@ -543,7 +544,7 @@ mod tests {
         cpu.bus.write_byte(cpu.pc + 1, 0x34); // LSB
         cpu.bus.write_byte(cpu.pc + 2, 0x12); // MSB
         cpu.registers.set_carry_flag(true); // Condition C = true
-        match_instruction_block3(&mut cpu, 0xDC); // CALL C, imm16
+        execute_instruction_block3(&mut cpu, 0xDC); // CALL C, imm16
 
         assert_eq!(cpu.pc, 0x1234);
         assert_eq!(cpu.registers.pop_sp(&cpu.bus), 0x0103);
@@ -555,7 +556,7 @@ mod tests {
         cpu.bus.write_byte(cpu.pc + 1, 0x34); // LSB
         cpu.bus.write_byte(cpu.pc + 2, 0x12); // MSB
         cpu.registers.set_carry_flag(false); // Condition C = false
-        match_instruction_block3(&mut cpu, 0xDC); // CALL C, imm16
+        execute_instruction_block3(&mut cpu, 0xDC); // CALL C, imm16
 
         assert_eq!(cpu.pc, 0x0100 + 3); // Pas de saut
     }
@@ -563,7 +564,7 @@ mod tests {
     #[test]
     fn test_rst_tgt3() {
         let mut cpu = Cpu::default();
-        match_instruction_block3(&mut cpu, 0xC7); // RST 0x00
+        execute_instruction_block3(&mut cpu, 0xC7); // RST 0x00
 
         assert_eq!(cpu.pc, 0x0000);
     }
@@ -572,7 +573,7 @@ mod tests {
     fn test_pop_r16() {
         let mut cpu = Cpu::default();
         cpu.registers.push_sp(&mut cpu.bus, 0x1234);
-        match_instruction_block3(&mut cpu, 0xC1); // POP BC
+        execute_instruction_block3(&mut cpu, 0xC1); // POP BC
 
         assert_eq!(cpu.registers.get_r16_value(R16::BC), 0x1234);
     }
@@ -581,7 +582,7 @@ mod tests {
     fn test_push_r16() {
         let mut cpu = Cpu::default();
         cpu.registers.set_r16_value(R16::DE, 0x5678);
-        match_instruction_block3(&mut cpu, 0xD5); // PUSH DE
+        execute_instruction_block3(&mut cpu, 0xD5); // PUSH DE
 
         assert_eq!(cpu.registers.pop_sp(&cpu.bus), 0x5678);
     }
@@ -591,7 +592,7 @@ mod tests {
         let mut cpu = Cpu::default();
         cpu.registers.set_sp(0xFFF0);
         cpu.bus.write_byte(cpu.pc + 1, 0x10); // imm8 = +16
-        match_instruction_block3(&mut cpu, 0xE8); // ADD SP, imm8
+        execute_instruction_block3(&mut cpu, 0xE8); // ADD SP, imm8
 
         assert_eq!(cpu.registers.get_sp(), 0x0000); // Overflow
     }
@@ -601,7 +602,7 @@ mod tests {
         let mut cpu = Cpu::default();
         cpu.registers.set_sp(0x0005);
         cpu.bus.write_byte(cpu.pc + 1, 0xFB); // imm8 = -5 (0xFB = -5 en i8)
-        match_instruction_block3(&mut cpu, 0xE8); // ADD SP, imm8
+        execute_instruction_block3(&mut cpu, 0xE8); // ADD SP, imm8
 
         assert_eq!(cpu.registers.get_sp(), 0x0000);
     }
@@ -611,7 +612,7 @@ mod tests {
         let mut cpu = Cpu::default();
         cpu.registers.set_sp(0xFFF0);
         cpu.bus.write_byte(cpu.pc + 1, 0x10); // imm8 = +16
-        match_instruction_block3(&mut cpu, 0xF8); // LD HL, SP + imm8
+        execute_instruction_block3(&mut cpu, 0xF8); // LD HL, SP + imm8
 
         assert_eq!(cpu.registers.get_r16_value(R16::HL), 0x0000); // Overflow
     }
@@ -620,7 +621,7 @@ mod tests {
     fn test_ld_sp_hl() {
         let mut cpu = Cpu::default();
         cpu.registers.set_r16_value(R16::HL, 0x1234);
-        match_instruction_block3(&mut cpu, 0xF9); // LD SP, HL
+        execute_instruction_block3(&mut cpu, 0xF9); // LD SP, HL
 
         assert_eq!(cpu.registers.get_sp(), 0x1234);
     }
@@ -629,7 +630,7 @@ mod tests {
     // fn test_di() {
     //     let mut cpu = Cpu::default();
     //     cpu.registers.set_interrupts_enabled(true);
-    //     match_instruction_block3(&mut cpu, 0xF3); // DI
+    //     execute_instruction_block3(&mut cpu, 0xF3); // DI
 
     //     assert!(!cpu.registers.get_interrupts_enabled());
     // }
@@ -638,7 +639,7 @@ mod tests {
     // fn test_ei() {
     //     let mut cpu = Cpu::default();
     //     cpu.registers.set_interrupts_enabled(false);
-    //     match_instruction_block3(&mut cpu, 0xFB); // EI
+    //     execute_instruction_block3(&mut cpu, 0xFB); // EI
 
     //     assert!(cpu.registers.get_interrupts_enabled());
     // }
@@ -648,7 +649,7 @@ mod tests {
         let mut cpu = Cpu::default();
         cpu.set_r8_value(R8::C, 0x10);
         cpu.bus.write_byte(0xFF10, 0x42);
-        match_instruction_block3(&mut cpu, 0xF2); // LDH A, [C]
+        execute_instruction_block3(&mut cpu, 0xF2); // LDH A, [C]
 
         assert_eq!(cpu.get_r8_value(R8::A), 0x42);
         assert_eq!(cpu.pc, 0x0100 + 2);
@@ -657,16 +658,16 @@ mod tests {
     #[test]
     fn test_pop_af() {
         let mut cpu = Cpu::default();
-        
+
         // Pousse une valeur sur la pile
         cpu.registers.push_sp(&mut cpu.bus, 0x1234);
-        
+
         // Exécute l'instruction POP AF
-        match_instruction_block3(&mut cpu, 0xF1); // POP AF
-        
+        execute_instruction_block3(&mut cpu, 0xF1); // POP AF
+
         // Vérifie que le registre AF contient la valeur extraite de la pile
         assert_eq!(cpu.registers.get_af(), 0x1234);
-        
+
         // Vérifie que le compteur de programme a été incrémenté correctement
         assert_eq!(cpu.pc, 0x0100 + 1);
     }

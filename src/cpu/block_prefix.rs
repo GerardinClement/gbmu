@@ -66,7 +66,7 @@ fn get_instruction_block_prefix(instruction: u8) -> u8 {
     );
 }
 
-pub fn match_instruction_block_prefix(cpu: &mut Cpu, instruction: u8) {
+pub fn execute_instruction_block_prefix(cpu: &mut Cpu, instruction: u8) {
     let opcode = get_instruction_block_prefix(instruction);
 
     match opcode {
@@ -88,36 +88,43 @@ pub fn match_instruction_block_prefix(cpu: &mut Cpu, instruction: u8) {
 pub fn rlc_r8(cpu: &mut Cpu, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
     cpu.registers.rotate_left(r8, true);
+    cpu.pc = cpu.pc.wrapping_add(2);
 }
 
 pub fn rrc_r8(cpu: &mut Cpu, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
     cpu.registers.rotate_right(r8, true);
+    cpu.pc = cpu.pc.wrapping_add(2);
 }
 
 pub fn rl(cpu: &mut Cpu, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
     cpu.registers.rotate_left(r8, false);
+    cpu.pc = cpu.pc.wrapping_add(2);
 }
 
 pub fn rr(cpu: &mut Cpu, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
     cpu.registers.rotate_right(r8, false);
+    cpu.pc = cpu.pc.wrapping_add(2);
 }
 
 pub fn sla_r8(cpu: &mut Cpu, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
     cpu.registers.shift_left(r8);
+    cpu.pc = cpu.pc.wrapping_add(2);
 }
 
 pub fn sr_r8(cpu: &mut Cpu, instruction: u8, arithmetic: bool) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
     cpu.registers.shift_right(r8, arithmetic);
+    cpu.pc = cpu.pc.wrapping_add(2);
 }
 
 pub fn swap_r8(cpu: &mut Cpu, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
     cpu.registers.swap(r8);
+    cpu.pc = cpu.pc.wrapping_add(2);
 }
 
 pub fn bit_b3_r8(cpu: &mut Cpu, instruction: u8) {
@@ -128,6 +135,8 @@ pub fn bit_b3_r8(cpu: &mut Cpu, instruction: u8) {
     cpu.registers.set_zero_flag((r8_value & (1 << b3)) == 0);
     cpu.registers.set_subtract_flag(false);
     cpu.registers.set_half_carry_flag(true);
+
+    cpu.pc = cpu.pc.wrapping_add(2);
 }
 
 pub fn res_b3_r8(cpu: &mut Cpu, instruction: u8) {
@@ -138,6 +147,8 @@ pub fn res_b3_r8(cpu: &mut Cpu, instruction: u8) {
     let new_value = r8_value & !(1 << b3);
 
     cpu.set_r8_value(r8, new_value);
+
+    cpu.pc = cpu.pc.wrapping_add(2);
 }
 
 pub fn set_b3_r8(cpu: &mut Cpu, instruction: u8) {
@@ -147,6 +158,8 @@ pub fn set_b3_r8(cpu: &mut Cpu, instruction: u8) {
 
     r8_value |= 1 << b3;
     cpu.set_r8_value(r8, r8_value);
+
+    cpu.pc = cpu.pc.wrapping_add(2);
 }
 
 #[cfg(test)]
@@ -158,7 +171,7 @@ mod tests {
     fn test_rlc_r8() {
         let mut cpu = Cpu::default();
         cpu.set_r8_value(R8::B, 0b1000_0001);
-        match_instruction_block_prefix(&mut cpu, 0x00); // RLC B
+        execute_instruction_block_prefix(&mut cpu, 0x00); // RLC B
 
         assert_eq!(cpu.get_r8_value(R8::B), 0b0000_0011);
         assert!(cpu.registers.get_carry_flag());
@@ -168,7 +181,7 @@ mod tests {
     fn test_rrc_r8() {
         let mut cpu = Cpu::default();
         cpu.set_r8_value(R8::B, 0b00000001);
-        match_instruction_block_prefix(&mut cpu, 0x08); // RRC C
+        execute_instruction_block_prefix(&mut cpu, 0x08); // RRC C
 
         assert_eq!(cpu.get_r8_value(R8::B), 0b10000000);
         assert!(cpu.registers.get_carry_flag());
@@ -179,7 +192,7 @@ mod tests {
         let mut cpu = Cpu::default();
         cpu.set_r8_value(R8::D, 0b0101_0101);
         cpu.registers.set_carry_flag(true);
-        match_instruction_block_prefix(&mut cpu, 0x12); // RL D
+        execute_instruction_block_prefix(&mut cpu, 0x12); // RL D
 
         assert_eq!(cpu.get_r8_value(R8::D), 0b1010_1011);
         assert!(!cpu.registers.get_carry_flag());
@@ -190,7 +203,7 @@ mod tests {
         let mut cpu = Cpu::default();
         cpu.set_r8_value(R8::E, 0b0000_0001);
         cpu.registers.set_carry_flag(true);
-        match_instruction_block_prefix(&mut cpu, 0x1B); // RR E
+        execute_instruction_block_prefix(&mut cpu, 0x1B); // RR E
 
         assert_eq!(cpu.get_r8_value(R8::E), 0b1000_0000);
         assert!(cpu.registers.get_carry_flag());
@@ -200,7 +213,7 @@ mod tests {
     fn test_sla_r8() {
         let mut cpu = Cpu::default();
         cpu.set_r8_value(R8::H, 0b1000_0000);
-        match_instruction_block_prefix(&mut cpu, 0x24); // SLA H
+        execute_instruction_block_prefix(&mut cpu, 0x24); // SLA H
 
         assert_eq!(cpu.get_r8_value(R8::H), 0b0000_0000);
         assert!(cpu.registers.get_carry_flag());
@@ -210,7 +223,7 @@ mod tests {
     fn test_sra_r8() {
         let mut cpu = Cpu::default();
         cpu.set_r8_value(R8::L, 0b1000_0001);
-        match_instruction_block_prefix(&mut cpu, 0x2D); // SRA L
+        execute_instruction_block_prefix(&mut cpu, 0x2D); // SRA L
 
         assert_eq!(cpu.get_r8_value(R8::L), 0b1100_0000);
         assert!(cpu.registers.get_carry_flag());
@@ -220,7 +233,7 @@ mod tests {
     fn test_swap_r8() {
         let mut cpu = Cpu::default();
         cpu.set_r8_value(R8::A, 0xF0);
-        match_instruction_block_prefix(&mut cpu, 0x37); // SWAP A
+        execute_instruction_block_prefix(&mut cpu, 0x37); // SWAP A
 
         assert_eq!(cpu.get_r8_value(R8::A), 0x0F);
     }
@@ -229,7 +242,7 @@ mod tests {
     fn test_srl_r8() {
         let mut cpu = Cpu::default();
         cpu.set_r8_value(R8::B, 0b0000_0010);
-        match_instruction_block_prefix(&mut cpu, 0x38); // SRL B
+        execute_instruction_block_prefix(&mut cpu, 0x38); // SRL B
 
         assert_eq!(cpu.get_r8_value(R8::B), 0b0000_0001);
         assert!(!cpu.registers.get_carry_flag());
@@ -239,7 +252,7 @@ mod tests {
     fn test_bit_b3_r8() {
         let mut cpu = Cpu::default();
         cpu.set_r8_value(R8::D, 0b0000_1000);
-        match_instruction_block_prefix(&mut cpu, 0x40); // BIT 3, D
+        execute_instruction_block_prefix(&mut cpu, 0x40); // BIT 3, D
 
         assert!(!cpu.registers.get_zero_flag());
     }
@@ -248,7 +261,7 @@ mod tests {
     fn test_res_b3_r8() {
         let mut cpu = Cpu::default();
         cpu.set_r8_value(R8::E, 0b0000_1010); // Valeur initiale : bit 3 est à 1
-        match_instruction_block_prefix(&mut cpu, 0x9B); // RES 3, E
+        execute_instruction_block_prefix(&mut cpu, 0x9B); // RES 3, E
 
         assert_eq!(cpu.get_r8_value(R8::E), 0b0000_0010); // Bit 3 doit être réinitialisé à 0
     }
@@ -257,7 +270,7 @@ mod tests {
     fn test_res_b3_r8_6_c() {
         let mut cpu = Cpu::default();
         cpu.set_r8_value(R8::C, 0b0100_0000); // Valeur initiale : bit 6 est à 1
-        match_instruction_block_prefix(&mut cpu, 0xB1); // RES 6, C
+        execute_instruction_block_prefix(&mut cpu, 0xB1); // RES 6, C
 
         assert_eq!(cpu.get_r8_value(R8::C), 0b0000_0000); // Bit 6 doit être réinitialisé à 0
     }
@@ -266,7 +279,7 @@ mod tests {
     fn test_set_b3_r8() {
         let mut cpu = Cpu::default();
         cpu.set_r8_value(R8::H, 0b0000_0000);
-        match_instruction_block_prefix(&mut cpu, 0xDC); // SET 3, H
+        execute_instruction_block_prefix(&mut cpu, 0xDC); // SET 3, H
 
         assert_eq!(cpu.get_r8_value(R8::H), 0b0000_1000);
     }
@@ -275,7 +288,7 @@ mod tests {
     fn test_set_b3_r8_7_d() {
         let mut cpu = Cpu::default();
         cpu.set_r8_value(R8::H, 0b0000_0000);
-        match_instruction_block_prefix(&mut cpu, 0xDC); // SET 3, H
+        execute_instruction_block_prefix(&mut cpu, 0xDC); // SET 3, H
 
         assert_eq!(cpu.get_r8_value(R8::H), 0b0000_1000);
     }
