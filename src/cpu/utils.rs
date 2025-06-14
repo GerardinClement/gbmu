@@ -41,10 +41,10 @@ pub fn convert_index_to_cond(instruction: u8) -> Cond {
 
 pub fn modify_hl(cpu: &mut Cpu, r16_mem: R16Mem) {
     let value = cpu.registers.get_r16_value(R16::HL);
-    
+
     if r16_mem == R16Mem::HLincrement {
         cpu.registers.set_r16_value(R16::HL, value.wrapping_add(1));
-    } 
+    }
     if r16_mem == R16Mem::HLdecrement {
         cpu.registers.set_r16_value(R16::HL, value.wrapping_sub(1));
     }

@@ -36,7 +36,6 @@ impl From<R16Mem> for R16 {
     }
 }
 
-
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq)]
 pub enum R16Mem {
@@ -55,7 +54,7 @@ impl From<u8> for R16Mem {
             3 => R16Mem::HLdecrement,
             _ => panic!("Invalid value for R16Mem: {}", value),
         }
-    }   
+    }
 }
 
 #[repr(u8)]
@@ -120,22 +119,22 @@ impl Registers {
     }
 
     pub fn add_to_r8(&mut self, target: R8, value: u8, with_carry: bool) {
-        let original_r8_value = self.r8[target as usize];
-        let (mut new_value, did_overflow) = original_r8_value.overflowing_add(value);
-        let mut did_overflow_carry: bool = false;
+        let target_value = self.r8[target as usize];
+        let carry_in = if with_carry && self.get_carry_flag() {
+            1
+        } else {
+            0
+        };
 
-        if with_carry {
-            let carry_value = if self.get_carry_flag() { 1 } else { 0 };
-            (new_value, did_overflow_carry) = new_value.overflowing_add(carry_value);
-        }
-        self.r8[target as usize] = new_value;
+        let (intermediate, carry1) = target_value.overflowing_add(value);
+        let (result, carry2) = intermediate.overflowing_add(carry_in);
 
-        let zero = new_value == 0;
-        let subtract = false;
-        let half_carry = (original_r8_value & 0x0F) + (value & 0x0F) > 0x0F;
-        let carry = did_overflow | did_overflow_carry;
+        self.r8[target as usize] = result;
 
-        self.f.set_all(zero, subtract, half_carry, carry);
+        let half_carry = ((target_value & 0x0F) + (value & 0x0F) + carry_in) > 0x0F;
+        let carry = carry1 || carry2;
+
+        self.f.set_all(result == 0, false, half_carry, carry);
     }
 
     pub fn sub_to_r8(&mut self, target: R8, value: u8, with_carry: bool) {
@@ -200,7 +199,7 @@ impl Registers {
         let (new_value, did_overflow) = r16_value.overflowing_add(value);
 
         self.set_r16_value(target, new_value);
-        let zero = value == 0;
+        let zero = self.get_zero_flag();
         let subtract = false;
         let half_carry = (r16_value & 0xFFF) + (value & 0xFFF) > 0xFFF;
         let carry = did_overflow;
@@ -228,27 +227,25 @@ impl Registers {
         self.set_half_carry_flag(false);
     }
 
-    pub fn rotate_right(&mut self, target: R8, carry: bool) {
+    pub fn rotate_right(&mut self, target: R8, circular: bool) {
         let r8 = self.get_r8_value(target);
-        let outgoing_bit = r8 & 0b00000001;
+        let old_carry = self.f.get_carry();
+        let outgoing_bit = r8 & 0b00000001 != 0;
 
-        let bit: u8 = if carry {
-            r8 & 0b00000001
-        } else if self.f.get_carry() {
-            0b10000000
+        let result = if circular {
+            r8.rotate_right(1) // RRC
         } else {
-            0
+            (r8 >> 1) | if old_carry { 0x80 } else { 0x00 } // RR
         };
 
-        let result = if carry {
-            r8.rotate_right(1)
+        let zero = if result == 0 && target != R8::A {
+            true
         } else {
-            r8.rotate_right(1) | bit
+            false
         };
-
         self.set_r8_value(target, result);
-        self.set_carry_flag(outgoing_bit == 1);
-        self.set_zero_flag(false);
+        self.set_carry_flag(outgoing_bit);
+        self.set_zero_flag(zero);
         self.set_subtract_flag(false);
         self.set_half_carry_flag(false);
     }

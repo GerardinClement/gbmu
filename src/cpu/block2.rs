@@ -40,7 +40,7 @@ fn get_instruction_block2(instruction: u8) -> u8 {
     }
 }
 
-pub fn match_instruction_block2(cpu: &mut Cpu, instruction: u8) {
+pub fn execute_instruction_block2(cpu: &mut Cpu, instruction: u8) {
     let opcode = get_instruction_block2(instruction);
 
     match opcode {
@@ -151,7 +151,7 @@ mod tests {
         let mut cpu = Cpu::default();
         cpu.set_r8_value(R8::A, 0x10);
         cpu.set_r8_value(R8::B, 0x20);
-        match_instruction_block2(&mut cpu, 0x80); // ADD A, B
+        execute_instruction_block2(&mut cpu, 0x80); // ADD A, B
 
         assert_eq!(cpu.get_r8_value(R8::A), 0x30);
         assert_eq!(cpu.pc, 0x0100 + 1);
@@ -163,7 +163,7 @@ mod tests {
         cpu.set_r8_value(R8::A, 0x10);
         cpu.set_r8_value(R8::C, 0x20);
         cpu.registers.set_carry_flag(true);
-        match_instruction_block2(&mut cpu, 0x49); // ADC A, C
+        execute_instruction_block2(&mut cpu, 0x49); // ADC A, C
 
         assert_eq!(cpu.get_r8_value(R8::A), 0x31);
         assert_eq!(cpu.pc, 0x0100 + 1);
@@ -174,7 +174,7 @@ mod tests {
         let mut cpu = Cpu::default();
         cpu.set_r8_value(R8::A, 0x30);
         cpu.set_r8_value(R8::C, 0x10);
-        match_instruction_block2(&mut cpu, 0x91); // SUB A, C
+        execute_instruction_block2(&mut cpu, 0x91); // SUB A, C
 
         assert_eq!(cpu.get_r8_value(R8::A), 0x20);
         assert_eq!(cpu.pc, 0x0100 + 1);
@@ -186,7 +186,7 @@ mod tests {
         cpu.set_r8_value(R8::A, 0x30);
         cpu.set_r8_value(R8::E, 0x10);
         cpu.registers.set_carry_flag(true);
-        match_instruction_block2(&mut cpu, 0x9B); // SBC A, E
+        execute_instruction_block2(&mut cpu, 0x9B); // SBC A, E
 
         assert_eq!(cpu.get_r8_value(R8::A), 0x1F);
         assert_eq!(cpu.pc, 0x0100 + 1);
@@ -197,7 +197,7 @@ mod tests {
         let mut cpu = Cpu::default();
         cpu.set_r8_value(R8::A, 0b1100);
         cpu.set_r8_value(R8::D, 0b1010);
-        match_instruction_block2(&mut cpu, 0xA2); // AND A, D
+        execute_instruction_block2(&mut cpu, 0xA2); // AND A, D
 
         assert_eq!(cpu.get_r8_value(R8::A), 0b1000);
         assert_eq!(cpu.pc, 0x0100 + 1);
@@ -208,7 +208,7 @@ mod tests {
         let mut cpu = Cpu::default();
         cpu.set_r8_value(R8::A, 0b1100);
         cpu.set_r8_value(R8::E, 0b1010);
-        match_instruction_block2(&mut cpu, 0xAB); // XOR A, E
+        execute_instruction_block2(&mut cpu, 0xAB); // XOR A, E
 
         assert_eq!(cpu.get_r8_value(R8::A), 0b0110);
         assert_eq!(cpu.pc, 0x0100 + 1);
@@ -219,7 +219,7 @@ mod tests {
         let mut cpu = Cpu::default();
         cpu.set_r8_value(R8::A, 0b1100);
         cpu.set_r8_value(R8::H, 0b1010);
-        match_instruction_block2(&mut cpu, 0xB4); // OR A, H
+        execute_instruction_block2(&mut cpu, 0xB4); // OR A, H
 
         assert_eq!(cpu.get_r8_value(R8::A), 0b1110);
         assert_eq!(cpu.pc, 0x0100 + 1);
@@ -230,7 +230,7 @@ mod tests {
         let mut cpu = Cpu::default();
         cpu.set_r8_value(R8::A, 0x20);
         cpu.set_r8_value(R8::L, 0x20);
-        match_instruction_block2(&mut cpu, 0xBD); // CP A, L
+        execute_instruction_block2(&mut cpu, 0xBD); // CP A, L
 
         assert!(cpu.registers.get_zero_flag());
         assert_eq!(cpu.pc, 0x0100 + 1);

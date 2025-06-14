@@ -23,8 +23,8 @@ fn get_instruction_block1(instruction: u8) -> u8 {
     }
 }
 
-pub fn match_instruction_block1(cpu: &mut Cpu, instruction: u8) {
-    let opcode = get_instruction_block1(instruction);
+pub fn execute_instruction_block1(cpu: &mut Cpu, instruction: u8) {
+    let opcode: u8 = get_instruction_block1(instruction);
 
     match opcode {
         0b01000000 => load_r8_r8(cpu, instruction),
@@ -52,7 +52,7 @@ mod tests {
     fn test_load_r8_r8() {
         let mut cpu = Cpu::default();
         cpu.set_r8_value(R8::B, 0x42);
-        match_instruction_block1(&mut cpu, 0x40); // LD B, B
+        execute_instruction_block1(&mut cpu, 0x40); // LD B, B
 
         assert_eq!(cpu.get_r8_value(R8::B), 0x42);
         assert_eq!(cpu.pc, 0x0100 + 1);
@@ -61,7 +61,7 @@ mod tests {
     #[test]
     fn test_halt() {
         let mut cpu = Cpu::default();
-        match_instruction_block1(&mut cpu, 0x76); // HALT
+        execute_instruction_block1(&mut cpu, 0x76); // HALT
 
         // Assuming HALT sets a specific state or flag, you can check it here.
         // For now, we just check the PC increment.
@@ -72,7 +72,7 @@ mod tests {
     fn test_load_r8_r8_different_registers() {
         let mut cpu = Cpu::default();
         cpu.set_r8_value(R8::C, 0x55);
-        match_instruction_block1(&mut cpu, 0x41); // LD B, C
+        execute_instruction_block1(&mut cpu, 0x41); // LD B, C
 
         assert_eq!(cpu.get_r8_value(R8::B), 0x55);
         assert_eq!(cpu.pc, 0x0100 + 1);

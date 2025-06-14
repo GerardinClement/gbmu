@@ -34,10 +34,10 @@ impl Cpu {
         let block_mask = 0b11000000;
         let block = (instruction & block_mask) >> 6;
         match block {
-            0b00 => block0::match_instruction_block0(self, instruction),
-            0b01 => block1::match_instruction_block1(self, instruction),
-            0b10 => block2::match_instruction_block2(self, instruction),
-            0b11 => block3::match_instruction_block3(self, instruction),
+            0b00 => block0::execute_instruction_block0(self, instruction),
+            0b01 => block1::execute_instruction_block1(self, instruction),
+            0b10 => block2::execute_instruction_block2(self, instruction),
+            0b11 => block3::execute_instruction_block3(self, instruction),
             _ => {
                 println!("Unknown instruction block: {}", block);
                 self.pc = self.pc.wrapping_add(1);

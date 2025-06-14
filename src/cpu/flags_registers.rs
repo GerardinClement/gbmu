@@ -12,7 +12,6 @@ pub struct FlagsRegister {
     subtract: bool,
     half_carry: bool,
     carry: bool,
-    
 }
 
 impl std::convert::From<FlagsRegister> for u8 {
