@@ -93,7 +93,7 @@ pub fn match_instruction_block0(cpu: &mut Cpu, instruction: u8) {
         0b00011000 => jr(cpu, instruction, false),
         0b00100000 => jr(cpu, instruction, true),
         //implement STOP
-        _ => panic!("Unknown opcode: {:#04x}", opcode),
+        _ => { cpu.pc = cpu.pc.wrapping_add(1)},
     }
 }
 
