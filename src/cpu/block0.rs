@@ -3,10 +3,9 @@
 
 use crate::cpu::Cpu;
 use crate::cpu::conditions::Cond;
-use crate::cpu::registers::{R8, R16};
+use crate::cpu::registers::{R8, R16, R16Mem};
+use crate::cpu::utils;
 
-const R16_MASK: u8 = 0b00110000;
-const R8_MASK: u8 = 0b00111000;
 const COND_MASK: u8 = 0b00011000;
 
 const INSTRUCTIONS_BLOCK0: [u8; 22] = [
@@ -50,9 +49,18 @@ fn get_instruction_block0(instruction: u8) -> u8 {
         .filter(|&opcode| (instruction & mask3) == (opcode & mask3))
         .collect();
 
+    if match_opcode.len() == 1 {
+        return match_opcode[0];
+    }
+
+    let mut match_opcode_cpy = match_opcode.clone();
+
     match_opcode.retain(|&opcode| (instruction & mask4) == (opcode & mask4));
     if match_opcode.len() > 1 {
-        match_opcode.retain(|&opcode| (instruction & mask_start_3) == (opcode & mask_start_3));
+        match_opcode_cpy.retain(|&opcode| (instruction & mask_start_3) == (opcode & mask_start_3));
+        if match_opcode_cpy.len() == 1 {
+            return match_opcode_cpy[0];
+        }
     }
 
     if match_opcode.len() == 1 {
@@ -65,7 +73,7 @@ fn get_instruction_block0(instruction: u8) -> u8 {
     }
 }
 
-pub fn match_instruction_block0(cpu: &mut Cpu, instruction: u8) {
+pub fn execute_instruction_block0(cpu: &mut Cpu, instruction: u8) {
     let opcode = get_instruction_block0(instruction);
 
     match opcode {
@@ -93,18 +101,8 @@ pub fn match_instruction_block0(cpu: &mut Cpu, instruction: u8) {
         0b00011000 => jr(cpu, instruction, false),
         0b00100000 => jr(cpu, instruction, true),
         //implement STOP
-        _ => { cpu.pc = cpu.pc.wrapping_add(1)},
+        _ => cpu.pc = cpu.pc.wrapping_add(1),
     }
-}
-
-fn convert_index_to_r16(instruction: u8) -> R16 {
-    let r16_index = (instruction & R16_MASK) >> 4;
-    R16::from(r16_index)
-}
-
-fn convert_index_to_r8(instruction: u8) -> R8 {
-    let r8_index: u8 = (instruction & R8_MASK) >> 3;
-    R8::from(r8_index)
 }
 
 fn convert_index_to_cond(instruction: u8) -> Cond {
@@ -113,38 +111,44 @@ fn convert_index_to_cond(instruction: u8) -> Cond {
 }
 
 fn load_r16_imm16(cpu: &mut Cpu, instruction: u8) {
-    let lsb = cpu.bus.read_byte(cpu.pc + 1) as u16;
-    let msb = cpu.bus.read_byte(cpu.pc + 2) as u16;
-    let imm16 = (msb << 8) | lsb;
-    let r16 = R16::from((instruction & R16_MASK) >> 4);
+    let imm16 = utils::get_imm16(cpu);
+    let r16 = R16::from((instruction & utils::R16_MASK) >> 4);
 
     cpu.registers.set_r16_value(r16, imm16);
     cpu.pc += 3;
 }
 
 fn load_r16mem_a(cpu: &mut Cpu, instruction: u8) {
-    let r16 = convert_index_to_r16(instruction);
+    let r16_mem = utils::convert_index_to_r16_mem(instruction);
     let a_value = cpu.registers.get_a();
 
-    cpu.registers.set_r16_mem_value(&mut cpu.bus, r16, a_value);
+    cpu.registers
+        .set_r16_mem_value(&mut cpu.bus, R16::from(r16_mem), a_value);
+    if r16_mem == R16Mem::HLincrement || r16_mem == R16Mem::HLdecrement {
+        utils::modify_hl(cpu, r16_mem);
+    }
     cpu.pc += 1;
 }
 
 fn load_a_r16mem(cpu: &mut Cpu, instruction: u8) {
-    let r16 = convert_index_to_r16(instruction);
-    let value = cpu.registers.get_r16_mem_value(&cpu.bus, r16);
+    let r16_mem = utils::convert_index_to_r16_mem(instruction);
+    let value = cpu
+        .registers
+        .get_r16_mem_value(&cpu.bus, R16::from(r16_mem));
 
     cpu.set_r8_value(R8::A, value);
+    if r16_mem == R16Mem::HLincrement || r16_mem == R16Mem::HLdecrement {
+        utils::modify_hl(cpu, r16_mem);
+    }
+
     cpu.pc += 1;
 }
 
 fn load_mem_imm16_sp(cpu: &mut Cpu) {
-    let sp_msb = (cpu.sp >> 8) as u8;
-    let sp_lsb = (cpu.sp & 0xFF) as u8;
+    let sp_msb = (cpu.registers.get_sp() >> 8) as u8;
+    let sp_lsb = (cpu.registers.get_sp() & 0xFF) as u8;
 
-    let imm16_lsb = cpu.bus.read_byte(cpu.pc + 1) as u16;
-    let imm16_msb = cpu.bus.read_byte(cpu.pc + 2) as u16;
-    let imm16 = (imm16_msb << 8) | imm16_lsb;
+    let imm16 = utils::get_imm16(cpu);
 
     cpu.bus.write_byte(imm16, sp_lsb);
     cpu.bus.write_byte(imm16 + 1, sp_msb);
@@ -153,7 +157,7 @@ fn load_mem_imm16_sp(cpu: &mut Cpu) {
 }
 
 fn inc_r16(cpu: &mut Cpu, instruction: u8) {
-    let r16 = convert_index_to_r16(instruction);
+    let r16 = utils::convert_index_to_r16(instruction);
     let value = cpu.registers.get_r16_value(r16);
 
     cpu.registers.set_r16_value(r16, value.wrapping_add(1));
@@ -161,7 +165,7 @@ fn inc_r16(cpu: &mut Cpu, instruction: u8) {
 }
 
 fn dec_r16(cpu: &mut Cpu, instruction: u8) {
-    let r16 = convert_index_to_r16(instruction);
+    let r16 = utils::convert_index_to_r16(instruction);
     let value = cpu.registers.get_r16_value(r16);
 
     cpu.registers.set_r16_value(r16, value.wrapping_sub(1));
@@ -169,13 +173,15 @@ fn dec_r16(cpu: &mut Cpu, instruction: u8) {
 }
 
 fn add_hl_r16(cpu: &mut Cpu, instruction: u8) {
-    let r16 = convert_index_to_r16(instruction);
+    let r16 = utils::convert_index_to_r16(instruction);
     let value = cpu.registers.get_r16_value(r16);
     cpu.registers.add_to_r16(R16::HL, value);
+
+    cpu.pc = cpu.pc.wrapping_add(1);
 }
 
 fn inc_r8(cpu: &mut Cpu, instruction: u8) {
-    let r8 = convert_index_to_r8(instruction);
+    let r8 = utils::convert_dest_index_to_r8(instruction);
     let value = cpu.get_r8_value(r8);
     let new_value = value.wrapping_add(1);
 
@@ -188,33 +194,33 @@ fn inc_r8(cpu: &mut Cpu, instruction: u8) {
 }
 
 fn dec_r8(cpu: &mut Cpu, instruction: u8) {
-    let r8 = convert_index_to_r8(instruction);
+    let r8 = utils::convert_dest_index_to_r8(instruction);
     let value = cpu.get_r8_value(r8);
     let new_value = value.wrapping_sub(1);
 
     cpu.registers.set_zero_flag(new_value == 0);
     cpu.registers.set_subtract_flag(true);
-    cpu.registers.set_half_carry_flag((value & 0x0F) + 1 > 0x0F);
+    cpu.registers.set_half_carry_flag((value & 0x0F) == 0x00);
     cpu.set_r8_value(r8, new_value);
-    cpu.pc += 1;
+    cpu.pc = cpu.pc.wrapping_add(1);
 }
 
 fn ld_r8_imm8(cpu: &mut Cpu, instruction: u8) {
     let imm8 = cpu.bus.read_byte(cpu.pc + 1);
-    let r8 = convert_index_to_r8(instruction);
+    let r8 = utils::convert_dest_index_to_r8(instruction);
 
     cpu.set_r8_value(r8, imm8);
-    cpu.pc += 2;
+    cpu.pc = cpu.pc.wrapping_add(2);
 }
 
 fn rotate_left(cpu: &mut Cpu, carry: bool) {
     cpu.registers.rotate_left(R8::A, carry);
-    cpu.pc += 1;
+    cpu.pc = cpu.pc.wrapping_add(1);
 }
 
 fn rotate_right(cpu: &mut Cpu, carry: bool) {
     cpu.registers.rotate_right(R8::A, carry);
-    cpu.pc += 1;
+    cpu.pc = cpu.pc.wrapping_add(1);
 }
 
 fn daa(cpu: &mut Cpu) {
@@ -225,26 +231,24 @@ fn daa(cpu: &mut Cpu) {
             adjust += 0x6;
         }
         if cpu.registers.get_carry_flag() {
-            adjust += 0x3C;
+            adjust += 0x60;
         }
-        a -= adjust;
+        a = a.wrapping_sub(adjust);
         cpu.set_r8_value(R8::A, a);
     } else {
-        if cpu.registers.get_half_carry_flag() || (a & 0b00001111) > 0b00001001 {
+        if cpu.registers.get_half_carry_flag() || (a & 0xF) > 0x9 {
             adjust += 0x6;
         }
         if cpu.registers.get_carry_flag() || a > 0x99 {
-            adjust += 0x3C;
+            adjust += 0x60;
             cpu.registers.set_carry_flag(true);
         }
-        a += adjust;
+        a = a.wrapping_add(adjust);
         cpu.set_r8_value(R8::A, a);
     }
-    if a == 0 {
-        cpu.registers.set_zero_flag(true);
-    };
+    cpu.registers.set_zero_flag(a == 0);
     cpu.registers.set_half_carry_flag(false);
-    cpu.pc += 1;
+    cpu.pc = cpu.pc.wrapping_add(1);
 }
 
 fn cpl(cpu: &mut Cpu) {
@@ -253,14 +257,14 @@ fn cpl(cpu: &mut Cpu) {
     cpu.set_r8_value(R8::A, new_value);
     cpu.registers.set_subtract_flag(true);
     cpu.registers.set_half_carry_flag(true);
-    cpu.pc += 1;
+    cpu.pc = cpu.pc.wrapping_add(1);
 }
 
 fn scf(cpu: &mut Cpu) {
     cpu.registers.set_subtract_flag(false);
     cpu.registers.set_half_carry_flag(false);
     cpu.registers.set_carry_flag(true);
-    cpu.pc += 1;
+    cpu.pc = cpu.pc.wrapping_add(1);
 }
 
 fn ccf(cpu: &mut Cpu) {
@@ -268,20 +272,19 @@ fn ccf(cpu: &mut Cpu) {
     cpu.registers.set_subtract_flag(false);
     cpu.registers.set_half_carry_flag(false);
     cpu.registers.set_carry_flag(!carry_value);
-    cpu.pc += 1;
+    cpu.pc = cpu.pc.wrapping_add(1);
 }
 
 fn jr(cpu: &mut Cpu, instruction: u8, has_cond: bool) {
     if has_cond {
         let cond = convert_index_to_cond(instruction);
-        let carry = cpu.registers.get_carry_flag();
-        let zero = cpu.registers.get_zero_flag();
-        if !cond.test(zero, carry) {
+        if !cond.test(&mut cpu.registers) {
+            cpu.pc = cpu.pc.wrapping_add(2);
             return;
         }
     }
     let offset = cpu.bus.read_byte(cpu.pc + 1) as i8;
-    cpu.pc = ((cpu.pc as i16) + 2 + (offset as i16)) as u16;
+    cpu.pc = cpu.pc.wrapping_add(2).wrapping_add(offset as u16);
 }
 
 #[cfg(test)]
@@ -292,7 +295,7 @@ mod tests {
     #[test]
     fn test_nop() {
         let mut cpu = Cpu::default();
-        match_instruction_block0(&mut cpu, 0x00); // NOP
+        execute_instruction_block0(&mut cpu, 0x00); // NOP
         assert_eq!(cpu.pc, 0x0100 + 1);
     }
 
@@ -301,7 +304,7 @@ mod tests {
         let mut cpu = Cpu::default();
         cpu.bus.write_byte(cpu.pc + 1, 0x34); // LSB
         cpu.bus.write_byte(cpu.pc + 2, 0x12); // MSB
-        match_instruction_block0(&mut cpu, 0x01); // LD BC, 0x1234
+        execute_instruction_block0(&mut cpu, 0x01); // LD BC, 0x1234
 
         assert_eq!(cpu.registers.get_r16_value(R16::BC), 0x1234);
         assert_eq!(cpu.pc, 0x0100 + 3);
@@ -312,7 +315,7 @@ mod tests {
         let mut cpu = Cpu::default();
         cpu.registers.set_r16_value(R16::DE, 0xC000);
         cpu.set_r8_value(R8::A, 0x42);
-        match_instruction_block0(&mut cpu, 0x12); // LD [DE], A
+        execute_instruction_block0(&mut cpu, 0x12); // LD [DE], A
 
         assert_eq!(cpu.bus.read_byte(0xC000), 0x42);
     }
@@ -322,7 +325,7 @@ mod tests {
         let mut cpu = Cpu::default();
         cpu.registers.set_r16_value(R16::DE, 0xC000);
         cpu.bus.write_byte(0xC000, 0xAB);
-        match_instruction_block0(&mut cpu, 0x1A); // LD A, [DE]
+        execute_instruction_block0(&mut cpu, 0x1A); // LD A, [DE]
 
         assert_eq!(cpu.registers.get_a(), 0xAB);
     }
@@ -336,10 +339,10 @@ mod tests {
         cpu.bus.write_byte(cpu.pc + 1, 0x34); // low byte de l’adresse
         cpu.bus.write_byte(cpu.pc + 2, 0x12); // high byte de l’adresse
 
-        cpu.sp = 0xC123;
+        cpu.registers.set_sp(0xC123);
 
         // Exécuter l'instruction
-        match_instruction_block0(&mut cpu, 0x08);
+        execute_instruction_block0(&mut cpu, 0x08);
 
         // Vérifier que SP a bien été écrit à l'adresse 0x1234
         assert_eq!(cpu.bus.read_byte(0x1234), 0x23); // low byte
@@ -352,7 +355,7 @@ mod tests {
         cpu.registers.set_r16_value(R16::HL, 0xC000);
         cpu.bus.write_byte(0xC000, 0x3F);
 
-        match_instruction_block0(&mut cpu, 0x34); // INC [HL]
+        execute_instruction_block0(&mut cpu, 0x34); // INC [HL]
 
         let result = cpu.bus.read_byte(0xC000);
         assert_eq!(result, 0x40);
@@ -365,7 +368,7 @@ mod tests {
     fn test_inc_r16() {
         let mut cpu = Cpu::default();
         cpu.registers.set_r16_value(R16::BC, 0x1234);
-        match_instruction_block0(&mut cpu, 0x03); // INC BC
+        execute_instruction_block0(&mut cpu, 0x03); // INC BC
 
         assert_eq!(cpu.registers.get_r16_value(R16::BC), 0x1235);
     }
@@ -374,7 +377,7 @@ mod tests {
     fn test_dec_r16() {
         let mut cpu = Cpu::default();
         cpu.registers.set_r16_value(R16::BC, 0x1234);
-        match_instruction_block0(&mut cpu, 0x0B); // DEC BC
+        execute_instruction_block0(&mut cpu, 0x0B); // DEC BC
 
         assert_eq!(cpu.registers.get_r16_value(R16::BC), 0x1233);
     }
@@ -383,7 +386,7 @@ mod tests {
     #[should_panic]
     fn test_invalid_instruction_panics() {
         let mut cpu = Cpu::default();
-        match_instruction_block0(&mut cpu, 0xFF);
+        execute_instruction_block0(&mut cpu, 0xFF);
     }
 
     #[test]
@@ -392,7 +395,7 @@ mod tests {
         cpu.set_r8_value(R8::A, 0b1001_0001); // A = 0x91
         cpu.registers.set_carry_flag(false);
 
-        match_instruction_block0(&mut cpu, 0x07); // RLCA
+        execute_instruction_block0(&mut cpu, 0x07); // RLCA
 
         assert_eq!(cpu.registers.get_a(), 0b0010_0011); // rotation gauche
         assert!(cpu.registers.get_carry_flag()); // bit 7 = 1
@@ -406,7 +409,7 @@ mod tests {
         cpu.set_r8_value(R8::A, 0b0000_0001); // A = 0x01
         cpu.registers.set_carry_flag(false);
 
-        match_instruction_block0(&mut cpu, 0x0F); // RRCA
+        execute_instruction_block0(&mut cpu, 0x0F); // RRCA
 
         assert_eq!(cpu.registers.get_a(), 0b1000_0000); // rotation droite
         assert!(cpu.registers.get_carry_flag()); // bit 7 = 1
@@ -420,7 +423,7 @@ mod tests {
         cpu.set_r8_value(R8::A, 0b0101_0101); // A = 0x55
         cpu.registers.set_carry_flag(true); // carry = 1
 
-        match_instruction_block0(&mut cpu, 0x17); // RLA
+        execute_instruction_block0(&mut cpu, 0x17); // RLA
 
         assert_eq!(cpu.registers.get_a(), 0b1010_1011);
         assert!(!cpu.registers.get_carry_flag()); // bit 7 = 0
@@ -434,7 +437,7 @@ mod tests {
         cpu.set_r8_value(R8::A, 0b0000_0000); // A = 0x00
         cpu.registers.set_carry_flag(true); // carry = 1
 
-        match_instruction_block0(&mut cpu, 0x1F); // RRA
+        execute_instruction_block0(&mut cpu, 0x1F); // RRA
 
         assert_eq!(cpu.registers.get_a(), 0b1000_0000); // carry passé en bit 7
         assert!(!cpu.registers.get_carry_flag()); // bit 0 = 0
@@ -450,7 +453,7 @@ mod tests {
         cpu.registers.set_half_carry_flag(true); // A & 0xF > 9 → BCD adjust
         cpu.registers.set_carry_flag(false);
 
-        match_instruction_block0(&mut cpu, 0x27); // DAA
+        execute_instruction_block0(&mut cpu, 0x27); // DAA
 
         assert_eq!(cpu.get_r8_value(R8::A), 0xF); // 0x09 + 0x06
         assert!(!cpu.registers.get_zero_flag());
@@ -467,7 +470,7 @@ mod tests {
         cpu.registers.set_half_carry_flag(false);
         cpu.registers.set_carry_flag(false);
 
-        match_instruction_block0(&mut cpu, 0x27); // DAA
+        execute_instruction_block0(&mut cpu, 0x27); // DAA
 
         assert_eq!(cpu.get_r8_value(R8::A), 0xDC); // 0x9A + 0x66 = 0x100 → overflow
         assert!(!cpu.registers.get_zero_flag());
@@ -537,6 +540,89 @@ mod tests {
 
         jr(&mut cpu, 0x38, true); // JR C, +3 → condition fausse
 
-        assert_eq!(cpu.pc, 0x0100);
+        assert_eq!(cpu.pc, 0x0100 + 2);
     }
+
+    #[test]
+    fn test_load_a_r16mem_hl_increment() {
+        let mut cpu = Cpu::default();
+        cpu.registers.set_r16_value(R16::HL, 0xC000);
+        cpu.bus.write_byte(0xC000, 0x42);
+        execute_instruction_block0(&mut cpu, 0x2A); // LD A, [HL+]
+
+        assert_eq!(cpu.registers.get_a(), 0x42);
+        assert_eq!(cpu.registers.get_r16_value(R16::HL), 0xC001); // HL incremented
+    }
+
+    #[test]
+    fn test_load_a_r16mem_hl_decrement() {
+        let mut cpu = Cpu::default();
+        cpu.registers.set_r16_value(R16::HL, 0xC001);
+        cpu.bus.write_byte(0xC001, 0x42);
+        execute_instruction_block0(&mut cpu, 0x3A); // LD A, [HL-]
+
+        assert_eq!(cpu.registers.get_a(), 0x42);
+        assert_eq!(cpu.registers.get_r16_value(R16::HL), 0xC000); // HL decremented
+    }
+
+    #[test]
+    fn test_load_a_r16mem_standard() {
+        let mut cpu = Cpu::default();
+        cpu.registers.set_r16_value(R16::DE, 0xC000);
+        cpu.bus.write_byte(0xC000, 0x42);
+        execute_instruction_block0(&mut cpu, 0x1A); // LD A, [DE]
+
+        assert_eq!(cpu.registers.get_a(), 0x42);
+        assert_eq!(cpu.registers.get_r16_value(R16::DE), 0xC000); // DE unchanged
+    }
+
+    #[test]
+    fn test_load_a_r16mem_hl_boundary_increment() {
+        let mut cpu = Cpu::default();
+        cpu.registers.set_r16_value(R16::HL, 0xFFFF);
+        cpu.bus.write_byte(0xFFFF, 0x42);
+        execute_instruction_block0(&mut cpu, 0x2A); // LD A, [HL+]
+
+        assert_eq!(cpu.registers.get_a(), 0x42);
+        assert_eq!(cpu.registers.get_r16_value(R16::HL), 0x0000); // HL wraps around
+    }
+
+    #[test]
+    fn test_load_a_r16mem_hl_boundary_decrement() {
+        let mut cpu = Cpu::default();
+        cpu.registers.set_r16_value(R16::HL, 0x0000);
+        cpu.bus.write_byte(0x0000, 0x42);
+        execute_instruction_block0(&mut cpu, 0x3A); // LD A, [HL-]
+
+        assert_eq!(cpu.registers.get_a(), 0x42);
+        assert_eq!(cpu.registers.get_r16_value(R16::HL), 0xFFFF); // HL wraps around
+    }
+
+    // #[test]
+    // fn test_jr_nz_condition_true() {
+    //     let mut cpu = Cpu::default();
+
+    //     // Simuler l'instruction en mémoire : opcode = 0x28, suivi de l'offset imm8
+    //     cpu.bus.write_byte(cpu.pc + 1, 0x05); // offset = +5
+    //     cpu.registers.set_zero_flag(false); // NZ (Not Zero) condition est vraie
+
+    //     execute_instruction_block0(&mut cpu, 0x28); // JR NZ, +5
+
+    //     // Vérifier que le saut a été effectué
+    //     assert_eq!(cpu.pc, 0x0100 + 2 + 5);
+    // }
+
+    // #[test]
+    // fn test_jr_nz_condition_false() {
+    //     let mut cpu = Cpu::default();
+
+    //     // Simuler l'instruction en mémoire : opcode = 0x28, suivi de l'offset imm8
+    //     cpu.bus.write_byte(cpu.pc + 1, 0x05); // offset = +5
+    //     cpu.registers.set_zero_flag(true); // NZ (Not Zero) condition est fausse
+
+    //     execute_instruction_block0(&mut cpu, 0x28); // JR NZ, +5
+
+    //     // Vérifier que le saut n'a pas été effectué
+    //     assert_eq!(cpu.pc, 0x0100 + 2); // Pas de saut, seulement l'instruction consommée
+    // }
 }

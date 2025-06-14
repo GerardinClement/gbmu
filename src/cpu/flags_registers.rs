@@ -6,7 +6,7 @@ const SUBTRACT_FLAG_BYTE_POSITION: u8 = 6;
 const HALF_CARRY_FLAG_BYTE_POSITION: u8 = 5;
 const CARRY_FLAG_BYTE_POSITION: u8 = 4;
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct FlagsRegister {
     zero: bool,
     subtract: bool,
@@ -77,5 +77,16 @@ impl FlagsRegister {
         self.subtract = subtract;
         self.half_carry = half_carry;
         self.carry = carry;
+    }
+}
+
+impl Default for FlagsRegister {
+    fn default() -> Self {
+        FlagsRegister {
+            zero: true,
+            subtract: false,
+            half_carry: true,
+            carry: true,
+        }
     }
 }
