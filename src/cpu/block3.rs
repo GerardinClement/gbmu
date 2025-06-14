@@ -369,21 +369,31 @@ fn ld_a_imm16(cpu: &mut Cpu) {
 }
 
 fn add_sp_imm8(cpu: &mut Cpu) {
-    let imm8 = cpu.bus.read_byte(cpu.pc + 1) as i8;
-    let value = imm8 as u16;
+    let offset = cpu.bus.read_byte(cpu.pc + 1) as i8;
 
-    cpu.registers.add_to_r16(R16::SP, value);
+    cpu.registers.add_sp_i8(offset);
     cpu.pc = cpu.pc.wrapping_add(2);
 }
 
 fn ld_hl_sp_add_imm8(cpu: &mut Cpu) {
     let imm8 = cpu.bus.read_byte(cpu.pc + 1) as i8;
-    let sp_value = cpu.registers.get_sp() as i16;
-    let new_hl_value = sp_value.wrapping_add(imm8 as i16) as u16;
+    let sp = cpu.registers.get_sp();
 
-    cpu.registers.set_r16_value(R16::HL, new_hl_value);
+    let result = sp.wrapping_add(imm8 as u16);
+    cpu.registers.set_r16_value(R16::HL, result);
+
+    cpu.registers.set_zero_flag(false);
+    cpu.registers.set_subtract_flag(false);
+
+    let sp_lo = sp & 0xFF;
+    let imm_u8 = imm8 as u8;
+
+    cpu.registers.set_half_carry_flag((sp_lo & 0xF) + (imm_u8 as u16 & 0xF) > 0xF);
+    cpu.registers.set_carry_flag(sp_lo + imm_u8 as u16> 0xFF);
+
     cpu.pc = cpu.pc.wrapping_add(2);
 }
+
 
 fn ld_sp_hl(cpu: &mut Cpu) {
     let hl_value = cpu.registers.get_r16_value(R16::HL);
