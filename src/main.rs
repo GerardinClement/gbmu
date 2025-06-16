@@ -2,14 +2,12 @@
 #![allow(dead_code)]
 
 mod cpu;
+mod gameboy;
 mod memory;
 
-use crate::cpu::Cpu;
 use std::env;
 use std::fs;
 use std::process;
-use std::thread::sleep;
-use std::time;
 
 fn read_rom(rom_path: String) -> Vec<u8> {
     let rom_data = if !rom_path.is_empty() {
@@ -38,11 +36,8 @@ fn main() {
 
     let rom_data: Vec<u8> = read_rom(rom_path);
 
-    let mut cpu = Cpu::new(rom_data);
-    println!("{}", cpu);
+    let mut gameboy = gameboy::GameBoy::new(rom_data);
+    println!("{}", gameboy.cpu);
 
-    loop {
-        cpu.step();
-        // sleep(time::Duration::from_secs(1));
-    }
+    gameboy.run();
 }
