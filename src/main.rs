@@ -1,15 +1,19 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
+mod app;
 mod cpu;
+mod ppu;
+mod gameboy;
 mod memory;
 
-use crate::cpu::Cpu;
 use std::env;
 use std::fs;
 use std::process;
-use std::thread::sleep;
-use std::time;
+use winit::event_loop::{EventLoop};
+use winit::window::Window;
+use crate::app::App;
+
 
 fn read_rom(rom_path: String) -> Vec<u8> {
     let rom_data = if !rom_path.is_empty() {
@@ -38,11 +42,9 @@ fn main() {
 
     let rom_data: Vec<u8> = read_rom(rom_path);
 
-    let mut cpu = Cpu::new(rom_data);
-    println!("{}", cpu);
+    let event_loop = EventLoop::new().unwrap();
 
-    loop {
-        cpu.step();
-        // sleep(time::Duration::from_secs(1));
-    }
+    let mut app = App::new(rom_data);
+    event_loop.run_app(&mut app);
+    app.run();
 }

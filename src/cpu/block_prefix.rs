@@ -3,8 +3,7 @@
 
 use crate::cpu::Cpu;
 use crate::cpu::block_prefix;
-use crate::cpu::conditions::Cond;
-use crate::cpu::registers::{R8, R16};
+use crate::cpu::registers::R8;
 use crate::cpu::utils;
 
 const R8_MASK: u8 = 0b00000111;
