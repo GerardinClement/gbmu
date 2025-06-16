@@ -2,6 +2,7 @@
 #![allow(dead_code)]
 
 mod cpu;
+mod ppu;
 mod gameboy;
 mod memory;
 
