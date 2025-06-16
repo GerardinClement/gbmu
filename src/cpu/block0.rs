@@ -90,9 +90,9 @@ pub fn execute_instruction_block0(cpu: &mut Cpu, instruction: u8) {
         0b00000100 => inc_r8(cpu, instruction),
         0b00000101 => dec_r8(cpu, instruction),
         0b00000110 => ld_r8_imm8(cpu, instruction),
-        0b00000111 => rotate_left(cpu, true),
+        0b00000111 => rotate_left(cpu, false),
         0b00001111 => rotate_right(cpu, true),
-        0b00010111 => rotate_left(cpu, false),
+        0b00010111 => rotate_left(cpu, true),
         0b00011111 => rotate_right(cpu, false),
         0b00100111 => daa(cpu),
         0b00101111 => cpl(cpu),
@@ -284,7 +284,7 @@ fn jr(cpu: &mut Cpu, instruction: u8, has_cond: bool) {
         }
     }
     let offset = cpu.bus.borrow().read_byte(cpu.pc + 1) as i8;
-    cpu.pc = cpu.pc.wrapping_add(2).wrapping_add(offset as u16);
+    cpu.pc = ((cpu.pc as i32) + 2 + (offset as i32)) as u16;
 }
 
 #[cfg(test)]

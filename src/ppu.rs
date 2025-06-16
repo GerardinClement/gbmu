@@ -31,51 +31,55 @@ impl Ppu {
         }
     }
 
-	pub fn get_pixel_color(&self, tile_data: [u8; 16], x: usize, y: usize) -> [u8; 3] {
-		let pixel_x = x % 8;
-		let pixel_y = y % 8;
-		let lsb = tile_data[pixel_y * 2];
-		let msb = tile_data[pixel_y * 2 + 1];
-		let color_index = ((msb >> (7 - pixel_x)) & 1) << 1 | ((lsb >> (7 - pixel_x)) & 1);
-		match color_index {
-			0 => [255, 255, 255], // White
-			1 => [192, 192, 192], // Light Gray
-			2 => [96, 96, 96],   // Dark Gray
-			3 => [0, 0, 0],      // Black
-			_ => [0, 0, 0],
-		}
+    pub fn display_vram(&self) {
+        for i in 0..0x2000 {
+            let byte = self.bus.borrow().read_byte(VRAM_START + i as u16);
+            print!("{:02X} ", byte);
+            if (i + 1) % 16 == 0 {
+                println!();
+            }
+        }
+    }
 
-	}
-	
+    pub fn get_pixel_color(&self, tile_data: [u8; 16], x: usize, y: usize) -> [u8; 3] {
+        let pixel_x = x % 8;
+        let pixel_y = y % 8;
+        let lsb = tile_data[pixel_y * 2];
+        let msb = tile_data[pixel_y * 2 + 1];
+        let color_index = ((msb >> (7 - pixel_x)) & 1) << 1 | ((lsb >> (7 - pixel_x)) & 1);
+        match color_index {
+            0 => [255, 255, 255], // White
+            1 => [192, 192, 192], // Light Gray
+            2 => [96, 96, 96],    // Dark Gray
+            3 => [0, 0, 0],       // Black
+            _ => [0, 0, 0],
+        }
+    }
+
     pub fn read_tile_data(&self, tile_index: u8) -> [u8; 16] {
         let mut tile_data = [0; 16];
-        // let base_address = VRAM_START + (tile_index as u16 * 16);
+        let base_address = VRAM_START + (tile_index as u16 * 16);
 
-        // for i in 0..16 {
-        //     tile_data[i] = self.bus.borrow().read_byte(base_address + i as u16);
-        // }
-
-		tile_data = [
-			0x3C, 0x7E, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42,
-			0x7E, 0x5E, 0x7E, 0x0A, 0x7C, 0x56, 0x38, 0x7C,
-		];
+        for i in 0..16 {
+            tile_data[i] = self.bus.borrow().read_byte(base_address + i as u16);
+        }
 
         tile_data
     }
 
-	pub fn render_frame(&self) -> Vec<u8> {
-		let mut frame = vec![0; 160 * 144 * 3];
-		for y in 0..144 {
-			for x in 0..160 {
-				let tile_index = (y / 8) * 20 + (x / 8);
-				let tile_data = self.read_tile_data(tile_index as u8);
-				let color = self.get_pixel_color(tile_data, x, y);
-				let offset = (y * 160 + x) * 3;
-				frame[offset] = color[0];
-				frame[offset + 1] = color[1];
-				frame[offset + 2] = color[2];
-			}
-		}
-		frame
-	}
+    pub fn render_frame(&self) -> Vec<u8> {
+        let mut frame = vec![0; 160 * 144 * 3];
+        for y in 0..144 {
+            for x in 0..160 {
+                let tile_index = (y / 8) * 20 + (x / 8);
+                let tile_data = self.read_tile_data(tile_index as u8);
+                let color = self.get_pixel_color(tile_data, x, y);
+                let offset = (y * 160 + x) * 3;
+                frame[offset] = color[0];
+                frame[offset + 1] = color[1];
+                frame[offset + 2] = color[2];
+            }
+        }
+        frame
+    }
 }

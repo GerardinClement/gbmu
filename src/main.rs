@@ -3,17 +3,15 @@
 
 mod app;
 mod cpu;
-mod ppu;
 mod gameboy;
 mod memory;
+mod ppu;
 
+use crate::app::App;
 use std::env;
 use std::fs;
 use std::process;
-use winit::event_loop::{EventLoop};
-use winit::window::Window;
-use crate::app::App;
-
+use winit::event_loop::EventLoop;
 
 fn read_rom(rom_path: String) -> Vec<u8> {
     let rom_data = if !rom_path.is_empty() {
@@ -37,7 +35,7 @@ fn main() {
         args.pop()
             .expect("Expected a ROM name as the second argument")
     } else {
-        "roms/individual/03-op sp,hl.gb".to_string()
+        "roms/individual/01-special.gb".to_string()
     };
 
     let rom_data: Vec<u8> = read_rom(rom_path);
@@ -46,5 +44,4 @@ fn main() {
 
     let mut app = App::new(rom_data);
     event_loop.run_app(&mut app);
-    app.run();
 }
