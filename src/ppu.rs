@@ -31,6 +31,16 @@ impl Ppu {
         }
     }
 
+	pub fn display_vram(&self) {
+		for i in 0..0x2000 {
+			let byte = self.bus.borrow().read_byte(VRAM_START + i as u16);
+			print!("{:02X} ", byte);
+			if (i + 1) % 16 == 0 {
+				println!();
+			}
+		}
+	}
+
 	pub fn get_pixel_color(&self, tile_data: [u8; 16], x: usize, y: usize) -> [u8; 3] {
 		let pixel_x = x % 8;
 		let pixel_y = y % 8;
@@ -49,16 +59,11 @@ impl Ppu {
 	
     pub fn read_tile_data(&self, tile_index: u8) -> [u8; 16] {
         let mut tile_data = [0; 16];
-        // let base_address = VRAM_START + (tile_index as u16 * 16);
+        let base_address = VRAM_START + (tile_index as u16 * 16);
 
-        // for i in 0..16 {
-        //     tile_data[i] = self.bus.borrow().read_byte(base_address + i as u16);
-        // }
-
-		tile_data = [
-			0x3C, 0x7E, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42,
-			0x7E, 0x5E, 0x7E, 0x0A, 0x7C, 0x56, 0x38, 0x7C,
-		];
+        for i in 0..16 {
+            tile_data[i] = self.bus.borrow().read_byte(base_address + i as u16);
+        }
 
         tile_data
     }

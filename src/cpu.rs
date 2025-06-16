@@ -50,13 +50,13 @@ impl Cpu {
 
     pub fn step(&mut self) {
         let instruction_byte = self.bus.borrow().read_byte(self.pc);
-        // println!("pc: 0x{:02X}", self.pc);
-        // println!("opcode: 0x{:02X}", instruction_byte);
+        println!("pc: 0x{:02X}", self.pc);
+        println!("opcode: 0x{:02X}", instruction_byte);
         self.execute_instruction(instruction_byte);
         println!("{}", self);
-        // println!(
-        //     "---------------------------------------------------------------------------------------------"
-        // )
+        println!(
+            "---------------------------------------------------------------------------------------------"
+        )
     }
 
     pub fn get_r8_value(&self, register: R8) -> u8 {

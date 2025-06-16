@@ -11,7 +11,6 @@ use std::env;
 use std::fs;
 use std::process;
 use winit::event_loop::{EventLoop};
-use winit::window::Window;
 use crate::app::App;
 
 
@@ -37,7 +36,7 @@ fn main() {
         args.pop()
             .expect("Expected a ROM name as the second argument")
     } else {
-        "roms/individual/03-op sp,hl.gb".to_string()
+        "roms/cpu_instrs.gb".to_string()
     };
 
     let rom_data: Vec<u8> = read_rom(rom_path);
@@ -46,5 +45,4 @@ fn main() {
 
     let mut app = App::new(rom_data);
     event_loop.run_app(&mut app);
-    app.run();
 }
