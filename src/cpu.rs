@@ -11,21 +11,24 @@ pub mod flags_registers;
 pub mod registers;
 pub mod utils;
 
+use std::cell::RefCell;
+use std::fmt;
+use std::rc::Rc;
+
 use crate::cpu::registers::{R8, R16, Registers};
 use crate::memory::MemoryBus;
-use std::fmt;
 
 pub struct Cpu {
     pub registers: Registers,
     pub pc: u16,
-    pub bus: MemoryBus,
+    pub bus: Rc<RefCell<MemoryBus>>,
 }
 
 impl Cpu {
-    pub fn new(rom: Vec<u8>) -> Self {
+    pub fn new(bus: Rc<RefCell<MemoryBus>>) -> Self {
         Cpu {
             registers: Registers::default(),
-            bus: MemoryBus::new(rom),
+            bus,
             pc: 0x0100,
         }
     }
@@ -46,7 +49,7 @@ impl Cpu {
     }
 
     pub fn step(&mut self) {
-        let instruction_byte = self.bus.read_byte(self.pc);
+        let instruction_byte = self.bus.borrow().read_byte(self.pc);
         // println!("pc: 0x{:02X}", self.pc);
         // println!("opcode: 0x{:02X}", instruction_byte);
         self.execute_instruction(instruction_byte);
@@ -60,7 +63,7 @@ impl Cpu {
         match register {
             R8::HLIndirect => {
                 let addr = self.registers.get_r16_value(R16::HL);
-                self.bus.read_byte(addr)
+                self.bus.borrow().read_byte(addr)
             }
             _ => self.registers.get_r8_value(register),
         }
@@ -70,7 +73,7 @@ impl Cpu {
         match register {
             R8::HLIndirect => {
                 let addr = self.registers.get_r16_value(R16::HL);
-                self.bus.write_byte(addr, value);
+                self.bus.borrow_mut().write_byte(addr, value);
             }
             _ => self.registers.set_r8_value(register, value),
         }
@@ -92,10 +95,10 @@ impl fmt::Display for Cpu {
             self.registers.get_r8_value(R8::L),
             self.registers.get_sp(),
             self.pc,
-            self.bus.read_byte(self.pc),
-            self.bus.read_byte(self.pc.wrapping_add(1)),
-            self.bus.read_byte(self.pc.wrapping_add(2)),
-            self.bus.read_byte(self.pc.wrapping_add(3)),
+            self.bus.borrow().read_byte(self.pc),
+            self.bus.borrow().read_byte(self.pc.wrapping_add(1)),
+            self.bus.borrow().read_byte(self.pc.wrapping_add(2)),
+            self.bus.borrow().read_byte(self.pc.wrapping_add(3)),
         )
     }
 }
@@ -104,7 +107,7 @@ impl Default for Cpu {
     fn default() -> Self {
         Cpu {
             registers: Registers::default(),
-            bus: MemoryBus::default(),
+            bus: Rc::new(RefCell::new(MemoryBus::default())),
             pc: 0x0100,
         }
     }

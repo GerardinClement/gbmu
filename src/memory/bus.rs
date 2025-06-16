@@ -3,6 +3,7 @@
 
 use crate::memory::region::MemoryRegion;
 
+#[derive(Clone)]
 pub struct MemoryBus {
     // Flat RAM/IO/etc.
     data: [u8; 0x10000], // 0xFFFF (65535) + 1 = 0x10000 (65536)
