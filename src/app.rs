@@ -5,7 +5,7 @@ use winit::window::{Window, WindowId};
 use pixels::{Pixels, SurfaceTexture};
 use std::sync::Arc;
 
-use crate::gameboy::{GameBoy};
+use crate::gameboy::{self, GameBoy};
 
 #[derive(Default)]
 pub struct App<'win> {
@@ -17,10 +17,12 @@ pub struct App<'win> {
 
 impl App<'_> {
 	pub fn new(rom: Vec<u8>) -> Self {
+		let gameboy = GameBoy::new(rom);
+		println!("{}", gameboy.cpu);
 		App {
 			window: None,
 			pixels: None,
-			gameboy: GameBoy::new(rom),
+			gameboy: gameboy,
 			framebuffer: vec![0; 160 * 144 * 4],
 		}
 	}
@@ -58,7 +60,7 @@ impl ApplicationHandler for App<'_> {
 			_ => (),
 		}
 		event_loop.set_control_flow(ControlFlow::WaitUntil(
-			std::time::Instant::now() + std::time::Duration::from_millis(16),
+			std::time::Instant::now()
 		));
 	}
 
@@ -77,7 +79,7 @@ impl ApplicationHandler for App<'_> {
     fn window_event(&mut self, event_loop: &ActiveEventLoop, id: WindowId, event: WindowEvent) {
         match event {
             WindowEvent::CloseRequested => {
-				println!("{:?}", self.gameboy.ppu.display_vram());
+				// println!("{:?}", self.gameboy.ppu.display_vram());
                 event_loop.exit();
             }
             WindowEvent::RedrawRequested => {
