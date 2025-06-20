@@ -138,24 +138,22 @@ impl Registers {
     }
 
     pub fn sub_to_r8(&mut self, target: R8, value: u8, with_carry: bool) {
-        let original_r8_value = self.r8[target as usize];
-        let (mut new_value, did_underflow) = original_r8_value.overflowing_sub(value);
-        let mut did_underflow_carry: bool = false;
-
-        if with_carry {
-            let carry_value = if self.get_carry_flag() { 1 } else { 0 };
-            (new_value, did_underflow_carry) = new_value.overflowing_sub(carry_value);
-        }
-        self.r8[target as usize] = new_value;
-
-        let zero = new_value == 0;
+        let original = self.r8[target as usize];
+        let carry = if with_carry && self.get_carry_flag() { 1 } else { 0 };
+    
+        let (intermediate, carry1) = original.overflowing_sub(value);
+        let (result, carry2) = intermediate.overflowing_sub(carry);
+    
+        self.r8[target as usize] = result;
+    
+        let zero = result == 0;
         let subtract = true;
-        let half_carry = (original_r8_value & 0x0F) < (value & 0x0F);
-        let carry = did_underflow | did_underflow_carry;
-
+        let half_carry = ((original & 0x0F).wrapping_sub(value & 0x0F).wrapping_sub(carry)) & 0x10 != 0;
+        let carry = carry1 || carry2;
+    
         self.f.set_all(zero, subtract, half_carry, carry);
     }
-
+    
     pub fn get_r16_value(&self, target: R16) -> u16 {
         match target {
             R16::BC => self.get_bc(),

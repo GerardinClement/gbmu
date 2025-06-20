@@ -167,7 +167,7 @@ mod tests {
     fn test_rom_04_op_r_imm() {
         run_rom_test("roms/individual/04-op r,imm.gb", "logfile-04-op-r-imm");
     }
-
+ 
     #[test]
     fn test_rom_05_op_rp() {
         run_rom_test("roms/individual/05-op rp.gb", "logfile-05-op-rp");
