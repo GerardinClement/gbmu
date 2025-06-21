@@ -219,26 +219,33 @@ impl Registers {
         self.sp = result;
     }
 
-    pub fn rotate_left(&mut self, target: R8, carry: bool) {
-        let r8 = self.get_r8_value(target);
-        let outgoing_bit = (r8 & 0b10000000) >> 7;
-
-        let bit: u8 = if carry {
-            (r8 & 0b10000000) >> 7
-        } else if self.f.get_carry() {
-            1
+    pub fn rotate_left(&mut self, target: R8, through_carry: bool) {
+        let value = self.get_r8_value(target);
+        let old_carry = if self.f.get_carry() { 1 } else { 0 };
+        let bit7 = (value & 0x80) >> 7;
+    
+        let result = if through_carry {
+            let rotated = value << 1;
+            (rotated & 0b1111_1110) | old_carry
         } else {
-            0
+            value.rotate_left(1)
         };
-
-        let result = r8.rotate_left(1) | bit;
-
+    
         self.set_r8_value(target, result);
-        self.set_carry_flag(outgoing_bit == 1);
-        self.set_zero_flag(false);
+        self.set_carry_flag(bit7 == 1);
+    
+        // Z flag est forcé à 0 pour A dans RLA/RLCA
+        if target == R8::A {
+            self.set_zero_flag(false);
+        } else {
+            self.set_zero_flag(result == 0);
+        }
+    
         self.set_subtract_flag(false);
         self.set_half_carry_flag(false);
     }
+    
+    
 
     pub fn rotate_right(&mut self, target: R8, circular: bool) {
         let r8 = self.get_r8_value(target);

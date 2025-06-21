@@ -130,12 +130,12 @@ fn cp_a_r8(cpu: &mut Cpu, instruction: u8) {
     let r8_value = cpu.get_r8_value(r8);
     let a_value = cpu.get_r8_value(R8::A);
 
-    let value = a_value - r8_value;
+    let value = a_value.wrapping_sub(r8_value);
 
     cpu.registers.set_zero_flag(value == 0);
     cpu.registers.set_subtract_flag(true);
     cpu.registers
-        .set_half_carry_flag((r8_value & 0x0F) < (value & 0x0F));
+        .set_half_carry_flag((a_value & 0x0F) < (r8_value & 0x0F));
     cpu.registers.set_carry_flag(r8_value > a_value);
 
     cpu.pc = cpu.pc.wrapping_add(1)
