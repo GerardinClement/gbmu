@@ -234,7 +234,6 @@ impl Registers {
         self.set_r8_value(target, result);
         self.set_carry_flag(bit7 == 1);
     
-        // Z flag est forcé à 0 pour A dans RLA/RLCA
         if target == R8::A {
             self.set_zero_flag(false);
         } else {

@@ -35,9 +35,9 @@ const INSTRUCTIONS_BLOCK0: [u8; 22] = [
 
 /// GET the instruction based on the opcode and returns the corresponding instruction.
 fn get_instruction_block0(instruction: u8) -> u8 {
-    let mask_suffix_3 = 0b00000111;
-    let mask_suffix_4 = 0b00001111;
-    let mask_prefix_3 = 0b11100000;
+    let mask_last_3_bits = 0b00000111;
+    let mask_last_4_bits = 0b00001111;
+    let mask_first_3_bits = 0b11100000;
 
     if INSTRUCTIONS_BLOCK0.contains(&instruction) {
         return instruction;
@@ -46,7 +46,7 @@ fn get_instruction_block0(instruction: u8) -> u8 {
     let mut match_opcode: Vec<u8> = INSTRUCTIONS_BLOCK0
         .iter()
         .cloned()
-        .filter(|&opcode| (instruction & mask_suffix_3) == (opcode & mask_suffix_3))
+        .filter(|&opcode| (instruction & mask_last_3_bits) == (opcode & mask_last_3_bits))
         .collect();
 
     if match_opcode.len() == 1 {
@@ -55,9 +55,9 @@ fn get_instruction_block0(instruction: u8) -> u8 {
 
     let mut match_opcode_cpy = match_opcode.clone();
 
-    match_opcode.retain(|&opcode| (instruction & mask_suffix_4) == (opcode & mask_suffix_4));
+    match_opcode.retain(|&opcode| (instruction & mask_last_4_bits) == (opcode & mask_last_4_bits));
     if match_opcode.len() > 1 {
-        match_opcode_cpy.retain(|&opcode| (instruction & mask_prefix_3) == (opcode & mask_prefix_3));
+        match_opcode_cpy.retain(|&opcode| (instruction & mask_first_3_bits) == (opcode & mask_first_3_bits));
         if match_opcode_cpy.len() == 1 {
             return match_opcode_cpy[0];
         }
@@ -100,7 +100,7 @@ pub fn execute_instruction_block0(cpu: &mut Cpu, instruction: u8) {
         0b00111111 => ccf(cpu),
         0b00011000 => jr(cpu, instruction, false),
         0b00100000 => jr(cpu, instruction, true),
-        //implement STOP
+        // TODO implement STOP
         _ => cpu.pc = cpu.pc.wrapping_add(1),
     }
 }
