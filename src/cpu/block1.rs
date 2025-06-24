@@ -14,7 +14,6 @@ const INSTRUCTIONS_BLOCK1: [u8; 2] = [
     0b01110110, // halt
 ];
 
-/// GET the instruction based on the opcode and returns the corresponding instruction.
 fn get_instruction_block1(instruction: u8) -> u8 {
     if INSTRUCTIONS_BLOCK1.contains(&instruction) {
         instruction

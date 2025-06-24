@@ -33,7 +33,6 @@ const INSTRUCTIONS_BLOCK0: [u8; 22] = [
     0b00010000, //stop
 ];
 
-/// GET the instruction based on the opcode and returns the corresponding instruction.
 fn get_instruction_block0(instruction: u8) -> u8 {
     let mask_last_3_bits = 0b00000111;
     let mask_last_4_bits = 0b00001111;

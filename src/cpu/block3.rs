@@ -52,9 +52,6 @@ const INSTRUCTION_STACK_BLOCK3: [u8; 2] = [
     0b11000101, //push r16stk
 ];
 
-/// GET the instruction based on the opcode and returns the corresponding instruction.
-///
-
 fn check_stack_stk16_instruction(instruction: u8) -> u8 {
     let stack_mask = 0b00001111;
 

@@ -20,7 +20,6 @@ const INSTRUCTIONS_BLOCK2: [u8; 8] = [
     0b10111000, //cp a, r8
 ];
 
-/// GET the instruction based on the opcode and returns the corresponding instruction.
 fn get_instruction_block2(instruction: u8) -> u8 {
     let block2_mask: u8 = 0b00111000;
 
