@@ -1,27 +1,6 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
-/*
-Step 5: Cartridge & MBC
-├── Change Memory::new to take rom_image: Vec<u8>
-│   └── Split into rom_banks: Vec<[u8; 0x4000]>
-├── Add MBC state (current_rom_bank, ram_enabled, current_ram_bank)
-├── In read_byte:
-│   ├─ if RomBank0 → return rom_banks[0][addr]
-│   ├─ if RomBank1N → return rom_banks[current_rom_bank][addr-0x4000]
-│   ├─ if ExternalRam → return ext_ram[current_ram_bank][addr-0xA000] (if ram_enabled)
-│   └─ else → existing data/regions
-├── In write_byte:
-│   ├─ if RomBank0 or RomBank1N → self.mbc.handle_write(addr, val)
-│   ├─ if ExternalRam → ext_ram[...] = val (if ram_enabled)
-│   └─ else → existing data/regions
-└── Tests:
-    ├─ Bank 1 read/write
-    ├─ Bank switch via writes to 0x2000–0x3FFF
-    ├─ RAM enable at 0x0000–0x1FFF
-    └─ External RAM bank switch 0x4000–0x5FFF
-*/
-
 #[derive(PartialEq, Eq)]
 pub(crate) enum MemoryRegion {
     RomBank0,       // 0x000-0x3FFF: read-only

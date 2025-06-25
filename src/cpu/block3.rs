@@ -137,8 +137,8 @@ pub fn execute_instruction_block3(cpu: &mut Cpu, instruction: u8) {
         0b11101000 => add_sp_imm8(cpu),                 // add sp, imm8
         0b11111000 => ld_hl_sp_add_imm8(cpu),           // ld hl, sp + imm8
         0b11111001 => ld_sp_hl(cpu),                    // ld sp, hl
-        // TODO: implement DI
-        // TODO: implement EI
+        0b11110011 => di(cpu),                          // mov ime, #0 | DI: disable interrupts
+        0b11111011 => ei(cpu),                          // mov ime, #1 | EI: enable interrupts (after next)
         _ => cpu.pc = cpu.pc.wrapping_add(1),
     }
 }
@@ -398,6 +398,11 @@ fn ld_sp_hl(cpu: &mut Cpu) {
     cpu.registers.set_sp(hl_value);
     cpu.pc = cpu.pc.wrapping_add(1);
 }
+
+fn di(cpu: &mut Cpu) {}
+
+fn ei(cpu: &mut Cpu) {}
+
 
 #[cfg(test)]
 mod tests {
