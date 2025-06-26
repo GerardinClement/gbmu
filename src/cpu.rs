@@ -22,6 +22,8 @@ pub struct Cpu {
     pub registers: Registers,
     pub pc: u16,
     pub bus: Rc<RefCell<MemoryBus>>,
+    pub ime: bool,
+    pub ime_delay: bool, // mimic hardware delay in EI
 }
 
 impl Cpu {
@@ -30,6 +32,8 @@ impl Cpu {
             registers: Registers::default(),
             bus,
             pc: 0x0100,
+            ime: false,
+            ime_delay: false,
         }
     }
 
@@ -53,6 +57,12 @@ impl Cpu {
         // println!("pc: 0x{:02X}", self.pc);
         // println!("opcode: 0x{:02X}", instruction_byte);
         self.execute_instruction(instruction_byte);
+
+        if self.ime_delay {
+            self.ime = true;
+            self.ime_delay = false;
+        }
+
         println!("{}", self);
         // println!(
         //     "---------------------------------------------------------------------------------------------"
@@ -109,6 +119,8 @@ impl Default for Cpu {
             registers: Registers::default(),
             bus: Rc::new(RefCell::new(MemoryBus::default())),
             pc: 0x0100,
+            ime: false,
+            ime_delay: false,
         }
     }
 }

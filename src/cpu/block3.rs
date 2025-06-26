@@ -139,6 +139,7 @@ pub fn execute_instruction_block3(cpu: &mut Cpu, instruction: u8) {
         0b11111001 => ld_sp_hl(cpu),                    // ld sp, hl
         0b11110011 => di(cpu),                          // mov ime, #0 | DI: disable interrupts
         0b11111011 => ei(cpu),                          // mov ime, #1 | EI: enable interrupts (after next)
+        0b11011001 => reti(cpu),
         _ => cpu.pc = cpu.pc.wrapping_add(1),
     }
 }
@@ -399,9 +400,20 @@ fn ld_sp_hl(cpu: &mut Cpu) {
     cpu.pc = cpu.pc.wrapping_add(1);
 }
 
-fn di(cpu: &mut Cpu) {}
+fn di(cpu: &mut Cpu) {
+    cpu.ime = false;
+    cpu.pc = cpu.pc.wrapping_add(1);
+}
 
-fn ei(cpu: &mut Cpu) {}
+fn ei(cpu: &mut Cpu) {
+    cpu.ime_delay = true;
+    cpu.pc = cpu.pc.wrapping_add(1);
+}
+
+fn reti(cpu: &mut Cpu) {
+    // TODO
+    cpu.pc = cpu.pc.wrapping_add(1);
+}
 
 
 #[cfg(test)]
