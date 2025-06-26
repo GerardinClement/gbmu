@@ -5,7 +5,7 @@ use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, ControlFlow};
 use winit::window::{Window, WindowId};
 
-use crate::gameboy::{self, GameBoy};
+use crate::gameboy::GameBoy;
 
 #[derive(Default)]
 pub struct App<'win> {
@@ -22,7 +22,7 @@ impl App<'_> {
         App {
             window: None,
             pixels: None,
-            gameboy: gameboy,
+            gameboy,
             framebuffer: vec![0; 160 * 144 * 4],
         }
     }
@@ -90,7 +90,7 @@ impl ApplicationHandler for App<'_> {
 
                 frame.copy_from_slice(&self.framebuffer);
 
-                pixels.render();
+                let _ = pixels.render();
             }
             _ => (),
         }

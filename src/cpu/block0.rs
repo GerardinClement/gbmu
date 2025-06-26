@@ -134,7 +134,7 @@ fn load_a_r16mem(cpu: &mut Cpu, instruction: u8) {
     let r16_mem = utils::convert_index_to_r16_mem(instruction);
     let value = cpu
         .registers
-        .get_r16_mem_value(&mut cpu.bus.borrow_mut(), R16::from(r16_mem));
+        .get_r16_mem_value(&cpu.bus.borrow(), R16::from(r16_mem));
 
     cpu.set_r8_value(R8::A, value);
     if r16_mem == R16Mem::HLincrement || r16_mem == R16Mem::HLdecrement {

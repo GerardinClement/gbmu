@@ -14,7 +14,7 @@ use std::process;
 use winit::event_loop::EventLoop;
 
 fn read_rom(rom_path: String) -> Vec<u8> {
-    let rom_data = if !rom_path.is_empty() {
+    if !rom_path.is_empty() {
         match fs::read(&rom_path) {
             Ok(data) => data,
             Err(e) => {
@@ -24,8 +24,7 @@ fn read_rom(rom_path: String) -> Vec<u8> {
         }
     } else {
         Vec::new()
-    };
-    rom_data
+    }
 }
 
 fn main() {
@@ -43,5 +42,5 @@ fn main() {
     let event_loop = EventLoop::new().unwrap();
 
     let mut app = App::new(rom_data);
-    event_loop.run_app(&mut app);
+    let _ = event_loop.run_app(&mut app);
 }

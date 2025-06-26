@@ -60,8 +60,8 @@ impl Ppu {
         let mut tile_data = [0; 16];
         let base_address = VRAM_START + (tile_index as u16 * 16);
 
-        for i in 0..16 {
-            tile_data[i] = self.bus.borrow().read_byte(base_address + i as u16);
+        for (i, byte) in tile_data.iter_mut().enumerate() {
+            *byte = self.bus.borrow().read_byte(base_address + i as u16);
         }
 
         tile_data

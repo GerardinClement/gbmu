@@ -264,11 +264,7 @@ impl Registers {
             (r8 >> 1) | if old_carry { 0x80 } else { 0x00 } // RR
         };
 
-        let zero = if result == 0 && target != R8::A {
-            true
-        } else {
-            false
-        };
+        let zero = result == 0 && target != R8::A;
         self.set_r8_value(target, result);
         self.set_carry_flag(outgoing_bit);
         self.set_zero_flag(zero);
