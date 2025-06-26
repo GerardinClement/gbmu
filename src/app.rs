@@ -81,6 +81,8 @@ impl ApplicationHandler for App<'_> {
         match event {
             WindowEvent::CloseRequested => {
                 // println!("{:?}", self.gameboy.ppu.display_vram());
+                self.gameboy.ppu.display_tile_map_area(0x9800);
+                self.gameboy.ppu.display_tile_map_area(0x9C00);
                 event_loop.exit();
             }
             WindowEvent::RedrawRequested => {

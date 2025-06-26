@@ -16,43 +16,43 @@ pub struct LcdControl {
 }
 
 impl LcdControl {
-    fn set_ppu_enable(&mut self, enable: bool) {
+    pub fn set_ppu_enable(&mut self, enable: bool) {
         self.ppu_enable = enable;
     }
 
-    fn set_window_tile_map_area(&mut self, area: bool) {
+    pub fn set_window_tile_map_area(&mut self, area: bool) {
         self.window_tile_map_area = area;
     }
 
-    fn set_window_enable(&mut self, enable: bool) {
+    pub fn set_window_enable(&mut self, enable: bool) {
         self.window_enable = enable;
     }
 
-    fn set_bg_window_tiles(&mut self, tiles: bool) {
+    pub fn set_bg_window_tiles(&mut self, tiles: bool) {
         self.bg_window_tiles = tiles;
     }
 
-    fn set_bg_tile_map(&mut self, map: bool) {
+    pub fn set_bg_tile_map(&mut self, map: bool) {
         self.bg_tile_map = map;
     }
 
-    fn set_obj_size(&mut self, size: bool) {
+    pub fn set_obj_size(&mut self, size: bool) {
         self.obj_size = size;
     }
 
-    fn set_obj_enable(&mut self, enable: bool) {
+    pub fn set_obj_enable(&mut self, enable: bool) {
         self.obj_enable = enable;
     }
 
-    fn set_bg_window_enable(&mut self, enable: bool) {
+    pub fn set_bg_window_enable(&mut self, enable: bool) {
         self.bg_window_enable = enable;
     }
 
-    fn get_ppu_enable(&self) -> bool {
+    pub fn get_ppu_enable(&self) -> bool {
         self.ppu_enable
     }
 
-    fn get_window_tile_map_area(&self) -> Range<u16> {
+    pub fn get_window_tile_map_area(&self) -> Range<u16> {
         if self.window_tile_map_area {
             0x9C00..0x9F00
         } else {
@@ -60,11 +60,15 @@ impl LcdControl {
         }
     }
 
-    fn get_window_enable(&self) -> bool {
+    pub fn get_window_enable(&self) -> bool {
         self.window_enable
     }
 
-    fn get_bg_window_tiles_area(&self) -> Range<u16> {
+	pub fn get_bg_window_tiles(&self) -> bool {
+		self.bg_window_tiles
+	}
+
+    pub fn get_bg_window_tiles_area(&self) -> Range<u16> {
         if self.bg_window_tiles {
             0x8000..0x8FFF
         } else {
@@ -72,7 +76,7 @@ impl LcdControl {
         }
     }
 
-    fn get_bg_tile_map(&self) -> Range<u16> {
+    pub fn get_bg_tile_map(&self) -> Range<u16> {
         if self.bg_tile_map {
             0x9c00..0x9FFF
         } else {
@@ -80,14 +84,25 @@ impl LcdControl {
         }
     }
 
-    fn get_obj_size(&self) -> bool {
+    pub fn get_obj_size(&self) -> bool {
         self.obj_size
     }
 
-    fn get_obj_enable(&self) -> bool {
+    pub fn get_obj_enable(&self) -> bool {
         self.obj_enable
     }
-    fn get_bg_window_enable(&self) -> bool {
+    pub fn get_bg_window_enable(&self) -> bool {
         self.bg_window_enable
+    }
+
+    pub fn update(&mut self, value: u8) {
+        self.ppu_enable = value & 0b1000_0000 != 0;
+        self.window_tile_map_area = value & 0b0100_0000 != 0;
+        self.window_enable = value & 0b0010_0000 != 0;
+        self.bg_window_tiles = value & 0b0001_0000 != 0;
+        self.bg_tile_map = value & 0b0000_1000 != 0;
+        self.obj_size = value & 0b0000_0100 != 0;
+        self.obj_enable = value & 0b0000_0010 != 0;
+        self.bg_window_enable = value & 0b0000_0001 != 0;
     }
 }

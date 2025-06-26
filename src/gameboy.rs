@@ -30,6 +30,7 @@ impl GameBoy {
         while cycles_this_frame < 70224 {
             self.cpu.step();
             cycles_this_frame += 1;
+            self.ppu.update_registers();
         }
 
         self.ppu.render_frame()
