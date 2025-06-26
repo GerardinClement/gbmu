@@ -27,7 +27,7 @@ pub fn execute_instruction_block1(cpu: &mut Cpu, instruction: u8) {
 
     match opcode {
         0b01000000 => load_r8_r8(cpu, instruction),
-        // implement halt
+        0b01110110 => halt(cpu),
         _ => cpu.pc = cpu.pc.wrapping_add(1),
     }
 }
@@ -39,6 +39,11 @@ fn load_r8_r8(cpu: &mut Cpu, instruction: u8) {
     let value = cpu.get_r8_value(source);
 
     cpu.set_r8_value(dest, value);
+    cpu.pc = cpu.pc.wrapping_add(1);
+}
+
+fn halt(cpu: &mut Cpu) {
+    // TODO implement halt
     cpu.pc = cpu.pc.wrapping_add(1);
 }
 

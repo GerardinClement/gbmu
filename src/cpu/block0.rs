@@ -99,7 +99,7 @@ pub fn execute_instruction_block0(cpu: &mut Cpu, instruction: u8) {
         0b00111111 => ccf(cpu),
         0b00011000 => jr(cpu, instruction, false),
         0b00100000 => jr(cpu, instruction, true),
-        // TODO implement STOP
+        0b00010000 => stop(cpu),
         _ => cpu.pc = cpu.pc.wrapping_add(1),
     }
 }
@@ -284,6 +284,11 @@ fn jr(cpu: &mut Cpu, instruction: u8, has_cond: bool) {
     }
     let offset = cpu.bus.borrow().read_byte(cpu.pc + 1) as i8;
     cpu.pc = cpu.pc.wrapping_add(2).wrapping_add(offset as u16);
+}
+
+fn stop(cpu: &mut Cpu) {
+    // TODO implement stop for real
+    cpu.pc = cpu.pc.wrapping_add(1);
 }
 
 #[cfg(test)]

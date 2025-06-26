@@ -139,6 +139,7 @@ pub fn execute_instruction_block3(cpu: &mut Cpu, instruction: u8) {
         0b11111001 => ld_sp_hl(cpu),                                 // ld sp, hl
         0b11110011 => di(cpu),                                       // mov ime, #0 | DI: disable interrupts
         0b11111011 => ei(cpu),                                       // mov ime, #1 | EI: enable interrupts (after next)
+        
         _ => cpu.pc = cpu.pc.wrapping_add(1),
     }
 }
