@@ -5,7 +5,7 @@ mod app;
 mod cpu;
 mod ppu;
 mod gameboy;
-mod memory;
+mod mmu;
 
 use std::env;
 use std::fs;

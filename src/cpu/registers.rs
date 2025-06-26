@@ -3,7 +3,7 @@
 
 use crate::cpu::conditions::Cond;
 use crate::cpu::flags_registers::FlagsRegister;
-use crate::memory::MemoryBus;
+use crate::mmu::bus::MemoryBus;
 
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq)]

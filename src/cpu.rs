@@ -16,7 +16,7 @@ use std::fmt;
 use std::rc::Rc;
 
 use crate::cpu::registers::{R8, R16, Registers};
-use crate::memory::MemoryBus;
+use crate::mmu::bus::MemoryBus;
 
 pub struct Cpu {
     pub registers: Registers,

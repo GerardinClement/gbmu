@@ -1,7 +1,7 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
-use crate::memory::MemoryBus;
+use crate::mmu::bus::MemoryBus;
 use std::cell::RefCell;
 use std::rc::Rc;
 

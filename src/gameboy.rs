@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use crate::cpu::Cpu;
 use crate::ppu::Ppu;
-use crate::memory::MemoryBus;
+use crate::mmu::bus::MemoryBus;
 
 #[derive(Default)]
 pub struct GameBoy {

@@ -1,7 +1,7 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
-use crate::memory::region::MemoryRegion;
+use crate::mmu::region::MemoryRegion;
 
 #[derive(Clone)]
 pub struct MemoryBus {
