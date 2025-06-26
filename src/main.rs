@@ -4,7 +4,7 @@
 mod app;
 mod cpu;
 mod gameboy;
-mod memory;
+mod mmu;
 mod ppu;
 
 use crate::app::App;
