@@ -90,4 +90,15 @@ impl LcdControl {
     fn get_bg_window_enable(&self) -> bool {
         self.bg_window_enable
     }
+
+    fn update(&mut self, value: u8) {
+        self.ppu_enable = value & 0b1000_0000 != 0;
+        self.window_tile_map_area = value & 0b0100_0000 != 0;
+        self.window_enable = value & 0b0010_0000 != 0;
+        self.bg_window_tiles = value & 0b0001_0000 != 0;
+        self.bg_tile_map = value & 0b0000_1000 != 0;
+        self.obj_size = value & 0b0000_0100 != 0;
+        self.obj_enable = value & 0b0000_0010 != 0;
+        self.bg_window_enable = value & 0b0000_0001 != 0;
+    }
 }
