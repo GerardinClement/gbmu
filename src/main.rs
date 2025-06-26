@@ -14,7 +14,6 @@ use std::process;
 use winit::event_loop::EventLoop;
 
 fn read_rom(rom_path: String) -> Vec<u8> {
-    
     if !rom_path.is_empty() {
         match fs::read(&rom_path) {
             Ok(data) => data,
