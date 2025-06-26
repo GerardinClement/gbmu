@@ -1,16 +1,20 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
+mod app;
 mod cpu;
 mod gameboy;
 mod memory;
+mod ppu;
 
+use crate::app::App;
 use std::env;
 use std::fs;
 use std::process;
+use winit::event_loop::EventLoop;
 
 fn read_rom(rom_path: String) -> Vec<u8> {
-    let rom_data = if !rom_path.is_empty() {
+    if !rom_path.is_empty() {
         match fs::read(&rom_path) {
             Ok(data) => data,
             Err(e) => {
@@ -20,8 +24,7 @@ fn read_rom(rom_path: String) -> Vec<u8> {
         }
     } else {
         Vec::new()
-    };
-    rom_data
+    }
 }
 
 fn main() {
@@ -31,13 +34,13 @@ fn main() {
         args.pop()
             .expect("Expected a ROM name as the second argument")
     } else {
-        "roms/individual/03-op sp,hl.gb".to_string()
+        "roms/individual/01-special.gb".to_string()
     };
 
     let rom_data: Vec<u8> = read_rom(rom_path);
 
-    let mut gameboy = gameboy::GameBoy::new(rom_data);
-    println!("{}", gameboy.cpu);
+    let event_loop = EventLoop::new().unwrap();
 
-    gameboy.run();
+    let mut app = App::new(rom_data);
+    let _ = event_loop.run_app(&mut app);
 }

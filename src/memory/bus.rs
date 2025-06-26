@@ -28,9 +28,38 @@ impl MemoryBus {
         }
 
         MemoryBus {
-            data: data,
+            data,
             rom_banks: banks,
             current_rom_bank: 1, // bank 1 is the default switchable region
+        }
+    }
+
+    pub fn load_rom(&mut self, rom: Vec<u8>) {
+        // Clear existing ROM banks
+        self.rom_banks.clear();
+
+        // Load the ROM into the first bank
+        let mut bank0 = vec![0; 0x4000];
+        for (i, byte) in rom.iter().enumerate() {
+            if i >= 0x4000 {
+                break;
+            }
+            bank0[i] = *byte;
+        }
+        self.rom_banks.push(bank0);
+
+        // Load additional banks if available
+        let mut offset = 0x4000;
+        while offset < rom.len() && self.rom_banks.len() < 128 {
+            let mut bank = vec![0; 0x4000];
+            for (i, byte) in rom[offset..].iter().enumerate() {
+                if i >= 0x4000 {
+                    break;
+                }
+                bank[i] = *byte;
+            }
+            self.rom_banks.push(bank);
+            offset += 0x4000;
         }
     }
 

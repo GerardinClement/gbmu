@@ -54,7 +54,6 @@ const INSTRUCTION_STACK_BLOCK3: [u8; 2] = [
 
 /// GET the instruction based on the opcode and returns the corresponding instruction.
 ///
-
 fn check_stack_stk16_instruction(instruction: u8) -> u8 {
     let stack_mask = 0b00001111;
 
@@ -323,7 +322,7 @@ fn ldh_c_a(cpu: &mut Cpu) {
 
     let address = 0xFF00 + (c_value as u16);
     cpu.bus.borrow_mut().write_byte(address, a_value);
-    cpu.pc = cpu.pc.wrapping_add(2);
+    cpu.pc = cpu.pc.wrapping_add(1);
 }
 
 fn ldh_imm8_a(cpu: &mut Cpu) {
@@ -349,7 +348,7 @@ fn ldh_a_c(cpu: &mut Cpu) {
     let value = cpu.bus.borrow().read_byte(address);
 
     cpu.set_r8_value(R8::A, value);
-    cpu.pc = cpu.pc.wrapping_add(2);
+    cpu.pc = cpu.pc.wrapping_add(1);
 }
 
 fn ldh_a_imm8(cpu: &mut Cpu) {

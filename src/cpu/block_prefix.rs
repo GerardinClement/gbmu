@@ -86,7 +86,7 @@ pub fn execute_instruction_block_prefix(cpu: &mut Cpu, instruction: u8) {
 
 pub fn rlc_r8(cpu: &mut Cpu, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
-    cpu.registers.rotate_left(r8, true);
+    cpu.registers.rotate_left(r8, false);
     cpu.pc = cpu.pc.wrapping_add(2);
 }
 

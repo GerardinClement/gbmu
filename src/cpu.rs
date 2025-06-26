@@ -112,3 +112,101 @@ impl Default for Cpu {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::cell::RefCell;
+    use std::fs;
+    use std::io::Write;
+    use std::rc::Rc;
+
+    fn run_rom_test(rom_path: &str, logfile_name: &str) {
+        let rom_data = fs::read(rom_path).expect("Failed to read ROM file");
+        let bus = Rc::new(RefCell::new(MemoryBus::new(rom_data)));
+        let mut cpu = Cpu::new(bus.clone());
+        let mut logfile = fs::File::create(format!("logfiles/{}", logfile_name))
+            .expect("Failed to create logfile");
+
+        let mut last_pc = 0xFFFF;
+        let mut same_pc_count = 0;
+
+        loop {
+            writeln!(logfile, "{}", cpu).expect("Failed to write to logfile");
+            cpu.step();
+
+            if cpu.pc == last_pc {
+                same_pc_count += 1;
+            } else {
+                same_pc_count = 0;
+            }
+
+            last_pc = cpu.pc;
+
+            if same_pc_count > 100 {
+                break; // Assume program has finished
+            }
+        }
+    }
+
+    #[test]
+    fn test_rom_01_special() {
+        run_rom_test("roms/individual/01-special.gb", "logfile-01-special");
+    }
+
+    #[test]
+    fn test_rom_02_interrupts() {
+        run_rom_test("roms/individual/02-interrupts.gb", "logfile-02-interrupts");
+    }
+
+    #[test]
+    fn test_rom_03_op_sp_hl() {
+        run_rom_test("roms/individual/03-op sp,hl.gb", "logfile-03-op-sp-hl");
+    }
+
+    #[test]
+    fn test_rom_04_op_r_imm() {
+        run_rom_test("roms/individual/04-op r,imm.gb", "logfile-04-op-r-imm");
+    }
+
+    #[test]
+    fn test_rom_05_op_rp() {
+        run_rom_test("roms/individual/05-op rp.gb", "logfile-05-op-rp");
+    }
+
+    #[test]
+    fn test_rom_06_ld_r_r() {
+        run_rom_test("roms/individual/06-ld r,r.gb", "logfile-06-ld-r-r");
+    }
+
+    #[test]
+    fn test_rom_07_jr_jp_call_ret_rst() {
+        run_rom_test(
+            "roms/individual/07-jr,jp,call,ret,rst.gb",
+            "logfile-07-jr-jp-call-ret-rst",
+        );
+    }
+
+    #[test]
+    fn test_rom_08_misc_instrs() {
+        run_rom_test(
+            "roms/individual/08-misc instrs.gb",
+            "logfile-08-misc-instrs",
+        );
+    }
+
+    #[test]
+    fn test_rom_09_op_r_r() {
+        run_rom_test("roms/individual/09-op r,r.gb", "logfile-09-op-r-r");
+    }
+
+    #[test]
+    fn test_rom_10_bit_ops() {
+        run_rom_test("roms/individual/10-bit ops.gb", "logfile-10-bit-ops");
+    }
+
+    #[test]
+    fn test_rom_11_op_a_hl() {
+        run_rom_test("roms/individual/11-op a,(hl).gb", "logfile-11-op-a-hl");
+    }
+}
