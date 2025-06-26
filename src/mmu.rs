@@ -1,9 +1,13 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
+pub mod rom_banks;
+
+use crate::mmu::rom_banks::RomBanks;
+
 #[derive(PartialEq, Eq)]
 pub enum MemoryRegion {
-    RBank,          // 0x000-0x7FFF: read-only
+    RomBanks,        // 0x000-0x7FFF: read-only
     Vram,           // 0x8000-0x9FFF
     ERam,           // 0xA000-0xBFFF
     Wram,           // 0xC000-0xDFFF
@@ -19,7 +23,7 @@ pub enum MemoryRegion {
 impl MemoryRegion {
     pub fn from(addr: u16) -> Self {
         match addr {
-            0x0000..=0x7FFF => MemoryRegion::RBank,
+            0x0000..=0x7FFF => MemoryRegion::RomBanks,
             0x8000..=0x9FFF => MemoryRegion::Vram,
             0xA000..=0xBFFF => MemoryRegion::ERam,
             0xC000..=0xDFFF => MemoryRegion::Wram,
@@ -37,27 +41,18 @@ impl MemoryRegion {
 #[derive(Clone)]
 pub struct Mmu {
     data: [u8; 0x10000], // 0xFFFF (65535) + 1 = 0x10000 (65536)
-    rom_banks: Vec<Vec<u8>>,
-    current_rom_bank: usize,
+    rom: RomBanks,
 }
 
 impl Mmu {
-    pub fn new(rom: Vec<u8>) -> Self {
-        let banks = Vec::new();
-
+    pub fn new(rom_image: Vec<u8>) -> Self {
         let mut data = [0; 0x10000];
 
-        for (i, byte) in rom.iter().enumerate() {
-            if i >= 0x8000 {
-                break;
-            }
-            data[i] = *byte;
-        }
+        let rom = RomBanks::new(&rom_image);
 
         Mmu {
             data,
-            rom_banks: banks,
-            current_rom_bank: 1,
+            rom,
         }
     }
 
