@@ -1,7 +1,10 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
-use crate::mmu::Mmu;
+pub mod lcd_control;
+
+use crate::memory::MemoryBus;
+use crate::ppu::lcd_control::LcdControl;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -9,25 +12,25 @@ const VRAM_START: u16 = 0x8000; // Start of VRAM
 
 #[derive(Default)]
 pub struct Ppu {
-    pub bus: Rc<RefCell<Mmu>>,
-    pub lcd_control: u8, // LCD Control register
-    pub lcd_status: u8,  // LCD Status register
-    pub scx: u8,         // Scroll X
-    pub scy: u8,         // Scroll Y
-    pub wy: u8,          // Window Y position
-    pub wx: u8,          // Window X position
+    pub bus: Rc<RefCell<MemoryBus>>,
+    pub lcd_control: LcdControl,
+    pub lcd_status: u8, // LCD Status register
+    pub scx: u8,        // Scroll X
+    pub scy: u8,        // Scroll Y
+    pub wy: u8,         // Window Y position
+    pub wx: u8,         // Window X position
 }
 
 impl Ppu {
     pub fn new(bus: Rc<RefCell<Mmu>>) -> Self {
         Ppu {
             bus,
-            lcd_control: 0x00, // Default value
-            lcd_status: 0x00,  // Default value
-            scx: 0x00,         // Default value
-            scy: 0x00,         // Default value
-            wy: 0x00,          // Default value
-            wx: 0x00,          // Default value
+            lcd_control: LcdControl::default(), // Default value
+            lcd_status: 0x00,                   // Default value
+            scx: 0x00,                          // Default value
+            scy: 0x00,                          // Default value
+            wy: 0x00,                           // Default value
+            wx: 0x00,                           // Default value
         }
     }
 
