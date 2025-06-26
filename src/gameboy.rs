@@ -27,7 +27,7 @@ impl GameBoy {
     pub fn run(&mut self) {
         loop {
             self.cpu.step();
-            // Here you could add a delay or frame rendering logic
+            self.ppu.update_registers();
         }
     }
 }

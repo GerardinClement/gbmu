@@ -70,9 +70,9 @@ impl MemoryBus {
             return 0xFF;
         }
 
-        if addr == 0xFF44 {
-            return 0x90;
-        }
+        // if addr == 0xFF44 {
+        //     return 0x90;
+        // }
 
         // match region {
         //     MemoryRegion::RomBank0 => {
