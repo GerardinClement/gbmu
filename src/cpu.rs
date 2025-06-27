@@ -119,6 +119,8 @@ impl Default for Cpu {
             registers: Registers::default(),
             bus: Rc::new(RefCell::new(MemoryBus::default())),
             pc: 0x0100,
+            ime: false,
+            ime_delay: false,
         }
     }
 }
@@ -132,6 +134,12 @@ mod tests {
     use std::rc::Rc;
 
     fn run_rom_test(rom_path: &str, logfile_name: &str) {
+        let log_dir = Path::new("logfiles");
+        if !log_dir.exists() {
+            fs::create_dir_all(log_dir)
+                .expect("Failed to create `logfiles` directory");
+        }
+        
         let rom_data = fs::read(rom_path).expect("Failed to read ROM file");
         let bus = Rc::new(RefCell::new(MemoryBus::new(rom_data)));
         let mut cpu = Cpu::new(bus.clone());
