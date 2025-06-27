@@ -56,15 +56,27 @@ impl Mmu {
         if addr == 0xFF44 { return 0x90; }
 
         match MemoryRegion::from(addr) {
-            MemoryRegion::Mbc   => self.cart.read(addr),
-            _                   => self.data[addr as usize]
+            MemoryRegion::Mbc       => self.cart.read(addr),
+            MemoryRegion::Mram      => {
+                let mirror = addr - 0x2000;
+
+                self.data[mirror as usize]
+            },
+            MemoryRegion::Unusable  => 0xFF,
+            _                       => self.data[addr as usize]
         }
     }
 
     pub fn write_byte(&mut self, addr: u16, val: u8) {
         match MemoryRegion::from(addr) {
-            MemoryRegion::Mbc   => self.cart.write(addr, val),
-            _                   => self.data[addr as usize] = val
+            MemoryRegion::Mbc       => self.cart.write(addr, val),
+            MemoryRegion::Mram      => {
+                let mirror = addr - 0x2000;
+
+                self.data[mirror as usize] = val;
+            },
+            MemoryRegion::Unusable  => {},
+            _                       => self.data[addr as usize] = val
         }
     }
 }
@@ -110,5 +122,36 @@ mod tests {
         assert_eq!(MemoryRegion::from(0xFF10), MemoryRegion::Io);
         assert_eq!(MemoryRegion::from(0xFF80), MemoryRegion::HRam);
         assert_eq!(MemoryRegion::from(0xFFFF), MemoryRegion::Ie);
+    }
+
+    // MRAM ECHO RAM
+    #[test]
+    fn echo_ram_mirror() {
+        let mut mmu = Mmu::new(&[]);
+
+        // Write to Work RAM (0xC000) and read from Echo RAM (0xE000)
+        mmu.write_byte(0xC000, 0xAA);
+        assert_eq!(mmu.read_byte(0xE000), 0xAA);
+
+        // Write to Echo RAM and read from Work RAM
+        mmu.write_byte(0xE010, 0xBB);
+        assert_eq!(mmu.read_byte(0xC010), 0xBB);
+    }
+
+    // UNUSABLE REGION
+    #[test]
+    fn unusable_region_behavior() {
+        let mut mmu = Mmu::new(&[]);
+
+        // Unusable region reads back as 0xFF
+        let base = 0xFEA0;
+        assert_eq!(mmu.read_byte(base), 0xFF);
+        assert_eq!(mmu.read_byte(base + 0x1F), 0xFF);
+
+        // Writes to unusable region are ignored (reads still 0xFF)
+        mmu.write_byte(base, 0x00);
+        mmu.write_byte(base + 0x1F, 0x12);
+        assert_eq!(mmu.read_byte(base), 0xFF);
+        assert_eq!(mmu.read_byte(base + 0x1F), 0xFF);
     }
 }
