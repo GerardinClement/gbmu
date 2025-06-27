@@ -1,13 +1,13 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
-pub mod rom_banks;
+pub mod mbc;
 
-use crate::mmu::rom_banks::RomBanks;
+use crate::mmu::mbc::Mbc;
 
 #[derive(PartialEq, Eq)]
 pub enum MemoryRegion {
-    RomBanks,        // 0x000-0x7FFF: read-only
+    Mbc,        // 0x000-0x7FFF: read-only
     Vram,           // 0x8000-0x9FFF
     ERam,           // 0xA000-0xBFFF
     Wram,           // 0xC000-0xDFFF
@@ -23,7 +23,7 @@ pub enum MemoryRegion {
 impl MemoryRegion {
     pub fn from(addr: u16) -> Self {
         match addr {
-            0x0000..=0x7FFF => MemoryRegion::RomBanks,
+            0x0000..=0x7FFF => MemoryRegion::Mbc,
             0x8000..=0x9FFF => MemoryRegion::Vram,
             0xA000..=0xBFFF => MemoryRegion::ERam,
             0xC000..=0xDFFF => MemoryRegion::Wram,
@@ -41,14 +41,14 @@ impl MemoryRegion {
 #[derive(Clone)]
 pub struct Mmu {
     data: [u8; 0x10000], // 0xFFFF (65535) + 1 = 0x10000 (65536)
-    rom: RomBanks,
+    rom: Mbc,
 }
 
 impl Mmu {
     pub fn new(rom_image: Vec<u8>) -> Self {
         let mut data = [0; 0x10000];
 
-        let rom = RomBanks::new(&rom_image);
+        let rom = Mbc::new(&rom_image);
 
         Mmu {
             data,
@@ -57,7 +57,7 @@ impl Mmu {
     }
 
     pub fn load_rom(&mut self, rom: Vec<u8>) {
-        self.rom_banks.clear();
+        self.rom.clear();
 
         let mut bank0 = vec![0; 0x4000];
         for (i, byte) in rom.iter().enumerate() {
@@ -66,10 +66,10 @@ impl Mmu {
             }
             bank0[i] = *byte;
         }
-        self.rom_banks.push(bank0);
+        self.rom.push(bank0);
 
         let mut offset = 0x4000;
-        while offset < rom.len() && self.rom_banks.len() < 128 {
+        while offset < rom.len() && self.rom.len() < 128 {
             let mut bank = vec![0; 0x4000];
             for (i, byte) in rom[offset..].iter().enumerate() {
                 if i >= 0x4000 {
@@ -77,7 +77,7 @@ impl Mmu {
                 }
                 bank[i] = *byte;
             }
-            self.rom_banks.push(bank);
+            self.rom.push(bank);
             offset += 0x4000;
         }
     }
@@ -90,6 +90,7 @@ impl Mmu {
         let region = MemoryRegion::from(addr);
 
         match region {
+            MemoryRegion::Mbc => self.rom.read(addr),
             _ => self.data[region as usize]
         }
 
@@ -99,6 +100,7 @@ impl Mmu {
         let region = MemoryRegion::from(addr);
 
         match region {
+            MemoryRegion::Mbc => self.rom.write(addr, val),
             _ => self.data[region as usize] = val
         }
     }
@@ -109,7 +111,6 @@ impl Default for Mmu {
         Mmu {
             data: [0; 0x10000],
             rom_banks: Vec::new(),
-            current_rom_bank: 1,
         }
     }
 }
