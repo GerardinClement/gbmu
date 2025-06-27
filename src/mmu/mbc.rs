@@ -1,6 +1,6 @@
-use std::cmp::{min};
+use std::cmp::min;
 
-#[derive (Clone)]
+#[derive(Clone)]
 pub struct Mbc {
     banks: Vec<[u8; 0x4000]>,
     current: usize,
@@ -16,7 +16,7 @@ impl Mbc {
 
             let end = min(offset + 0x4000, rom_image.len());
             let len = end - offset;
-            
+
             bank[..len].copy_from_slice(&rom_image[offset..end]);
             banks.push(bank);
             offset += 0x4000;
