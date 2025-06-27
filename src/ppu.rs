@@ -1,7 +1,7 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
-use crate::memory::MemoryBus;
+use crate::mmu::Mmu;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -9,7 +9,7 @@ const VRAM_START: u16 = 0x8000; // Start of VRAM
 
 #[derive(Default)]
 pub struct Ppu {
-    pub bus: Rc<RefCell<MemoryBus>>,
+    pub bus: Rc<RefCell<Mmu>>,
     pub lcd_control: u8, // LCD Control register
     pub lcd_status: u8,  // LCD Status register
     pub scx: u8,         // Scroll X
@@ -19,7 +19,7 @@ pub struct Ppu {
 }
 
 impl Ppu {
-    pub fn new(bus: Rc<RefCell<MemoryBus>>) -> Self {
+    pub fn new(bus: Rc<RefCell<Mmu>>) -> Self {
         Ppu {
             bus,
             lcd_control: 0x00, // Default value

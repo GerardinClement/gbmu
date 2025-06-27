@@ -96,3 +96,14 @@ _Write `0b0010_0000` to select buttons (P15=0) or `0b0001_0000` to select direct
 #### 11. Interrupt-Enable (`0xFFFF`)
 - Single byte: bits 0–4 enable the five interrupts (V-Blank, LCD-STAT, Timer, Serial, Joypad).
 - Write it like normal RAM; on a read you just return the stored byte.
+
+MBC1
+Address Range	Function (MBC1)
+0x0000–0x1FFF	RAM Enable
+Writing 0x0A here typically enables the cartridge’s external RAM (if present); any other value disables it.
+0x2000–0x3FFF	ROM Bank Number (low 5 bits)
+Selects which ROM bank appears at 0x4000–0x7FFF.
+0x4000–0x5FFF	ROM Bank Number (high bits) / RAM Bank Number
+Depending on mode, these bits either extend the ROM‐bank number above bit 5, or select which RAM bank to page in at 0xA000–0xBFFF.
+0x6000–0x7FFF	Banking Mode Select
+0 = simple ROM‐banking mode (up to 2 MB ROM), 1 = RAM‐banking / advanced mode (up to 8 MB ROM + 32 KB RAM).
