@@ -139,18 +139,26 @@ impl Registers {
 
     pub fn sub_to_r8(&mut self, target: R8, value: u8, with_carry: bool) {
         let original = self.r8[target as usize];
-        let carry = if with_carry && self.get_carry_flag() { 1 } else { 0 };
-    
+        let carry = if with_carry && self.get_carry_flag() {
+            1
+        } else {
+            0
+        };
+
         let (intermediate, carry1) = original.overflowing_sub(value);
         let (result, carry2) = intermediate.overflowing_sub(carry);
-    
+
         self.r8[target as usize] = result;
-    
+
         let zero = result == 0;
         let subtract = true;
-        let half_carry = ((original & 0x0F).wrapping_sub(value & 0x0F).wrapping_sub(carry)) & 0x10 != 0;
+        let half_carry = ((original & 0x0F)
+            .wrapping_sub(value & 0x0F)
+            .wrapping_sub(carry))
+            & 0x10
+            != 0;
         let carry = carry1 || carry2;
-    
+
         self.f.set_all(zero, subtract, half_carry, carry);
     }
     
@@ -223,23 +231,24 @@ impl Registers {
         let value = self.get_r8_value(target);
         let old_carry = if self.f.get_carry() { 1 } else { 0 };
         let bit7 = (value & 0x80) >> 7;
-    
+
         let result = if through_carry {
             let rotated = value << 1;
             (rotated & 0b1111_1110) | old_carry
         } else {
             value.rotate_left(1)
         };
-    
+
         self.set_r8_value(target, result);
         self.set_carry_flag(bit7 == 1);
-    
+
+        // Z flag est forcé à 0 pour A dans RLA/RLCA
         if target == R8::A {
             self.set_zero_flag(false);
         } else {
             self.set_zero_flag(result == 0);
         }
-    
+
         self.set_subtract_flag(false);
         self.set_half_carry_flag(false);
     }
@@ -257,11 +266,7 @@ impl Registers {
             (r8 >> 1) | if old_carry { 0x80 } else { 0x00 } // RR
         };
 
-        let zero = if result == 0 && target != R8::A {
-            true
-        } else {
-            false
-        };
+        let zero = result == 0 && target != R8::A;
         self.set_r8_value(target, result);
         self.set_carry_flag(outgoing_bit);
         self.set_zero_flag(zero);

@@ -28,7 +28,7 @@ impl MemoryBus {
         }
 
         MemoryBus {
-            data: data,
+            data,
             rom_banks: banks,
             current_rom_bank: 1, // bank 1 is the default switchable region
         }

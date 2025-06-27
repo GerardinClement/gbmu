@@ -133,7 +133,7 @@ fn load_a_r16mem(cpu: &mut Cpu, instruction: u8) {
     let r16_mem = utils::convert_index_to_r16_mem(instruction);
     let value = cpu
         .registers
-        .get_r16_mem_value(&mut cpu.bus.borrow_mut(), R16::from(r16_mem));
+        .get_r16_mem_value(&cpu.bus.borrow(), R16::from(r16_mem));
 
     cpu.set_r8_value(R8::A, value);
     if r16_mem == R16Mem::HLincrement || r16_mem == R16Mem::HLdecrement {
@@ -283,7 +283,7 @@ fn jr(cpu: &mut Cpu, instruction: u8, has_cond: bool) {
         }
     }
     let offset = cpu.bus.borrow().read_byte(cpu.pc + 1) as i8;
-    cpu.pc = cpu.pc.wrapping_add(2).wrapping_add(offset as u16);
+    cpu.pc = ((cpu.pc as i32) + 2 + (offset as i32)) as u16;
 }
 
 fn stop(cpu: &mut Cpu) {
