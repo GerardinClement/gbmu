@@ -91,7 +91,7 @@ impl Mmu {
 
         match region {
             MemoryRegion::Mbc => self.rom.read(addr),
-            _ => self.data[region as usize]
+            _ => self.data[addr as usize]
         }
 
     }
@@ -101,16 +101,13 @@ impl Mmu {
 
         match region {
             MemoryRegion::Mbc => self.rom.write(addr, val),
-            _ => self.data[region as usize] = val
+            _ => self.data[addr as usize] = val
         }
     }
 }
 
 impl Default for Mmu {
     fn default() -> Self {
-        Mmu {
-            data: [0; 0x10000],
-            rom_banks: Vec::new(),
-        }
+        Mmu::new(&[])
     }
 }

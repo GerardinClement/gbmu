@@ -40,15 +40,5 @@ impl Mbc {
         }
     }
 
-    pub fn write(&mut self, addr: u16, val: u8) {
-        let i = addr as usize;
-
-        if i < 0x4000 {
-            self.banks[0][i] = val;
-        } else {
-            let j = i - 0x4000;
-
-            self.banks[self.current][j] = val;
-        }
-    }
+    pub fn write(&mut self, addr: u16, val: u8) {}
 }
