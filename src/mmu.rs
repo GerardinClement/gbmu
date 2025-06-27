@@ -2,6 +2,7 @@
 #![allow(dead_code)]
 
 pub mod mbc;
+pub mod interrupt;
 
 use crate::mmu::mbc::Mbc;
 
