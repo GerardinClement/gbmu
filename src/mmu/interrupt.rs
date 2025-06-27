@@ -22,9 +22,20 @@ impl InterruptController {
         InterruptController { ienable: 0, iflag: 0 }
     }
 
-    pub fn read_ie(&self) -> u8 { self.ienable }
+    pub fn read_ie(&self) -> u8 {
+        self.ienable & 0b00011111
+    }
 
-    pub fn write_ie(&mut self, val: u8) { self.ienable = val; }
+    pub fn write_ie(&mut self, val: u8) {
+        self.ienable = val & 0b00011111;
+    }
 
+    pub fn read_if(&self) -> u8 {
+        self.ienable | 0b11100000
+    }
+
+    pub fn write_if(&mut self, val: u8) {
+        self.iflag = val & 0b00011111;
+    }
     
 }
