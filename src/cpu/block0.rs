@@ -56,7 +56,8 @@ fn get_instruction_block0(instruction: u8) -> u8 {
 
     match_opcode.retain(|&opcode| (instruction & mask_last_4_bits) == (opcode & mask_last_4_bits));
     if match_opcode.len() > 1 {
-        match_opcode_cpy.retain(|&opcode| (instruction & mask_first_3_bits) == (opcode & mask_first_3_bits));
+        match_opcode_cpy
+            .retain(|&opcode| (instruction & mask_first_3_bits) == (opcode & mask_first_3_bits));
         if match_opcode_cpy.len() == 1 {
             return match_opcode_cpy[0];
         }

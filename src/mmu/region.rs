@@ -3,16 +3,16 @@
 
 #[derive(PartialEq, Eq)]
 pub enum MemoryRegion {
-    Rbank,          // 0x000-0x7FFF: read-only
-    Vram,           // 0x8000-0x9FFF
-    ExternalRam,    // 0xA000-0xBFFF
-    Wram,           // 0xC000-0xDFFF
-    Echo,           // 0xE000-0xFDFF: mirror of C000-DDFF
-    Oam,            // 0xFE00-0xFE9F: Sprite Attribute Table
-    Unusable,       // 0xFEA0-0xFEFF
-    Io,             // 0xFF00-0xFF7F
-    HRam,           // 0xFF80-0xFFFE
-    Ie,             // 0xFFFF-0xFFFF
+    Rbank,       // 0x000-0x7FFF: read-only
+    Vram,        // 0x8000-0x9FFF
+    ExternalRam, // 0xA000-0xBFFF
+    Wram,        // 0xC000-0xDFFF
+    Echo,        // 0xE000-0xFDFF: mirror of C000-DDFF
+    Oam,         // 0xFE00-0xFE9F: Sprite Attribute Table
+    Unusable,    // 0xFEA0-0xFEFF
+    Io,          // 0xFF00-0xFF7F
+    HRam,        // 0xFF80-0xFFFE
+    Ie,          // 0xFFFF-0xFFFF
 }
 
 // TODO refacto in order to have multiple structs instead of one

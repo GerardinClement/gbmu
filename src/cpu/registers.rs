@@ -161,7 +161,7 @@ impl Registers {
 
         self.f.set_all(zero, subtract, half_carry, carry);
     }
-    
+
     pub fn get_r16_value(&self, target: R16) -> u16 {
         match target {
             R16::BC => self.get_bc(),
@@ -252,8 +252,6 @@ impl Registers {
         self.set_subtract_flag(false);
         self.set_half_carry_flag(false);
     }
-    
-    
 
     pub fn rotate_right(&mut self, target: R8, circular: bool) {
         let r8 = self.get_r8_value(target);
