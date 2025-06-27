@@ -16,18 +16,18 @@ use std::fmt;
 use std::rc::Rc;
 
 use crate::cpu::registers::{R8, R16, Registers};
-use crate::mmu::bus::MemoryBus;
+use crate::mmu::Mmu;
 
 pub struct Cpu {
     pub registers: Registers,
     pub pc: u16,
-    pub bus: Rc<RefCell<MemoryBus>>,
+    pub bus: Rc<RefCell<Mmu>>,
     pub ime: bool,
     pub ime_delay: bool, // mimic hardware delay in EI
 }
 
 impl Cpu {
-    pub fn new(bus: Rc<RefCell<MemoryBus>>) -> Self {
+    pub fn new(bus: Rc<RefCell<Mmu>>) -> Self {
         Cpu {
             registers: Registers::default(),
             bus,
@@ -117,7 +117,7 @@ impl Default for Cpu {
     fn default() -> Self {
         Cpu {
             registers: Registers::default(),
-            bus: Rc::new(RefCell::new(MemoryBus::default())),
+            bus: Rc::new(RefCell::new(Mmu::default())),
             pc: 0x0100,
             ime: false,
             ime_delay: false,
@@ -140,7 +140,7 @@ mod tests {
         }
 
         let rom_data = fs::read(rom_path).expect("Failed to read ROM file");
-        let bus = Rc::new(RefCell::new(MemoryBus::new(rom_data)));
+        let bus = Rc::new(RefCell::new(Mmu::new(&rom_data)));
         let mut cpu = Cpu::new(bus.clone());
         let mut logfile = fs::File::create(format!("logfiles/{}", logfile_name))
             .expect("Failed to create logfile");

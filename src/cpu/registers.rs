@@ -3,7 +3,7 @@
 
 use crate::cpu::conditions::Cond;
 use crate::cpu::flags_registers::FlagsRegister;
-use crate::mmu::bus::MemoryBus;
+use crate::mmu::Mmu;
 
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq)]
@@ -180,7 +180,7 @@ impl Registers {
         }
     }
 
-    pub fn set_r16_mem_value(&mut self, memory: &mut MemoryBus, target: R16, value: u8) {
+    pub fn set_r16_mem_value(&mut self, memory: &mut Mmu, target: R16, value: u8) {
         let addr = match target {
             R16::BC => self.get_bc(),
             R16::DE => self.get_de(),
@@ -190,7 +190,7 @@ impl Registers {
         memory.write_byte(addr, value);
     }
 
-    pub fn get_r16_mem_value(&self, memory: &MemoryBus, target: R16) -> u8 {
+    pub fn get_r16_mem_value(&self, memory: &Mmu, target: R16) -> u8 {
         let addr = match target {
             R16::BC => self.get_bc(),
             R16::DE => self.get_de(),
@@ -418,7 +418,7 @@ impl Registers {
         self.sp = value;
     }
 
-    pub fn push_sp(&mut self, bus: &mut MemoryBus, value: u16) {
+    pub fn push_sp(&mut self, bus: &mut Mmu, value: u16) {
         let low = (value & 0x00FF) as u8;
         let high = (value >> 8) as u8;
         self.sp = self.sp.wrapping_sub(1);
@@ -427,7 +427,7 @@ impl Registers {
         bus.write_byte(self.sp, low);
     }
 
-    pub fn pop_sp(&mut self, bus: &MemoryBus) -> u16 {
+    pub fn pop_sp(&mut self, bus: &Mmu) -> u16 {
         let low = bus.read_byte(self.sp) as u16;
         let high = bus.read_byte(self.sp.wrapping_add(1)) as u16;
         self.sp = self.sp.wrapping_add(2);

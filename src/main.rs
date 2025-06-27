@@ -6,7 +6,6 @@ mod cpu;
 mod gameboy;
 mod mmu;
 mod ppu;
-mod ppu;
 
 use crate::app::App;
 use std::env;
@@ -35,7 +34,7 @@ fn main() {
         args.pop()
             .expect("Expected a ROM name as the second argument")
     } else {
-        "roms/individual/01-special.gb".to_string()
+        "roms/cpu_instrs.gb".to_string()
     };
 
     let rom_data: Vec<u8> = read_rom(rom_path);
