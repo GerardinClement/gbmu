@@ -7,17 +7,17 @@ use crate::mmu::mbc::Mbc;
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum MemoryRegion {
-    Mbc,        // 0x000-0x7FFF: read-only
-    Vram,           // 0x8000-0x9FFF
-    ERam,           // 0xA000-0xBFFF
-    Wram,           // 0xC000-0xDFFF
-    Mram,           // 0xE000-0xFDFF: mirror of C000-DDFF
-    Oam,            // 0xFE00-0xFE9F: Sprite Attribute Table
-    Unusable,       // 0xFEA0-0xFEFF
-    If,             // 0xFF0F: Interruption Flag: Inside IO
-    Io,             // 0xFF00-0xFF7F
-    HRam,           // 0xFF80-0xFFFE
-    Ie,             // 0xFFFF : Interruption Enable
+    Mbc,      // 0x000-0x7FFF: read-only
+    Vram,     // 0x8000-0x9FFF
+    ERam,     // 0xA000-0xBFFF
+    Wram,     // 0xC000-0xDFFF
+    Mram,     // 0xE000-0xFDFF: mirror of C000-DDFF
+    Oam,      // 0xFE00-0xFE9F: Sprite Attribute Table
+    Unusable, // 0xFEA0-0xFEFF
+    If,       // 0xFF0F: Interruption Flag: Inside IO
+    Io,       // 0xFF00-0xFF7F
+    HRam,     // 0xFF80-0xFFFE
+    Ie,       // 0xFFFF : Interruption Enable
 }
 
 impl MemoryRegion {
@@ -53,30 +53,32 @@ impl Mmu {
     }
 
     pub fn read_byte(&self, addr: u16) -> u8 {
-        if addr == 0xFF44 { return 0x90; }
+        if addr == 0xFF44 {
+            return 0x90;
+        }
 
         match MemoryRegion::from(addr) {
-            MemoryRegion::Mbc       => self.cart.read(addr),
-            MemoryRegion::Mram      => {
+            MemoryRegion::Mbc => self.cart.read(addr),
+            MemoryRegion::Mram => {
                 let mirror = addr - 0x2000;
 
                 self.data[mirror as usize]
-            },
-            MemoryRegion::Unusable  => 0xFF,
-            _                       => self.data[addr as usize]
+            }
+            MemoryRegion::Unusable => 0xFF,
+            _ => self.data[addr as usize],
         }
     }
 
     pub fn write_byte(&mut self, addr: u16, val: u8) {
         match MemoryRegion::from(addr) {
-            MemoryRegion::Mbc       => self.cart.write(addr, val),
-            MemoryRegion::Mram      => {
+            MemoryRegion::Mbc => self.cart.write(addr, val),
+            MemoryRegion::Mram => {
                 let mirror = addr - 0x2000;
 
                 self.data[mirror as usize] = val;
-            },
-            MemoryRegion::Unusable  => {},
-            _                       => self.data[addr as usize] = val
+            }
+            MemoryRegion::Unusable => {}
+            _ => self.data[addr as usize] = val,
         }
     }
 }
@@ -90,7 +92,7 @@ impl Default for Mmu {
 // In mmu.rs
 #[cfg(test)]
 mod tests {
-    use super::{Mmu, MemoryRegion};
+    use super::{MemoryRegion, Mmu};
 
     #[test]
     fn mmu_routes_reads_and_writes() {
