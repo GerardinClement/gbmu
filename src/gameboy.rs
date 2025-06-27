@@ -17,7 +17,7 @@ pub struct GameBoy {
 
 impl GameBoy {
     pub fn new(rom: Vec<u8>) -> Self {
-        let bus = Rc::new(RefCell::new(Mmu::new(rom)));
+        let bus = Rc::new(RefCell::new(Mmu::new(&rom)));
         let cpu = Cpu::new(bus.clone());
         let ppu = Ppu::new(bus.clone());
 

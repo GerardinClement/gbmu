@@ -123,7 +123,7 @@ mod tests {
 
     fn run_rom_test(rom_path: &str, logfile_name: &str) {
         let rom_data = fs::read(rom_path).expect("Failed to read ROM file");
-        let bus = Rc::new(RefCell::new(Mmu::new(rom_data)));
+        let bus = Rc::new(RefCell::new(Mmu::new(&rom_data)));
         let mut cpu = Cpu::new(bus.clone());
         let mut logfile = fs::File::create(format!("logfiles/{}", logfile_name))
             .expect("Failed to create logfile");
