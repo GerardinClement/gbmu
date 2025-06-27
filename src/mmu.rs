@@ -5,7 +5,7 @@ pub mod mbc;
 
 use crate::mmu::mbc::Mbc;
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Debug)]
 pub enum MemoryRegion {
     Mbc,        // 0x000-0x7FFF: read-only
     Vram,           // 0x8000-0x9FFF
@@ -41,67 +41,30 @@ impl MemoryRegion {
 #[derive(Clone)]
 pub struct Mmu {
     data: [u8; 0x10000], // 0xFFFF (65535) + 1 = 0x10000 (65536)
-    rom: Mbc,
+    cart: Mbc,
 }
 
 impl Mmu {
-    pub fn new(rom_image: Vec<u8>) -> Self {
-        let mut data = [0; 0x10000];
-
-        let rom = Mbc::new(&rom_image);
-
+    pub fn new(rom_image: &[u8]) -> Self {
         Mmu {
-            data,
-            rom,
-        }
-    }
-
-    pub fn load_rom(&mut self, rom: Vec<u8>) {
-        self.rom.clear();
-
-        let mut bank0 = vec![0; 0x4000];
-        for (i, byte) in rom.iter().enumerate() {
-            if i >= 0x4000 {
-                break;
-            }
-            bank0[i] = *byte;
-        }
-        self.rom.push(bank0);
-
-        let mut offset = 0x4000;
-        while offset < rom.len() && self.rom.len() < 128 {
-            let mut bank = vec![0; 0x4000];
-            for (i, byte) in rom[offset..].iter().enumerate() {
-                if i >= 0x4000 {
-                    break;
-                }
-                bank[i] = *byte;
-            }
-            self.rom.push(bank);
-            offset += 0x4000;
+            data: [0; 0x10000],
+            cart: Mbc::new(rom_image),
         }
     }
 
     pub fn read_byte(&self, addr: u16) -> u8 {
-        if addr == 0xFF44 {
-            return 0x90;
+        if addr == 0xFF44 { return 0x90; }
+
+        match MemoryRegion::from(addr) {
+            MemoryRegion::Mbc   => self.cart.read(addr),
+            _                   => self.data[addr as usize]
         }
-
-        let region = MemoryRegion::from(addr);
-
-        match region {
-            MemoryRegion::Mbc => self.rom.read(addr),
-            _ => self.data[addr as usize]
-        }
-
     }
 
     pub fn write_byte(&mut self, addr: u16, val: u8) {
-        let region = MemoryRegion::from(addr);
-
-        match region {
-            MemoryRegion::Mbc => self.rom.write(addr, val),
-            _ => self.data[addr as usize] = val
+        match MemoryRegion::from(addr) {
+            MemoryRegion::Mbc   => self.cart.write(addr, val),
+            _                   => self.data[addr as usize] = val
         }
     }
 }
@@ -109,5 +72,43 @@ impl Mmu {
 impl Default for Mmu {
     fn default() -> Self {
         Mmu::new(&[])
+    }
+}
+
+// In mmu.rs
+#[cfg(test)]
+mod tests {
+    use super::{Mmu, MemoryRegion};
+
+    #[test]
+    fn mmu_routes_reads_and_writes() {
+        let rom = vec![0x12, 0x34, 0x56, 0x78];
+        let mut mmu = Mmu::new(&rom);
+
+        // Reading from ROM region gives you the first bank data
+        assert_eq!(mmu.read_byte(0x0000), 0x12);
+        assert_eq!(mmu.read_byte(0x0001), 0x34);
+
+        // Write to WRAM region and read back
+        mmu.write_byte(0xC000, 0xAB);
+        assert_eq!(mmu.read_byte(0xC000), 0xAB);
+
+        // FF44 is hardcoded
+        assert_eq!(mmu.read_byte(0xFF44), 0x90);
+    }
+
+    #[test]
+    fn memory_region_from_addr() {
+        assert_eq!(MemoryRegion::from(0x0000), MemoryRegion::Mbc);
+        assert_eq!(MemoryRegion::from(0x8000), MemoryRegion::Vram);
+        assert_eq!(MemoryRegion::from(0xA123), MemoryRegion::ERam);
+        assert_eq!(MemoryRegion::from(0xC123), MemoryRegion::Wram);
+        assert_eq!(MemoryRegion::from(0xE123), MemoryRegion::Mram);
+        assert_eq!(MemoryRegion::from(0xFE50), MemoryRegion::Oam);
+        assert_eq!(MemoryRegion::from(0xFEA0), MemoryRegion::Unusable);
+        assert_eq!(MemoryRegion::from(0xFF0F), MemoryRegion::If);
+        assert_eq!(MemoryRegion::from(0xFF10), MemoryRegion::Io);
+        assert_eq!(MemoryRegion::from(0xFF80), MemoryRegion::HRam);
+        assert_eq!(MemoryRegion::from(0xFFFF), MemoryRegion::Ie);
     }
 }
