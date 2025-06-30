@@ -64,9 +64,9 @@ impl LcdControl {
         self.window_enable
     }
 
-	pub fn get_bg_window_tiles(&self) -> bool {
-		self.bg_window_tiles
-	}
+    pub fn get_bg_window_tiles(&self) -> bool {
+        self.bg_window_tiles
+    }
 
     pub fn get_bg_window_tiles_area(&self) -> Range<u16> {
         if self.bg_window_tiles {

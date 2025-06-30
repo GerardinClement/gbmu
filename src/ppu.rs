@@ -4,7 +4,7 @@
 pub mod lcd_control;
 pub mod lcd_status;
 
-use crate::memory::MemoryBus;
+use crate::mmu::Mmu;
 use crate::ppu::lcd_control::LcdControl;
 use crate::ppu::lcd_status::LcdStatus;
 use std::cell::RefCell;
@@ -14,13 +14,13 @@ const VRAM_START: u16 = 0x8000; // Start of VRAM
 
 #[derive(Default)]
 pub struct Ppu {
-    pub bus: Rc<RefCell<MemoryBus>>,
+    pub bus: Rc<RefCell<Mmu>>,
     lcd_control: LcdControl,
     lcd_status: LcdStatus, // LCD Status register
-    scx: u8,        // Scroll X
-    scy: u8,        // Scroll Y
-    wy: u8,         // Window Y position
-    wx: u8,         // Window X position
+    scx: u8,               // Scroll X
+    scy: u8,               // Scroll Y
+    wy: u8,                // Window Y position
+    wx: u8,                // Window X position
     ly: u8,
     lyc: u8,
 }
@@ -30,10 +30,10 @@ impl Ppu {
         Ppu {
             bus,
             lcd_control: LcdControl::default(),
-            lcd_status: LcdStatus::new(),                  
-            scx: 0x00,                         
-            scy: 0x00,                         
-            wy: 0x00,                          
+            lcd_status: LcdStatus::new(),
+            scx: 0x00,
+            scy: 0x00,
+            wy: 0x00,
             wx: 0x00,
             ly: 0x00,
             lyc: 0x00,
@@ -47,6 +47,23 @@ impl Ppu {
             if (i + 1) % 16 == 0 {
                 println!();
             }
+        }
+    }
+
+    pub fn display_tiles_data(&self) {
+        println!("Tile Data Area:");
+        for tile_index in 0..384 {
+            // 384 tiles, each 16 bytes
+            let tile_address = VRAM_START + (tile_index as u16 * 16);
+            print!("{:04x} Tile {:03}: ", tile_address, tile_index);
+            for byte_index in 0..16 {
+                let byte = self
+                    .bus
+                    .borrow()
+                    .read_byte(tile_address + byte_index as u16);
+                print!("{:02X} ", byte);
+            }
+            println!();
         }
     }
 
@@ -86,22 +103,40 @@ impl Ppu {
 
         tile_data
     }
-    
+
+    pub fn display_all_tiles(&self) -> Vec<u8> {
+        let mut frame = vec![0; 160 * 144 * 3];
+        for y in 0..144 {
+            for x in 0..160 {
+                let tile_index = (y / 8) * 20 + (x / 8);
+                let base_address = VRAM_START + (tile_index as u16 * 16);
+                let tile_data = self.read_tile_data(base_address);
+                let color = self.get_pixel_color(tile_data, x, y);
+                let offset = (y * 160 + x) * 3;
+                frame[offset] = color[0];
+                frame[offset + 1] = color[1];
+                frame[offset + 2] = color[2];
+            }
+        }
+        frame
+    }
+
     pub fn render_frame(&self) -> Vec<u8> {
         let mut frame = vec![0; 160 * 144 * 3];
         for y in 0..144 {
             for x in 0..160 {
                 let y_tile = y / 8;
                 let x_tile = x / 8;
-                let tilemap_base: std::ops::Range<u16> = self.lcd_control.get_window_tile_map_area();
+                let tilemap_base: std::ops::Range<u16> = self.lcd_control.get_bg_tile_map();
+
                 let offset = (y_tile * 32 + x_tile) as u16;
                 let tile_number = self.bus.borrow().read_byte(tilemap_base.start + offset);
                 let tile_address = if self.lcd_control.get_bg_window_tiles() {
                     0x8000 + (tile_number as u16) * 16
                 } else {
-                    0x8000 + (tile_number as u16) * 16
+                    0x8080 + ((tile_number as i8) as u16 + 128) * 16
                 };
-                
+
                 let tile_data = self.read_tile_data(tile_address);
                 let color = self.get_pixel_color(tile_data, x, y);
                 let color_offset = (y * 160 + x) * 3;
