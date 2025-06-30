@@ -37,5 +37,16 @@ impl InterruptController {
     pub fn write_if(&mut self, val: u8) {
         self.iflag = val & 0b00011111;
     }
-    
+
+    pub fn request(&mut self, int: Interrupt) {
+        let mask = 1 << (int as u8);
+        self.iflag |= mask;
+    }
+
+    pub fn clear_flag(&mut self, int: Interrupt) {
+        let reversed_mask = !(1 << (int as u8));
+        self.iflag &= reversed_mask;
+    }
+
+//     pub fn next(&self) -> Option<Interrupt> {}
 }
