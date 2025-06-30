@@ -5,6 +5,7 @@ pub mod mbc;
 pub mod interrupt;
 
 use crate::mmu::mbc::Mbc;
+use crate::mmu::interrupt::InterruptController;
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum MemoryRegion {
@@ -43,6 +44,7 @@ impl MemoryRegion {
 pub struct Mmu {
     data: [u8; 0x10000], // 0xFFFF (65535) + 1 = 0x10000 (65536)
     cart: Mbc,
+    interrupts: InterruptController,
 }
 
 impl Mmu {
@@ -50,6 +52,7 @@ impl Mmu {
         Mmu {
             data: [0; 0x10000],
             cart: Mbc::new(rom_image),
+            interrupts: InterruptController::new(),
         }
     }
 
@@ -66,6 +69,8 @@ impl Mmu {
                 self.data[mirror as usize]
             }
             MemoryRegion::Unusable => 0xFF,
+            MemoryRegion::If => self.interrupts.read_if(),
+            MemoryRegion::Ie => self.interrupts.read_ie(),
             _ => self.data[addr as usize],
         }
     }
@@ -78,7 +83,9 @@ impl Mmu {
 
                 self.data[mirror as usize] = val;
             }
-            MemoryRegion::Unusable => {}
+            MemoryRegion::Unusable => {},
+            MemoryRegion::If => self.interrupts.write_if(val),
+            MemoryRegion::Ie => self.interrupts.write_ie(val),
             _ => self.data[addr as usize] = val,
         }
     }

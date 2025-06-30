@@ -13,6 +13,7 @@ impl Interrupt {
     }
 }
 
+#[derive(Clone)]
 pub struct InterruptController {
     ienable: u8,
     iflag: u8,
