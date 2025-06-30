@@ -13,7 +13,7 @@ const COND_MASK: u8 = 0b00011000;
 
 const RST_VEC: [u8; 8] = [0x00, 0x08, 0x10, 0x18, 0x20, 0x28, 0x30, 0x38];
 
-const INSTRUCTIONS_BLOCK3: [u8; 31] = [
+const INSTRUCTIONS_BLOCK3: [u8; 29] = [
     0b11000110, //add a, imm8
     0b11001110, //adc a, imm8
     0b11010110, //sub a, imm8
@@ -43,8 +43,6 @@ const INSTRUCTIONS_BLOCK3: [u8; 31] = [
     0b11110001, //pop af
     0b11110101, //push af
     0b11111001, //ld sp, hl
-    0b11110011, //di
-    0b11111011, //ei
 ];
 
 const INSTRUCTION_STACK_BLOCK3: [u8; 2] = [
@@ -52,8 +50,11 @@ const INSTRUCTION_STACK_BLOCK3: [u8; 2] = [
     0b11000101, //push r16stk
 ];
 
-/// GET the instruction based on the opcode and returns the corresponding instruction.
-///
+const INSTRUCTION_INTERRUPT: [u8; 2] = [
+    0b11110011, //di
+    0b11111011, //ei
+];
+
 fn check_stack_stk16_instruction(instruction: u8) -> u8 {
     let stack_mask = 0b00001111;
 
@@ -74,7 +75,7 @@ fn get_instruction_block3(instruction: u8) -> u8 {
     let block3_mask = 0b00000111;
     let cond_mask = 0b11100000;
 
-    if INSTRUCTIONS_BLOCK3.contains(&instruction) {
+    if INSTRUCTIONS_BLOCK3.contains(&instruction) || INSTRUCTION_INTERRUPT.contains(&instruction) {
         return instruction;
     }
 
@@ -88,6 +89,10 @@ fn get_instruction_block3(instruction: u8) -> u8 {
         .cloned()
         .filter(|&opcode| (instruction & block3_mask) == (opcode & block3_mask))
         .collect();
+
+    if match_opcode.len() == 1 {
+        return match_opcode[0];
+    }
 
     let match_cond_opcode: Vec<u8> = match_opcode
         .into_iter()
@@ -706,5 +711,13 @@ mod tests {
 
         // Vérifie que le compteur de programme a été incrémenté correctement
         assert_eq!(cpu.pc, 0x8000 + 1);
+    }
+
+    #[test]
+    fn test_rst_38h() {
+        let mut cpu = Cpu::default();
+        execute_instruction_block3(&mut cpu, 0xFF); // RST 38h
+
+        assert_eq!(cpu.pc, 0x0038);
     }
 }
