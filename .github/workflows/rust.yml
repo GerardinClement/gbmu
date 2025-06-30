@@ -40,6 +40,11 @@ jobs:
       - name: Check formatting
         run: cargo fmt -- --check
 
+      - name: Dump Rust info
+        run: |
+          rustc --version
+          cargo clippy --version
+          rustup show
       - name: Run Clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
 

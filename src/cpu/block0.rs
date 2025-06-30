@@ -304,7 +304,7 @@ mod tests {
         let mut cpu = Cpu::default();
 
         cpu.pc = 0x8000;
-        cpu.bus.borrow_mut().write_byte(cpu.pc,     0x01); // opcode LD BC,n16
+        cpu.bus.borrow_mut().write_byte(cpu.pc, 0x01); // opcode LD BC,n16
         cpu.bus.borrow_mut().write_byte(cpu.pc + 1, 0x34); // LSB
         cpu.bus.borrow_mut().write_byte(cpu.pc + 2, 0x12); // MSB
         execute_instruction_block0(&mut cpu, 0x01); // LD BC, 0x1234
