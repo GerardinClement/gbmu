@@ -17,11 +17,12 @@ use std::rc::Rc;
 
 use crate::cpu::registers::{R8, R16, Registers};
 use crate::mmu::Mmu;
+use crate::mmu::interrupt::Interrupt;
 
 pub struct Cpu {
     pub registers: Registers,
     pub pc: u16,
-    pub bus: Rc<RefCell<Mmu>>,
+    pub bus: Rc<RefCell<Mmu>>, // TODO refacto each mention of 'bus' as 'mmu'
     pub ime: bool,
     pub ime_delay: bool, // mimic hardware delay in EI
 }
@@ -53,6 +54,18 @@ impl Cpu {
     }
 
     pub fn step(&mut self) {
+        if self.ime {
+            // Find the next pending+enabled interrupt
+            if true {
+                // If there is one
+                //
+                // disable further interrupts
+                self.ime = false;
+                // clear IF bits
+                self.bus.borrow_mut().interrupts.clear_request(interrupt);
+                // push return address
+            }
+        }
         let instruction_byte = self.bus.borrow().read_byte(self.pc);
         // println!("pc: 0x{:02X}", self.pc);
         // println!("opcode: 0x{:02X}", instruction_byte);
@@ -64,9 +77,6 @@ impl Cpu {
         }
 
         println!("{}", self);
-        // println!(
-        //     "---------------------------------------------------------------------------------------------"
-        // )
     }
 
     pub fn get_r8_value(&self, register: R8) -> u8 {
