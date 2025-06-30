@@ -1,15 +1,22 @@
+#[repr(u8)]
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Interrupt {
-    VBlank = 0, // 0x40
-    LcdStat = 1, // 0x48
-    Timer = 2, // 0x50 
-    Serial = 3, // 0x58
-    Joypad = 4, // 0x60
+    VBlank = 0b00000001,
+    LcdStat = 0b00000010,
+    Timer = 0b00000100,
+    Serial = 0b00001000,
+    Joypad = 0b00010000,
 }
 
 impl Interrupt {
     pub fn vector(self) -> u16 {
-        0x40 + ((self as u16) * 8) // 0x40 = 64 so 64 + (index * 8) gives the right vector
+        match self {
+            Interrupt::VBlank => 0x40,
+            Interrupt::LcdStat => 0x48,
+            Interrupt::Timer => 0x50,
+            Interrupt::Serial => 0x58,
+            Interrupt::Joypad => 0x60,
+        }
     }
 }
 
@@ -41,13 +48,11 @@ impl InterruptController {
     }
 
     pub fn request(&mut self, interrupt: Interrupt) {
-        let mask = 1 << (interrupt as u8);
-        self.iflag |= mask;
+        self.iflag |= interrupt as u8;
     }
 
     pub fn clear_request(&mut self, interrupt: Interrupt) {
-        let reversed_mask = !(1 << (interrupt as u8));
-        self.iflag &= reversed_mask;
+        self.iflag &= !(interrupt as u8);
     }
 
     pub fn next_request(&self) -> Option<Interrupt> {
@@ -60,9 +65,8 @@ impl InterruptController {
             Interrupt::Serial,
             Interrupt::Joypad,
         ] {
-            let mask = 1 << (interrupt as u8);
     
-            if pending_request & mask != 0 {
+            if pending_request & (interrupt as u8) != 0 {
                 return Some(interrupt);
             }
         }
@@ -78,7 +82,7 @@ mod tests {
     fn test_vector_addresses() {
         assert_eq!(Interrupt::VBlank.vector(), 0x40);
         assert_eq!(Interrupt::LcdStat.vector(), 0x48);
-        assert_eq!(Interrupt::Timer.vector(),  0x50);
+        assert_eq!(Interrupt::Timer.vector(), 0x50);
         assert_eq!(Interrupt::Serial.vector(), 0x58);
         assert_eq!(Interrupt::Joypad.vector(), 0x60);
     }
@@ -86,14 +90,9 @@ mod tests {
     #[test]
     fn test_read_write_ie() {
         let mut ic = InterruptController::new();
-
-        // IE starts at 0
         assert_eq!(ic.read_ie(), 0);
-
-        // Write some bits (only lower 5 should stick)
         ic.write_ie(0b1111_1111);
         assert_eq!(ic.read_ie(), 0b0001_1111);
-
         ic.write_ie(0b0000_0101);
         assert_eq!(ic.read_ie(), 0b0000_0101);
     }
@@ -101,16 +100,9 @@ mod tests {
     #[test]
     fn test_read_write_if() {
         let mut ic = InterruptController::new();
-
-        // IF starts at 0, but read_if forces high bits 5–7
         assert_eq!(ic.read_if(), 0b1110_0000);
-
-        // Write lower bits only
         ic.write_if(0b1010_1010);
-        // stored = 0b0001_01010, read_if ORs with 0b1110_0000
         assert_eq!(ic.read_if(), 0b1110_1010);
-
-        // Clear it back to zero
         ic.write_if(0);
         assert_eq!(ic.read_if(), 0b1110_0000);
     }
@@ -118,26 +110,13 @@ mod tests {
     #[test]
     fn test_request_and_clear_request() {
         let mut ic = InterruptController::new();
-
-        // No flags initially
         assert_eq!(ic.read_if() & 0b0001_1111, 0);
-
-        // Request Timer and Serial
         ic.request(Interrupt::Timer);
         ic.request(Interrupt::Serial);
-        assert_eq!(
-            ic.read_if() & 0b0001_1111,
-            (1 << Interrupt::Timer as u8) | (1 << Interrupt::Serial as u8)
-        );
-
-        // Clear only Timer
+        assert_eq!(ic.read_if() & 0b0001_1111,
+                   (Interrupt::Timer as u8) | (Interrupt::Serial as u8));
         ic.clear_request(Interrupt::Timer);
-        assert_eq!(
-            ic.read_if() & 0b0001_1111,
-            1 << (Interrupt::Serial as u8)
-        );
-
-        // Clear Serial too
+        assert_eq!(ic.read_if() & 0b0001_1111, Interrupt::Serial as u8);
         ic.clear_request(Interrupt::Serial);
         assert_eq!(ic.read_if() & 0b0001_1111, 0);
     }
@@ -145,30 +124,19 @@ mod tests {
     #[test]
     fn test_next_request_priority_and_masking() {
         let mut ic = InterruptController::new();
-
-        // Enable VBlank, Timer, Joypad
-        ic.write_ie((1 << Interrupt::VBlank as u8)
-                  | (1 << Interrupt::Timer   as u8)
-                  | (1 << Interrupt::Joypad  as u8));
-
-        // Request all five
-        for &int in &[Interrupt::VBlank, Interrupt::LcdStat, Interrupt::Timer, Interrupt::Serial, Interrupt::Joypad] {
+        ic.write_ie((Interrupt::VBlank as u8)
+                  | (Interrupt::Timer as u8)
+                  | (Interrupt::Joypad as u8));
+        for &int in &[Interrupt::VBlank, Interrupt::LcdStat, Interrupt::Timer,
+                      Interrupt::Serial, Interrupt::Joypad] {
             ic.request(int);
         }
-
-        // next_request should return VBlank first (highest priority)
         assert_eq!(ic.next_request(), Some(Interrupt::VBlank));
         ic.clear_request(Interrupt::VBlank);
-
-        // Now LcdStat is requested but not enabled → skip to Timer
         assert_eq!(ic.next_request(), Some(Interrupt::Timer));
         ic.clear_request(Interrupt::Timer);
-
-        // Next enabled+requested is Joypad
         assert_eq!(ic.next_request(), Some(Interrupt::Joypad));
         ic.clear_request(Interrupt::Joypad);
-
-        // Only LcdStat and Serial remain requested, but neither is enabled
         assert_eq!(ic.next_request(), None);
     }
 }
