@@ -1,3 +1,4 @@
+#![cfg_attr(test, allow(clippy::all))]
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
