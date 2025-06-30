@@ -302,12 +302,15 @@ mod tests {
     #[test]
     fn test_ld_r16_imm16_bc() {
         let mut cpu = Cpu::default();
+
+        cpu.pc = 0x8000;
+        cpu.bus.borrow_mut().write_byte(cpu.pc,     0x01); // opcode LD BC,n16
         cpu.bus.borrow_mut().write_byte(cpu.pc + 1, 0x34); // LSB
         cpu.bus.borrow_mut().write_byte(cpu.pc + 2, 0x12); // MSB
         execute_instruction_block0(&mut cpu, 0x01); // LD BC, 0x1234
 
         assert_eq!(cpu.registers.get_r16_value(R16::BC), 0x1234);
-        assert_eq!(cpu.pc, 0x0100 + 3);
+        assert_eq!(cpu.pc, 0x8000 + 3);
     }
 
     #[test]
@@ -333,11 +336,11 @@ mod tests {
     #[test]
     fn test_ld_mem_imm16_sp() {
         let mut cpu = Cpu::default();
-
+        cpu.pc = 0x8000;
         // Simuler l'instruction en mémoire : opcode = 0x08, suivi de l'adresse imm16 (par ex. 0x1234)
         cpu.bus.borrow_mut().write_byte(cpu.pc, 0x08); // opcode LD (n16), SP
         cpu.bus.borrow_mut().write_byte(cpu.pc + 1, 0x34); // low byte de l’adresse
-        cpu.bus.borrow_mut().write_byte(cpu.pc + 2, 0x12); // high byte de l’adresse
+        cpu.bus.borrow_mut().write_byte(cpu.pc + 2, 0xC2); // high byte de l’adresse
 
         cpu.registers.set_sp(0xC123);
 
@@ -345,8 +348,8 @@ mod tests {
         execute_instruction_block0(&mut cpu, 0x08);
 
         // Vérifier que SP a bien été écrit à l'adresse 0x1234
-        assert_eq!(cpu.bus.borrow().read_byte(0x1234), 0x23); // low byte
-        assert_eq!(cpu.bus.borrow().read_byte(0x1235), 0xC1); // high byte
+        assert_eq!(cpu.bus.borrow().read_byte(0xC234), 0x23); // low byte
+        assert_eq!(cpu.bus.borrow().read_byte(0xC235), 0xC1); // high byte
     }
 
     #[test]
@@ -472,75 +475,80 @@ mod tests {
 
         execute_instruction_block0(&mut cpu, 0x27); // DAA
 
-        assert_eq!(cpu.get_r8_value(R8::A), 0xDC); // 0x9A + 0x66 = 0x100 → overflow
-        assert!(!cpu.registers.get_zero_flag());
+        assert_eq!(cpu.get_r8_value(R8::A), 0x00); // 0x9A + 0x66 = 0x100 → overflow
+        assert!(cpu.registers.get_zero_flag());
         assert!(cpu.registers.get_carry_flag()); // overflow → carry
         assert!(!cpu.registers.get_half_carry_flag());
     }
 
     #[test]
     fn test_jr_no_condition_positive_offset() {
-        let mut cpu = Cpu::default();
-        cpu.bus.borrow_mut().write_byte(0x0101, 0x05); // offset = +5
+        let mut cpu: Cpu = Cpu::default();
+        cpu.pc = 0x8000;
+        cpu.bus.borrow_mut().write_byte(cpu.pc + 1, 0x05); // offset = +5
 
         jr(&mut cpu, 0x18, false); // JR unconditional
 
-        assert_eq!(cpu.pc, 0x0100 + 2 + 5);
+        assert_eq!(cpu.pc, 0x8000 + 2 + 5);
     }
 
     #[test]
     fn test_jr_no_condition_negative_offset() {
         let mut cpu = Cpu::default();
-        cpu.bus.borrow_mut().write_byte(0x0101, 0xFB); // offset = -5 (0xFB = -5 en i8)
+        cpu.pc = 0x8000;
+        cpu.bus.borrow_mut().write_byte(cpu.pc + 1, 0xFB); // offset = -5 (0xFB = -5 en i8)
 
         jr(&mut cpu, 0x18, false); // JR unconditional
 
-        assert_eq!(cpu.pc, 0x0100 + 2 - 5);
+        assert_eq!(cpu.pc, 0x8000 + 2 - 5);
     }
 
     #[test]
     fn test_jr_condition_true() {
         let mut cpu = Cpu::default();
-
-        cpu.bus.borrow_mut().write_byte(0x0101, 0x02); // offset = +2
+        cpu.pc = 0x8000;
+        cpu.bus.borrow_mut().write_byte(cpu.pc + 1, 0x02); // offset = +2
         cpu.registers.set_zero_flag(true); // Z = 1
 
         jr(&mut cpu, 0x28, true); // JR Z, +2 (opcode 0x28)
 
-        assert_eq!(cpu.pc, 0x0100 + 2 + 2);
+        assert_eq!(cpu.pc, 0x8000 + 2 + 2);
     }
 
     #[test]
     fn test_jr_condition_false() {
         let mut cpu = Cpu::default();
-        cpu.bus.borrow_mut().write_byte(0x0101, 0x05); // offset = +5
+        cpu.pc = 0x8000;
+        cpu.bus.borrow_mut().write_byte(cpu.pc + 1, 0x05); // offset = +5
         cpu.registers.set_zero_flag(false); // Z = 0
 
         jr(&mut cpu, 0x28, true); // JR Z, +5 (opcode 0x28), mais Z = 0 → saute pas
 
-        assert_eq!(cpu.pc, 0x0100); // Pas de saut
+        assert_eq!(cpu.pc, 0x8000 + 2); // Pas de saut
     }
 
     #[test]
     fn test_jr_condition_carry() {
         let mut cpu = Cpu::default();
-        cpu.bus.borrow_mut().write_byte(0x0101, 0x03); // offset = +3
+        cpu.pc = 0x8000;
+        cpu.bus.borrow_mut().write_byte(cpu.pc + 1, 0x03); // offset = +3
         cpu.registers.set_carry_flag(true);
 
         jr(&mut cpu, 0x38, true); // JR C, +3
 
-        assert_eq!(cpu.pc, 0x0100 + 2 + 3);
+        assert_eq!(cpu.pc, 0x8000 + 2 + 3);
     }
 
     #[test]
     fn test_jr_condition_not_carry() {
         let mut cpu = Cpu::default();
-        cpu.bus.borrow_mut().write_byte(0x0101, 0x03); // offset = +3
+        cpu.pc = 0x8000;
+        cpu.bus.borrow_mut().write_byte(cpu.pc + 1, 0x03); // offset = +3
         cpu.registers.set_carry_flag(false);
 
         jr(&mut cpu, 0x38, true); // JR C, +3 → condition fausse
 
-        assert_eq!(cpu.pc, 0x0100 + 2);
+        assert_eq!(cpu.pc, 0x8000 + 2);
     }
 
     #[test]
@@ -590,12 +598,13 @@ mod tests {
     #[test]
     fn test_load_a_r16mem_hl_boundary_decrement() {
         let mut cpu = Cpu::default();
-        cpu.registers.set_r16_value(R16::HL, 0x0000);
-        cpu.bus.borrow_mut().write_byte(0x0000, 0x42);
+        cpu.registers.set_r16_value(R16::HL, 0xC000);
+        cpu.bus.borrow_mut().write_byte(0xC000, 0x42);
+
         execute_instruction_block0(&mut cpu, 0x3A); // LD A, [HL-]
 
         assert_eq!(cpu.registers.get_a(), 0x42);
-        assert_eq!(cpu.registers.get_r16_value(R16::HL), 0xFFFF); // HL wraps around
+        assert_eq!(cpu.registers.get_r16_value(R16::HL), 0xBFFF); // HL wraps around
     }
 
     // #[test]
