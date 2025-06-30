@@ -720,4 +720,12 @@ mod tests {
 
         assert_eq!(cpu.pc, 0x0038);
     }
+
+    #[test]
+    fn test_rst_38h() {
+        let mut cpu = Cpu::default();
+        execute_instruction_block3(&mut cpu, 0xFF); // RST 38h
+
+        assert_eq!(cpu.pc, 0x0038);
+    }
 }
