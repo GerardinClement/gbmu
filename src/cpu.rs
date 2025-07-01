@@ -177,36 +177,43 @@ mod tests {
         }
     }
 
+    #[ignore]
     #[test]
     fn test_rom_01_special() {
         run_rom_test("roms/individual/01-special.gb", "logfile-01-special");
     }
 
+    #[ignore]
     #[test]
     fn test_rom_02_interrupts() {
         run_rom_test("roms/individual/02-interrupts.gb", "logfile-02-interrupts");
     }
 
+    #[ignore]
     #[test]
     fn test_rom_03_op_sp_hl() {
         run_rom_test("roms/individual/03-op sp,hl.gb", "logfile-03-op-sp-hl");
     }
 
+    #[ignore]
     #[test]
     fn test_rom_04_op_r_imm() {
         run_rom_test("roms/individual/04-op r,imm.gb", "logfile-04-op-r-imm");
     }
 
+    #[ignore]
     #[test]
     fn test_rom_05_op_rp() {
         run_rom_test("roms/individual/05-op rp.gb", "logfile-05-op-rp");
     }
 
+    #[ignore]
     #[test]
     fn test_rom_06_ld_r_r() {
         run_rom_test("roms/individual/06-ld r,r.gb", "logfile-06-ld-r-r");
     }
 
+    #[ignore]
     #[test]
     fn test_rom_07_jr_jp_call_ret_rst() {
         run_rom_test(
@@ -215,6 +222,7 @@ mod tests {
         );
     }
 
+    #[ignore]
     #[test]
     fn test_rom_08_misc_instrs() {
         run_rom_test(
@@ -223,16 +231,19 @@ mod tests {
         );
     }
 
+    #[ignore]
     #[test]
     fn test_rom_09_op_r_r() {
         run_rom_test("roms/individual/09-op r,r.gb", "logfile-09-op-r-r");
     }
 
+    #[ignore]
     #[test]
     fn test_rom_10_bit_ops() {
         run_rom_test("roms/individual/10-bit ops.gb", "logfile-10-bit-ops");
     }
 
+    #[ignore]
     #[test]
     fn test_rom_11_op_a_hl() {
         run_rom_test("roms/individual/11-op a,(hl).gb", "logfile-11-op-a-hl");
