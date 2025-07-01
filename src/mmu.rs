@@ -6,6 +6,7 @@ pub mod interrupt;
 
 use crate::mmu::mbc::Mbc;
 use crate::mmu::interrupt::InterruptController;
+use crate::mmu::interrupt::Interrupt;
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum MemoryRegion {
@@ -88,6 +89,18 @@ impl Mmu {
             MemoryRegion::Ie => self.interrupts.write_ie(val),
             _ => self.data[addr as usize] = val,
         }
+    }
+
+    pub fn interrupts_next_request(&self) -> Option<Interrupt> {
+        self.interrupts.next_request()
+    }
+
+    pub fn interrupts_clear_request(&mut self, interrupt: Interrupt) {
+        self.interrupts.clear_request(interrupt);
+    }
+
+    pub fn interrupts_request(&mut self, interrupt: Interrupt) {
+        self.interrupts.request(interrupt);
     }
 }
 
