@@ -98,7 +98,7 @@ pub fn rrc_r8(cpu: &mut Cpu, instruction: u8) {
 
 pub fn rl(cpu: &mut Cpu, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
-    cpu.registers.rotate_left(r8, false);
+    cpu.registers.rotate_left(r8, true);
     cpu.pc = cpu.pc.wrapping_add(2);
 }
 
@@ -189,11 +189,11 @@ mod tests {
     #[test]
     fn test_rl_r8() {
         let mut cpu = Cpu::default();
-        cpu.set_r8_value(R8::D, 0b0101_0101);
+        cpu.set_r8_value(R8::D, 0b01010101);
         cpu.registers.set_carry_flag(true);
         execute_instruction_block_prefix(&mut cpu, 0x12); // RL D
 
-        assert_eq!(cpu.get_r8_value(R8::D), 0b1010_1011);
+        assert_eq!(cpu.get_r8_value(R8::D), 0b10101011);
         assert!(!cpu.registers.get_carry_flag());
     }
 
@@ -251,7 +251,7 @@ mod tests {
     fn test_bit_b3_r8() {
         let mut cpu = Cpu::default();
         cpu.set_r8_value(R8::D, 0b0000_1000);
-        execute_instruction_block_prefix(&mut cpu, 0x40); // BIT 3, D
+        execute_instruction_block_prefix(&mut cpu, 0x5A); // BIT 3, D
 
         assert!(!cpu.registers.get_zero_flag());
     }
