@@ -29,8 +29,7 @@ impl App<'_> {
 
     pub fn update(&mut self) {
         if let Some(window) = self.window.as_ref() {
-            self.gameboy.cpu.step();
-            let rgb_frame = self.gameboy.ppu.render_frame();
+            let rgb_frame = self.gameboy.run_frame();
             self.framebuffer = App::rgb_to_rgba(&rgb_frame);
             Window::request_redraw(window);
         } else {
