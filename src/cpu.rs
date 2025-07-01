@@ -17,7 +17,6 @@ use std::rc::Rc;
 
 use crate::cpu::registers::{R8, R16, Registers};
 use crate::mmu::Mmu;
-use crate::mmu::interrupt::Interrupt;
 
 pub struct Cpu {
     pub registers: Registers,
@@ -55,15 +54,24 @@ impl Cpu {
 
     pub fn step(&mut self) {
         if self.ime {
-            // Find the next pending+enabled interrupt
-            if true {
-                // If there is one
-                //
-                // disable further interrupts
+            if let Some(interrupt) = self.bus.borrow().interrupts_next_request() {
                 self.ime = false;
-                // clear IF bits
-                self.bus.borrow_mut().interrupts.clear_request(interrupt);
-                // push return address
+                self.bus.borrow_mut().interrupts_clear_request(interrupt);
+
+                let ret_addr = self.pc;
+
+                let sp1 = self.registers.get_sp().wrapping_sub(1);
+                self.registers.set_sp(sp1);
+                self.bus.borrow_mut().write_byte(sp1, (ret_addr >> 8) as u8);
+
+                let sp2 = sp1.wrapping_sub(1);
+                self.registers.set_sp(sp2);
+                self.bus.borrow_mut().write_byte(sp2, (ret_addr & 0xFF) as u8);
+
+                // Jump to the interrupt vector
+                self.pc = interrupt.vector();
+                // Stop further execution this cycle
+                return;
             }
         }
         let instruction_byte = self.bus.borrow().read_byte(self.pc);
