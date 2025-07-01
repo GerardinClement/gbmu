@@ -54,19 +54,20 @@ impl Cpu {
 
     pub fn step(&mut self) {
         if self.ime {
-            if let Some(interrupt) = self.bus.borrow().interrupts_next_request() {
+            let mut bus = self.bus.borrow_mut();
+            if let Some(interrupt) = bus.interrupts_next_request() {
                 self.ime = false;
-                self.bus.borrow_mut().interrupts_clear_request(interrupt);
+                bus.interrupts_clear_request(interrupt);
 
                 let ret_addr = self.pc;
 
                 let sp1 = self.registers.get_sp().wrapping_sub(1);
                 self.registers.set_sp(sp1);
-                self.bus.borrow_mut().write_byte(sp1, (ret_addr >> 8) as u8);
+                bus.write_byte(sp1, (ret_addr >> 8) as u8);
 
                 let sp2 = sp1.wrapping_sub(1);
                 self.registers.set_sp(sp2);
-                self.bus.borrow_mut().write_byte(sp2, (ret_addr & 0xFF) as u8);
+                bus.write_byte(sp2, (ret_addr & 0xFF) as u8);
 
                 // Jump to the interrupt vector
                 self.pc = interrupt.vector();
@@ -152,6 +153,54 @@ mod tests {
     use std::io::Write;
     use std::rc::Rc;
 
+    // interrupts tests
+    #[test]
+    fn test_cpu_services_timer_interrupt() {
+        use crate::cpu::Cpu;
+        use crate::mmu::Mmu;
+        use crate::mmu::interrupt::Interrupt;
+
+        // 1) Set up MMU and manually enable/request the Timer interrupt
+        let mut mmu = Mmu::new(&[]);
+        // Enable only Timer (bit 2) in IE
+        mmu.write_byte(0xFFFF, Interrupt::Timer as u8);
+        // Request Timer by writing to IF
+        mmu.write_byte(0xFF0F, Interrupt::Timer as u8);
+
+        // 2) Create CPU with that MMU
+        let bus = Rc::new(RefCell::new(mmu));
+        let mut cpu = Cpu::new(bus.clone());
+
+        // 3) Initialize PC and SP
+        cpu.pc = 0x1234;
+        cpu.registers.set_sp(0xFFFE);
+        // Allow interrupts immediately
+        cpu.ime = true;
+
+        // 4) Perform one step: should service the Timer interrupt
+        cpu.step();
+
+        // 5) After service, SP must have decreased by 2
+        assert_eq!(cpu.registers.get_sp(), 0xFFFC);
+
+        // 6) Check the two bytes on the stack (little-endian: low then high)
+        let mmu = bus.borrow();
+        // Low byte of 0x1234 at address 0xFFFC
+        assert_eq!(mmu.read_byte(0xFFFC), 0x34);
+        // High byte of 0x1234 at address 0xFFFD
+        assert_eq!(mmu.read_byte(0xFFFD), 0x12);
+
+        // 7) CPU should have jumped to the Timer vector (0x50)
+        assert_eq!(cpu.pc, Interrupt::Timer.vector());
+
+        // 8) IME should now be cleared
+        assert!(!cpu.ime);
+
+        // 9) IF’s Timer bit must have been cleared
+        assert_eq!(mmu.read_byte(0xFF0F) & (1 << (Interrupt::Timer as u8)), 0);
+    }
+
+    // roms tests
     fn run_rom_test(rom_path: &str, logfile_name: &str) {
         let log_dir = Path::new("logfiles");
         if !log_dir.exists() {
