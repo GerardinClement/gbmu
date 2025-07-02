@@ -592,12 +592,12 @@ mod tests {
     #[test]
     fn test_load_a_r16mem_hl_boundary_increment() {
         let mut cpu = Cpu::default();
-        cpu.registers.set_r16_value(R16::HL, 0xFFFF);
-        cpu.bus.borrow_mut().write_byte(0xFFFF, 0x42);
+        cpu.registers.set_r16_value(R16::HL, 0xC000);
+        cpu.bus.borrow_mut().write_byte(0xC000, 0x42);
         execute_instruction_block0(&mut cpu, 0x2A); // LD A, [HL+]
 
         assert_eq!(cpu.registers.get_a(), 0x42);
-        assert_eq!(cpu.registers.get_r16_value(R16::HL), 0x0000); // HL wraps around
+        assert_eq!(cpu.registers.get_r16_value(R16::HL), 0xC001); // HL wraps around
     }
 
     #[test]

@@ -25,7 +25,7 @@ pub struct Cpu {
     pub ime: bool,
     pub ime_delay: bool, // mimic hardware delay in EI
     pub halted: bool,    // for HALT instruction
-    pub halt_bug_pending: bool,
+    pub halt_bug: bool,
 }
 
 impl Cpu {
@@ -37,7 +37,7 @@ impl Cpu {
             ime: false,
             ime_delay: false,
             halted: false,
-            halt_bug_pending: false,
+            halt_bug: false,
         }
     }
 
@@ -69,7 +69,7 @@ impl Cpu {
             self.halted = false;
 
             if !self.ime {
-                self.halt_bug_pending = true;
+                self.halt_bug = true;
             }
         }
         if self.ime {
@@ -97,9 +97,9 @@ impl Cpu {
         // println!("opcode: 0x{:02X}", instruction_byte);
         self.execute_instruction(instruction_byte);
 
-        if self.halt_bug_pending {
+        if self.halt_bug {
             self.pc = self.pc.wrapping_sub(1);
-            self.halt_bug_pending = false;
+            self.halt_bug = false;
         }
         if self.ime_delay {
             self.ime = true;
@@ -162,7 +162,7 @@ impl Default for Cpu {
             ime: false,
             ime_delay: false,
             halted: false,
-            halt_bug_pending: false,
+            halt_bug: false,
         }
     }
 }
@@ -275,9 +275,13 @@ mod tests {
 
         cpu.step();
 
-        // Halt should clear, but no ISR entry, so PC should advance by the NOP
+        // Halt should clear, but with IME=0 and a pending interrupt the halt-bug fires:
+        // we expect the very next byte (0x00 at 0x300) to repeat, so PC stays at 0x300.
         assert!(!cpu.halted, "CPU must wake up when interrupt pending");
-        assert_eq!(cpu.pc, 0x301, "PC should fetch the next opcode (NOP)");
+        assert_eq!(
+            cpu.pc, 0x300,
+            "PC should *not* advance thanks to the halt bug"
+        );
         // And IF should remain unchanged, since IME==false means no service
         let mmu = bus.borrow();
         assert_ne!(
