@@ -53,7 +53,7 @@ impl Cpu {
         // println!("pc: 0x{:02X}", self.pc);
         // println!("opcode: 0x{:02X}", instruction_byte);
         self.execute_instruction(instruction_byte);
-        println!("{}", self);
+        // println!("{}", self);
         // println!(
         //     "---------------------------------------------------------------------------------------------"
         // )
