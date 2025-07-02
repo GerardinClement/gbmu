@@ -59,10 +59,7 @@ fn get_instruction_block_prefix(instruction: u8) -> u8 {
     }
 
     // Si aucune correspondance unique n'est trouvée
-    panic!(
-        "No unique instruction found for opcode: {:#04x}",
-        instruction
-    );
+    panic!("No unique instruction found for opcode: {instruction:#04x}");
 }
 
 pub fn execute_instruction_block_prefix(cpu: &mut Cpu, instruction: u8) {

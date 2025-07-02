@@ -19,7 +19,7 @@ fn read_rom(rom_path: String) -> Vec<u8> {
         match fs::read(&rom_path) {
             Ok(data) => data,
             Err(e) => {
-                eprintln!("Failed to read the file: {}", e);
+                eprintln!("Failed to read the file: {e}");
                 process::exit(1);
             }
         }

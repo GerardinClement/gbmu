@@ -28,6 +28,7 @@ impl GameBoy {
         let mut cycles_this_frame = 0;
 
         while cycles_this_frame < 70224 {
+            self.bus.borrow_mut().tick_timers();
             self.cpu.step();
             cycles_this_frame += 1;
             self.ppu.update_registers();

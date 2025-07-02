@@ -43,7 +43,7 @@ impl Ppu {
     pub fn display_vram(&self) {
         for i in 0..0x2000 {
             let byte = self.bus.borrow().read_byte(VRAM_START + i as u16);
-            print!("{:02X} ", byte);
+            print!("{byte:02X} ");
             if (i + 1) % 16 == 0 {
                 println!();
             }
@@ -55,25 +55,25 @@ impl Ppu {
         for tile_index in 0..384 {
             // 384 tiles, each 16 bytes
             let tile_address = VRAM_START + (tile_index as u16 * 16);
-            print!("{:04x} Tile {:03}: ", tile_address, tile_index);
+            print!("{tile_address:04x} Tile {tile_index:03}: ");
             for byte_index in 0..16 {
                 let byte = self
                     .bus
                     .borrow()
                     .read_byte(tile_address + byte_index as u16);
-                print!("{:02X} ", byte);
+                print!("{byte:02X} ");
             }
             println!();
         }
     }
 
     pub fn display_tile_map_area(&self, tile_map_address: u16) {
-        println!("Tile Map Area at 0x{:04X}:", tile_map_address);
+        println!("Tile Map Area at 0x{tile_map_address:04X}:");
         for y in 0..32 {
             for x in 0..32 {
                 let offset = (y * 32 + x) as u16;
                 let tile_number = self.bus.borrow().read_byte(tile_map_address + offset);
-                print!("{:02X} ", tile_number);
+                print!("{tile_number:02X} ");
             }
             println!();
         }
