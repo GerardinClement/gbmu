@@ -29,8 +29,7 @@ impl App<'_> {
 
     pub fn update(&mut self) {
         if let Some(window) = self.window.as_ref() {
-            self.gameboy.cpu.step();
-            let rgb_frame = self.gameboy.ppu.render_frame();
+            let rgb_frame = self.gameboy.run_frame();
             self.framebuffer = App::rgb_to_rgba(&rgb_frame);
             Window::request_redraw(window);
         } else {
@@ -82,6 +81,9 @@ impl ApplicationHandler for App<'_> {
         match event {
             WindowEvent::CloseRequested => {
                 // println!("{:?}", self.gameboy.ppu.display_vram());
+                self.gameboy.ppu.display_tile_map_area(0x9800);
+                self.gameboy.ppu.display_tile_map_area(0x9C00);
+                self.gameboy.ppu.display_tiles_data();
                 event_loop.exit();
             }
             WindowEvent::RedrawRequested => {

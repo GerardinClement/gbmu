@@ -24,10 +24,15 @@ impl GameBoy {
         GameBoy { cpu, bus, ppu }
     }
 
-    pub fn run(&mut self) {
-        loop {
+    pub fn run_frame(&mut self) -> Vec<u8> {
+        let mut cycles_this_frame = 0;
+
+        while cycles_this_frame < 70224 {
             self.cpu.step();
-            // Here you could add a delay or frame rendering logic
+            cycles_this_frame += 1;
+            self.ppu.update_registers();
         }
+
+        self.ppu.render_frame()
     }
 }
