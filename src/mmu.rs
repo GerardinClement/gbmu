@@ -1,12 +1,12 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
-pub mod mbc;
 pub mod interrupt;
+pub mod mbc;
 
-use crate::mmu::mbc::Mbc;
-use crate::mmu::interrupt::InterruptController;
 use crate::mmu::interrupt::Interrupt;
+use crate::mmu::interrupt::InterruptController;
+use crate::mmu::mbc::Mbc;
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum MemoryRegion {
@@ -84,7 +84,7 @@ impl Mmu {
 
                 self.data[mirror as usize] = val;
             }
-            MemoryRegion::Unusable => {},
+            MemoryRegion::Unusable => {}
             MemoryRegion::If => self.interrupts.write_if(val),
             MemoryRegion::Ie => self.interrupts.write_ie(val),
             _ => self.data[addr as usize] = val,
@@ -110,7 +110,6 @@ impl Mmu {
     pub fn interrupts_request(&mut self, interrupt: Interrupt) {
         self.interrupts.request(interrupt);
     }
-
 }
 
 impl Default for Mmu {

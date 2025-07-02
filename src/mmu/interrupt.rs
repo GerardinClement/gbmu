@@ -28,7 +28,10 @@ pub struct InterruptController {
 
 impl InterruptController {
     pub fn new() -> Self {
-        InterruptController { ienable: 0, iflag: 0 }
+        InterruptController {
+            ienable: 0,
+            iflag: 0,
+        }
     }
 
     pub fn read_ie(&self) -> u8 {
@@ -58,19 +61,13 @@ impl InterruptController {
     pub fn next_request(&self) -> Option<Interrupt> {
         let pending_request = self.ienable & self.iflag;
 
-        for &interrupt in &[
+        [
             Interrupt::VBlank,
             Interrupt::LcdStat,
             Interrupt::Timer,
             Interrupt::Serial,
             Interrupt::Joypad,
-        ] {
-    
-            if pending_request & (interrupt as u8) != 0 {
-                return Some(interrupt);
-            }
-        }
-        None
+        ].iter().find(|&&interrupt| pending_request & (interrupt as u8) != 0).copied()
     }
 }
 
@@ -113,8 +110,10 @@ mod tests {
         assert_eq!(ic.read_if() & 0b0001_1111, 0);
         ic.request(Interrupt::Timer);
         ic.request(Interrupt::Serial);
-        assert_eq!(ic.read_if() & 0b0001_1111,
-                   (Interrupt::Timer as u8) | (Interrupt::Serial as u8));
+        assert_eq!(
+            ic.read_if() & 0b0001_1111,
+            (Interrupt::Timer as u8) | (Interrupt::Serial as u8)
+        );
         ic.clear_request(Interrupt::Timer);
         assert_eq!(ic.read_if() & 0b0001_1111, Interrupt::Serial as u8);
         ic.clear_request(Interrupt::Serial);
@@ -124,11 +123,16 @@ mod tests {
     #[test]
     fn test_next_request_priority_and_masking() {
         let mut ic = InterruptController::new();
-        ic.write_ie((Interrupt::VBlank as u8)
-                  | (Interrupt::Timer as u8)
-                  | (Interrupt::Joypad as u8));
-        for &int in &[Interrupt::VBlank, Interrupt::LcdStat, Interrupt::Timer,
-                      Interrupt::Serial, Interrupt::Joypad] {
+        ic.write_ie(
+            (Interrupt::VBlank as u8) | (Interrupt::Timer as u8) | (Interrupt::Joypad as u8),
+        );
+        for &int in &[
+            Interrupt::VBlank,
+            Interrupt::LcdStat,
+            Interrupt::Timer,
+            Interrupt::Serial,
+            Interrupt::Joypad,
+        ] {
             ic.request(int);
         }
         assert_eq!(ic.next_request(), Some(Interrupt::VBlank));
