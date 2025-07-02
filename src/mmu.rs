@@ -91,6 +91,14 @@ impl Mmu {
         }
     }
 
+    pub fn read_ie(&self) -> u8 {
+        self.interrupts.read_ie()
+    }
+
+    pub fn read_if(&self) -> u8 {
+        self.interrupts.read_if()
+    }
+
     pub fn interrupts_next_request(&self) -> Option<Interrupt> {
         self.interrupts.next_request()
     }
@@ -102,6 +110,7 @@ impl Mmu {
     pub fn interrupts_request(&mut self, interrupt: Interrupt) {
         self.interrupts.request(interrupt);
     }
+
 }
 
 impl Default for Mmu {

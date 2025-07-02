@@ -21,9 +21,10 @@ use crate::mmu::Mmu;
 pub struct Cpu {
     pub registers: Registers,
     pub pc: u16,
-    pub bus: Rc<RefCell<Mmu>>, // TODO refacto each mention of 'bus' as 'mmu'
+    pub bus: Rc<RefCell<Mmu>>,
     pub ime: bool,
     pub ime_delay: bool, // mimic hardware delay in EI
+    pub halted: bool, // for HALT instruction
 }
 
 impl Cpu {
@@ -34,6 +35,7 @@ impl Cpu {
             pc: 0x0100,
             ime: false,
             ime_delay: false,
+            halted: false,
         }
     }
 
@@ -53,6 +55,17 @@ impl Cpu {
     }
 
     pub fn step(&mut self) {
+        if self.halted {
+            let bus = self.bus.borrow();
+            let iflag = bus.read_if();
+            let ienable = bus.read_ie();
+
+            if ienable & iflag == 0 {
+                return;
+            }
+            
+            self.halted = false;
+        }
         if self.ime {
             let mut bus = self.bus.borrow_mut();
             if let Some(interrupt) = bus.interrupts_next_request() {
@@ -69,9 +82,7 @@ impl Cpu {
                 self.registers.set_sp(sp2);
                 bus.write_byte(sp2, (ret_addr & 0xFF) as u8);
 
-                // Jump to the interrupt vector
                 self.pc = interrupt.vector();
-                // Stop further execution this cycle
                 return;
             }
         }
@@ -140,6 +151,7 @@ impl Default for Cpu {
             pc: 0x0100,
             ime: false,
             ime_delay: false,
+            halted: false,
         }
     }
 }
@@ -152,14 +164,12 @@ mod tests {
     use std::path::Path;
     use std::io::Write;
     use std::rc::Rc;
+    
+    use crate::mmu::interrupt::Interrupt;
 
     // interrupts tests
     #[test]
     fn test_cpu_services_timer_interrupt() {
-        use crate::cpu::Cpu;
-        use crate::mmu::Mmu;
-        use crate::mmu::interrupt::Interrupt;
-
         // 1) Set up MMU and manually enable/request the Timer interrupt
         let mut mmu = Mmu::new(&[]);
         // Enable only Timer (bit 2) in IE
@@ -200,18 +210,110 @@ mod tests {
         assert_eq!(mmu.read_byte(0xFF0F) & (1 << (Interrupt::Timer as u8)), 0);
     }
 
+    
+    // HALT tests
+    #[test]
+    fn test_halt_opcode_sets_halted_and_advances_pc() {
+        // Setup: place a HALT (0x76) at address 0x200
+        let mut mmu = Mmu::new(&[]);
+        mmu.write_byte(0x8000, 0x76);
+        let bus = Rc::new(RefCell::new(mmu));
+        
+        let mut cpu = Cpu::new(bus);
+        cpu.pc = 0x8000;
+        
+        // Execute one step → should see the HALT instruction
+        cpu.step();
+        
+        // After HALT: halted flag set, PC advanced by 1
+            assert!(cpu.halted, "CPU should be halted after executing HALT");
+            assert_eq!(cpu.pc, 0x8001, "PC must point past the HALT opcode");
+        }
+        
+    #[test]
+    fn test_step_halt_stays_halted_without_interrupt() {
+        // If halted==true and no pending interrupt, step() must do nothing
+        let mmu = Mmu::new(&[]);
+        let bus = Rc::new(RefCell::new(mmu));
+        let mut cpu = Cpu::new(bus);
+
+        cpu.halted = true;
+        cpu.pc = 0x123;
+        cpu.ime = false;           // IME doesn't matter when no interrupt
+        // Ensure IF & IE = 0
+        cpu.step();
+        assert!(cpu.halted, "Still halted if no interrupt pending");
+        assert_eq!(cpu.pc, 0x123, "PC must not change when halted and idle");
+    }
+    
+    #[test]
+    fn test_step_halt_wakes_without_servicing_when_ime_false() {
+        // If halted==true and an interrupt is pending but IME==false,
+        // CPU should wake (halted→false) but *not* service the interrupt.
+        let mut mmu = Mmu::new(&[]);
+        // Make a pending interrupt: Timer bit in IF and IE
+        mmu.write_byte(0xFF0F, Interrupt::Timer as u8);
+        mmu.write_byte(0xFFFF, Interrupt::Timer as u8);
+        // Also put a dummy opcode (0x00 = NOP) at PC so we can see it execute.
+        mmu.write_byte(0x300, 0x00);
+        let bus = Rc::new(RefCell::new(mmu));
+        let mut cpu = Cpu::new(bus.clone());
+        cpu.pc = 0x300;
+        cpu.registers.set_sp(0xFFFE);
+        cpu.halted = true;
+        cpu.ime    = false;  // Master-enable off
+        
+        cpu.step();
+        
+        // Halt should clear, but no ISR entry, so PC should advance by the NOP
+        assert!(!cpu.halted, "CPU must wake up when interrupt pending");
+        assert_eq!(cpu.pc, 0x301, "PC should fetch the next opcode (NOP)");
+        // And IF should remain unchanged, since IME==false means no service
+        let mmu = bus.borrow();
+        assert_ne!(mmu.read_byte(0xFF0F) & (Interrupt::Timer as u8), 0,
+        "IF should still contain the pending bit when IME is false");
+    }
+
+    #[test]
+    fn test_step_halt_wake_and_service_when_ime_true() {
+        // Combination of HALT wake-up + interrupt dispatch in one step:
+        let mut mmu = Mmu::new(&[]);
+        mmu.write_byte(0xFF0F, Interrupt::Timer as u8);
+        mmu.write_byte(0xFFFF, Interrupt::Timer as u8);
+        let bus = Rc::new(RefCell::new(mmu));
+        let mut cpu = Cpu::new(bus.clone());
+        
+        cpu.pc = 0x400;
+        cpu.registers.set_sp(0xFFFE);
+        cpu.halted = true;
+        cpu.ime    = true;
+        
+        cpu.step();
+        
+        // Should have pushed return addr 0x400, jumped to 0x50, cleared halted & IME
+        assert_eq!(cpu.registers.get_sp(), 0xFFFC);
+        let mmu = bus.borrow();
+        assert_eq!(mmu.read_byte(0xFFFC), 0x00, "low byte of 0x0400");
+        assert_eq!(mmu.read_byte(0xFFFD), 0x04, "high byte of 0x0400");
+        assert_eq!(cpu.pc, Interrupt::Timer.vector());
+        assert!(!cpu.ime, "IME must be cleared after servicing");
+        assert_eq!(mmu.read_byte(0xFF0F) & (Interrupt::Timer as u8), 0,
+        "IF Timer bit must be cleared");
+    }
+    
+    
     // roms tests
     fn run_rom_test(rom_path: &str, logfile_name: &str) {
         let log_dir = Path::new("logfiles");
         if !log_dir.exists() {
             fs::create_dir_all(log_dir).expect("Failed to create `logfiles` directory");
         }
-
+        
         let rom_data = fs::read(rom_path).expect("Failed to read ROM file");
         let bus = Rc::new(RefCell::new(Mmu::new(&rom_data)));
         let mut cpu = Cpu::new(bus.clone());
         let mut logfile = fs::File::create(format!("logfiles/{}", logfile_name))
-            .expect("Failed to create logfile");
+        .expect("Failed to create logfile");
 
         let mut last_pc = 0xFFFF;
         let mut same_pc_count = 0;
@@ -227,17 +329,17 @@ mod tests {
             }
 
             last_pc = cpu.pc;
-
+            
             if same_pc_count > 100 {
                 break; // Assume program has finished
             }
         }
     }
-
+    
     #[ignore]
     #[test]
     fn test_rom_01_special() {
-        run_rom_test("roms/individual/01-special.gb", "logfile-01-special");
+    run_rom_test("roms/individual/01-special.gb", "logfile-01-special");
     }
 
     #[ignore]
@@ -245,13 +347,13 @@ mod tests {
     fn test_rom_02_interrupts() {
         run_rom_test("roms/individual/02-interrupts.gb", "logfile-02-interrupts");
     }
-
+    
     #[ignore]
     #[test]
     fn test_rom_03_op_sp_hl() {
         run_rom_test("roms/individual/03-op sp,hl.gb", "logfile-03-op-sp-hl");
     }
-
+    
     #[ignore]
     #[test]
     fn test_rom_04_op_r_imm() {

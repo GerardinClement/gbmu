@@ -43,7 +43,7 @@ fn load_r8_r8(cpu: &mut Cpu, instruction: u8) {
 }
 
 fn halt(cpu: &mut Cpu) {
-    // TODO implement halt
+    cpu.halted = true;
     cpu.pc = cpu.pc.wrapping_add(1);
 }
 
@@ -65,11 +65,11 @@ mod tests {
     #[test]
     fn test_halt() {
         let mut cpu = Cpu::default();
+        cpu.pc = 0x8000;
+        assert_eq!(cpu.halted, false);
         execute_instruction_block1(&mut cpu, 0x76); // HALT
-
-        // Assuming HALT sets a specific state or flag, you can check it here.
-        // For now, we just check the PC increment.
-        assert_eq!(cpu.pc, 0x0100 + 1);
+        assert_eq!(cpu.halted, true);
+        assert_eq!(cpu.pc, 0x8000 + 1);
     }
 
     #[test]
