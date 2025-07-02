@@ -67,7 +67,10 @@ impl InterruptController {
             Interrupt::Timer,
             Interrupt::Serial,
             Interrupt::Joypad,
-        ].iter().find(|&&interrupt| pending_request & (interrupt as u8) != 0).copied()
+        ]
+        .iter()
+        .find(|&&interrupt| pending_request & (interrupt as u8) != 0)
+        .copied()
     }
 }
 

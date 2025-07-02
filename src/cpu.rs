@@ -25,6 +25,7 @@ pub struct Cpu {
     pub ime: bool,
     pub ime_delay: bool, // mimic hardware delay in EI
     pub halted: bool,    // for HALT instruction
+    pub halt_bug_pending: bool,
 }
 
 impl Cpu {
@@ -36,6 +37,7 @@ impl Cpu {
             ime: false,
             ime_delay: false,
             halted: false,
+            halt_bug_pending: false,
         }
     }
 
@@ -67,7 +69,7 @@ impl Cpu {
             self.halted = false;
 
             if !self.ime {
-                self.pc = self.pc.wrapping_sub(1);
+                self.halt_bug_pending = true;
             }
         }
         if self.ime {
@@ -95,6 +97,10 @@ impl Cpu {
         // println!("opcode: 0x{:02X}", instruction_byte);
         self.execute_instruction(instruction_byte);
 
+        if self.halt_bug_pending {
+            self.pc = self.pc.wrapping_sub(1);
+            self.halt_bug_pending = false;
+        }
         if self.ime_delay {
             self.ime = true;
             self.ime_delay = false;
@@ -156,6 +162,7 @@ impl Default for Cpu {
             ime: false,
             ime_delay: false,
             halted: false,
+            halt_bug_pending: false,
         }
     }
 }
@@ -308,6 +315,48 @@ mod tests {
             0,
             "IF Timer bit must be cleared"
         );
+    }
+
+    #[test]
+    fn test_halt_bug_repeats_next_byte() {
+        use crate::cpu::registers::R8;
+        use crate::mmu::interrupt::Interrupt;
+
+        // 1) Lay out a tiny program in WRAM (0xC000..):
+        //      0xC000: 0x76       ; HALT
+        //      0xC001: 0x04       ; INC B
+        let mut mmu = Mmu::new(&[]);
+        mmu.write_byte(0xC000, 0x76);
+        mmu.write_byte(0xC001, 0x04);
+
+        // 2) Create CPU, point it at our “program”
+        let bus = Rc::new(RefCell::new(mmu));
+        let mut cpu = Cpu::new(bus.clone());
+        cpu.pc = 0xC000;
+        cpu.registers.set_r8_value(R8::B, 0);
+
+        // 3) Trigger the halt bug: IME=0, and set IF & IE so (IE&IF)!=0
+        {
+            let mut mmu = bus.borrow_mut();
+            mmu.write_byte(0xFFFF, Interrupt::Timer as u8); // IE
+            mmu.write_byte(0xFF0F, Interrupt::Timer as u8); // IF
+        }
+        cpu.ime = false;
+
+        // 4) Step 1: execute the HALT itself (sets `halted`, moves PC→0xC001)
+        cpu.step();
+        assert!(cpu.halted, "after HALT, CPU should be halted");
+        assert_eq!(cpu.pc, 0xC001, "PC must advance past HALT");
+
+        // 5) Step 2: wake+bug → should execute the INC B at 0xC001
+        cpu.step();
+        // B should have gone from 0 → 1:
+        assert_eq!(cpu.registers.get_r8_value(R8::B), 1);
+
+        // 6) Step 3: with no more HALT state, just execute INC B again
+        cpu.step();
+        // B should now be 2, confirming the “repeat” of that byte:
+        assert_eq!(cpu.registers.get_r8_value(R8::B), 2);
     }
 
     // roms tests
