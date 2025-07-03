@@ -5,9 +5,9 @@ pub mod interrupt;
 pub mod mbc;
 pub mod timers;
 
+use self::timers::Timers;
 use crate::mmu::interrupt::Interrupt;
 use crate::mmu::interrupt::InterruptController;
-use self::timers::Timers;
 use crate::mmu::mbc::Mbc;
 
 #[derive(PartialEq, Eq, Debug)]
