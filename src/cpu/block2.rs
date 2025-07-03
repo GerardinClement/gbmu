@@ -36,7 +36,7 @@ fn get_instruction_block2(instruction: u8) -> u8 {
     }
 }
 
-pub fn execute_instruction_block2(cpu: &mut Cpu, instruction: u8) {
+pub fn execute_instruction_block2(cpu: &mut Cpu, instruction: u8) -> u8 {
     let opcode = get_instruction_block2(instruction);
 
     match opcode {
@@ -49,7 +49,12 @@ pub fn execute_instruction_block2(cpu: &mut Cpu, instruction: u8) {
         0b10110000 => or_a_r8(cpu, instruction),
         0b10111000 => cp_a_r8(cpu, instruction),
         // implement halt
-        _ => cpu.pc = cpu.pc.wrapping_add(1),
+        _ => unreachable!(),
+    }
+
+    match opcode & 0b111 {
+        0b110 => 8,
+        _ => 4,
     }
 }
 

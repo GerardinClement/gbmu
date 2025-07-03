@@ -62,7 +62,7 @@ fn get_instruction_block_prefix(instruction: u8) -> u8 {
     panic!("No unique instruction found for opcode: {instruction:#04x}");
 }
 
-pub fn execute_instruction_block_prefix(cpu: &mut Cpu, instruction: u8) {
+pub fn execute_instruction_block_prefix(cpu: &mut Cpu, instruction: u8) -> u8 {
     let opcode = get_instruction_block_prefix(instruction);
 
     match opcode {
@@ -78,6 +78,16 @@ pub fn execute_instruction_block_prefix(cpu: &mut Cpu, instruction: u8) {
         0b10000000 => block_prefix::res_b3_r8(cpu, instruction),
         0b11000000 => block_prefix::set_b3_r8(cpu, instruction),
         _ => cpu.pc = cpu.pc.wrapping_add(1),
+    }
+
+    if (0b110 & instruction) == 0b110 {
+        if (0b01000000 & instruction) == 0b01000000 {
+            12
+        } else {
+            16
+        }
+    } else {
+        8
     }
 }
 

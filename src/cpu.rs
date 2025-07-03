@@ -28,6 +28,21 @@ pub struct Cpu {
     pub halt_bug: bool,
 }
 
+impl Default for Cpu {
+    fn default() -> Self {
+        Cpu {
+            registers: Registers::default(),
+            bus: Rc::new(RefCell::new(Mmu::default())),
+            pc: 0x0100,
+            ime: false,
+            ime_delay: false,
+            halted: false,
+            halt_bug: false,
+            tick_to_wait: 0
+        }
+    }
+}
+
 impl Cpu {
     pub fn new(bus: Rc<RefCell<Mmu>>) -> Self {
         Cpu {
@@ -41,7 +56,7 @@ impl Cpu {
         }
     }
 
-    fn execute_instruction(&mut self, instruction: u8) {
+    fn execute_instruction(&mut self, instruction: u8) -> u8 {
         let block_mask = 0b11000000;
         let block = (instruction & block_mask) >> 6;
         match block {
@@ -49,10 +64,7 @@ impl Cpu {
             0b01 => block1::execute_instruction_block1(self, instruction),
             0b10 => block2::execute_instruction_block2(self, instruction),
             0b11 => block3::execute_instruction_block3(self, instruction),
-            _ => {
-                println!("Unknown instruction block: {block}");
-                self.pc = self.pc.wrapping_add(1);
-            }
+            _ => unreachable!(),
         }
     }
 
