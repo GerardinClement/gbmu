@@ -14,7 +14,6 @@ const INSTRUCTIONS_BLOCK1: [u8; 2] = [
     0b01110110, // halt
 ];
 
-/// GET the instruction based on the opcode and returns the corresponding instruction.
 fn get_instruction_block1(instruction: u8) -> u8 {
     if INSTRUCTIONS_BLOCK1.contains(&instruction) {
         instruction
@@ -28,7 +27,7 @@ pub fn execute_instruction_block1(cpu: &mut Cpu, instruction: u8) {
 
     match opcode {
         0b01000000 => load_r8_r8(cpu, instruction),
-        // implement halt
+        0b01110110 => halt(cpu),
         _ => cpu.pc = cpu.pc.wrapping_add(1),
     }
 }
@@ -40,6 +39,11 @@ fn load_r8_r8(cpu: &mut Cpu, instruction: u8) {
     let value = cpu.get_r8_value(source);
 
     cpu.set_r8_value(dest, value);
+    cpu.pc = cpu.pc.wrapping_add(1);
+}
+
+fn halt(cpu: &mut Cpu) {
+    cpu.halted = true;
     cpu.pc = cpu.pc.wrapping_add(1);
 }
 
@@ -61,11 +65,11 @@ mod tests {
     #[test]
     fn test_halt() {
         let mut cpu = Cpu::default();
+        cpu.pc = 0x8000;
+        assert_eq!(cpu.halted, false);
         execute_instruction_block1(&mut cpu, 0x76); // HALT
-
-        // Assuming HALT sets a specific state or flag, you can check it here.
-        // For now, we just check the PC increment.
-        assert_eq!(cpu.pc, 0x0100 + 1);
+        assert_eq!(cpu.halted, true);
+        assert_eq!(cpu.pc, 0x8000 + 1);
     }
 
     #[test]

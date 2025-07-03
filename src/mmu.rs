@@ -1,10 +1,13 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
+pub mod interrupt;
 pub mod mbc;
 pub mod timers;
 
 use self::timers::Timers;
+use crate::mmu::interrupt::Interrupt;
+use crate::mmu::interrupt::InterruptController;
 use crate::mmu::mbc::Mbc;
 
 #[derive(PartialEq, Eq, Debug)]
@@ -45,6 +48,7 @@ impl MemoryRegion {
 pub struct Mmu {
     data: [u8; 0x10000], // 0xFFFF (65535) + 1 = 0x10000 (65536)
     cart: Mbc,
+    interrupts: InterruptController,
     timers: Timers,
 }
 
@@ -53,6 +57,7 @@ impl Mmu {
         Mmu {
             data: [0; 0x10000],
             cart: Mbc::new(rom_image),
+            interrupts: InterruptController::new(),
             timers: Timers::default(),
         }
     }
@@ -78,6 +83,8 @@ impl Mmu {
                 self.data[mirror as usize]
             }
             MemoryRegion::Unusable => 0xFF,
+            MemoryRegion::If => self.interrupts.read_interrupt_flag(),
+            MemoryRegion::Ie => self.interrupts.read_interrupt_enable(),
             _ => self.data[addr as usize],
         }
     }
@@ -94,8 +101,30 @@ impl Mmu {
                 self.timers.write_byte(addr, val);
             }
             MemoryRegion::Unusable => {}
+            MemoryRegion::If => self.interrupts.write_if(val),
+            MemoryRegion::Ie => self.interrupts.write_ie(val),
             _ => self.data[addr as usize] = val,
         }
+    }
+
+    pub fn read_interrupt_enable(&self) -> u8 {
+        self.interrupts.read_interrupt_enable()
+    }
+
+    pub fn read_interrupt_flag(&self) -> u8 {
+        self.interrupts.read_interrupt_flag()
+    }
+
+    pub fn interrupts_next_request(&self) -> Option<Interrupt> {
+        self.interrupts.next_request()
+    }
+
+    pub fn interrupts_clear_request(&mut self, interrupt: Interrupt) {
+        self.interrupts.clear_request(interrupt);
+    }
+
+    pub fn interrupts_request(&mut self, interrupt: Interrupt) {
+        self.interrupts.request(interrupt);
     }
 }
 
