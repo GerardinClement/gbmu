@@ -12,18 +12,18 @@ use crate::mmu::mbc::Mbc;
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum MemoryRegion {
-    Mbc,      // 0x000-0x7FFF: read-only
-    Vram,     // 0x8000-0x9FFF
-    ERam,     // 0xA000-0xBFFF
-    Wram,     // 0xC000-0xDFFF
-    Mram,     // 0xE000-0xFDFF: mirror of C000-DDFF
-    Oam,      // 0xFE00-0xFE9F: Sprite Attribute Table
-    Unusable, // 0xFEA0-0xFEFF
-    If,       // 0xFF0F: Interruption Flag: Inside IO
-    Timers,   // 0xFF04-0xFF07
-    Io,       // 0xFF00-0xFF7F
-    HRam,     // 0xFF80-0xFFFE
-    Ie,       // 0xFFFF : Interruption Enable
+    Mbc,             // 0x000-0x7FFF: read-only
+    Vram,            // 0x8000-0x9FFF
+    ERam,            // 0xA000-0xBFFF
+    Wram,            // 0xC000-0xDFFF
+    Mram,            // 0xE000-0xFDFF: mirror of C000-DDFF
+    Oam,             // 0xFE00-0xFE9F: Sprite Attribute Table
+    Unusable,        // 0xFEA0-0xFEFF
+    InterruptFlag,   // 0xFF0F: Interruption Flag: Inside IO
+    Timers,          // 0xFF04-0xFF07
+    Io,              // 0xFF00-0xFF7F
+    HRam,            // 0xFF80-0xFFFE
+    InterruptEnable, // 0xFFFF : Interruption Enable
 }
 
 impl MemoryRegion {
@@ -37,10 +37,27 @@ impl MemoryRegion {
             0xFE00..=0xFE9F => MemoryRegion::Oam,
             0xFEA0..=0xFEFF => MemoryRegion::Unusable,
             0xFF04..=0xFF07 => MemoryRegion::Timers,
-            0xFF0F => MemoryRegion::If,
+            0xFF0F => MemoryRegion::InterruptFlag,
             0xFF00..=0xFF7F => MemoryRegion::Io,
             0xFF80..=0xFFFE => MemoryRegion::HRam,
-            0xFFFF => MemoryRegion::Ie,
+            0xFFFF => MemoryRegion::InterruptEnable,
+        }
+    }
+
+    pub fn to_address(&self) -> u16 {
+        match self {
+            MemoryRegion::Mbc => 0x0000,
+            MemoryRegion::Vram => 0x8000,
+            MemoryRegion::ERam => 0xA000,
+            MemoryRegion::Wram => 0xC000,
+            MemoryRegion::Mram => 0xE000,
+            MemoryRegion::Oam => 0xFE00,
+            MemoryRegion::Unusable => 0xFEA0,
+            MemoryRegion::Timers => 0xFF04,
+            MemoryRegion::InterruptFlag => 0xFF0F,
+            MemoryRegion::Io => 0xFF00,
+            MemoryRegion::HRam => 0xFF80,
+            MemoryRegion::InterruptEnable => 0xFFFF,
         }
     }
 }
@@ -64,9 +81,10 @@ impl Mmu {
 
     pub fn tick_timers(&mut self) {
         if self.timers.tick() {
-            let mut interupt_flags = self.read_byte(0xFF0F);
-            interupt_flags |= 0b100;
-            self.write_byte(0xFF0F, interupt_flags);
+            let interrupt_flags_addr = MemoryRegion::InterruptFlag.to_address();
+            let mut interrupt_flags = self.read_byte(interrupt_flags_addr);
+            interrupt_flags |= 0b100;
+            self.write_byte(interrupt_flags_addr, interrupt_flags);
         }
     }
 
@@ -83,8 +101,8 @@ impl Mmu {
                 self.data[mirror as usize]
             }
             MemoryRegion::Unusable => 0xFF,
-            MemoryRegion::If => self.interrupts.read_interrupt_flag(),
-            MemoryRegion::Ie => self.interrupts.read_interrupt_enable(),
+            MemoryRegion::InterruptFlag => self.interrupts.read_interrupt_flag(),
+            MemoryRegion::InterruptEnable => self.interrupts.read_interrupt_enable(),
             _ => self.data[addr as usize],
         }
     }
@@ -101,8 +119,8 @@ impl Mmu {
                 self.timers.write_byte(addr, val);
             }
             MemoryRegion::Unusable => {}
-            MemoryRegion::If => self.interrupts.write_if(val),
-            MemoryRegion::Ie => self.interrupts.write_ie(val),
+            MemoryRegion::InterruptFlag => self.interrupts.write_interrupt_flag(val),
+            MemoryRegion::InterruptEnable => self.interrupts.write_interrupt_enable(val),
             _ => self.data[addr as usize] = val,
         }
     }
@@ -165,10 +183,10 @@ mod tests {
         assert_eq!(MemoryRegion::from(0xE123), MemoryRegion::Mram);
         assert_eq!(MemoryRegion::from(0xFE50), MemoryRegion::Oam);
         assert_eq!(MemoryRegion::from(0xFEA0), MemoryRegion::Unusable);
-        assert_eq!(MemoryRegion::from(0xFF0F), MemoryRegion::If);
+        assert_eq!(MemoryRegion::from(0xFF0F), MemoryRegion::InterruptFlag);
         assert_eq!(MemoryRegion::from(0xFF10), MemoryRegion::Io);
         assert_eq!(MemoryRegion::from(0xFF80), MemoryRegion::HRam);
-        assert_eq!(MemoryRegion::from(0xFFFF), MemoryRegion::Ie);
+        assert_eq!(MemoryRegion::from(0xFFFF), MemoryRegion::InterruptEnable);
     }
 
     // MRAM ECHO RAM

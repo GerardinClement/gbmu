@@ -7,6 +7,9 @@ use crate::cpu::registers::{R8, R16, R16Mem};
 use crate::cpu::utils;
 
 const COND_MASK: u8 = 0b00011000;
+const LAST_3_BITS_MASK: u8 = 0b00000111;
+const LAST_4_BITS_MASK: u8 = 0b00001111;
+const FIRST_3_BITS_MASK: u8 = 0b11100000;
 
 const INSTRUCTIONS_BLOCK0: [u8; 22] = [
     0b00000000, //nop
@@ -34,10 +37,6 @@ const INSTRUCTIONS_BLOCK0: [u8; 22] = [
 ];
 
 fn get_instruction_block0(instruction: u8) -> u8 {
-    let mask_last_3_bits = 0b00000111;
-    let mask_last_4_bits = 0b00001111;
-    let mask_first_3_bits = 0b11100000;
-
     if INSTRUCTIONS_BLOCK0.contains(&instruction) {
         return instruction;
     }
@@ -45,7 +44,7 @@ fn get_instruction_block0(instruction: u8) -> u8 {
     let mut match_opcode: Vec<u8> = INSTRUCTIONS_BLOCK0
         .iter()
         .cloned()
-        .filter(|&opcode| (instruction & mask_last_3_bits) == (opcode & mask_last_3_bits))
+        .filter(|&opcode| (instruction & LAST_3_BITS_MASK) == (opcode & LAST_3_BITS_MASK))
         .collect();
 
     if match_opcode.len() == 1 {
@@ -54,10 +53,10 @@ fn get_instruction_block0(instruction: u8) -> u8 {
 
     let mut match_opcode_cpy = match_opcode.clone();
 
-    match_opcode.retain(|&opcode| (instruction & mask_last_4_bits) == (opcode & mask_last_4_bits));
+    match_opcode.retain(|&opcode| (instruction & LAST_4_BITS_MASK) == (opcode & LAST_4_BITS_MASK));
     if match_opcode.len() > 1 {
         match_opcode_cpy
-            .retain(|&opcode| (instruction & mask_first_3_bits) == (opcode & mask_first_3_bits));
+            .retain(|&opcode| (instruction & FIRST_3_BITS_MASK) == (opcode & FIRST_3_BITS_MASK));
         if match_opcode_cpy.len() == 1 {
             return match_opcode_cpy[0];
         }
@@ -115,7 +114,7 @@ fn load_r16_imm16(cpu: &mut Cpu, instruction: u8) -> u8 {
     let r16 = R16::from((instruction & utils::R16_MASK) >> 4);
 
     cpu.registers.set_r16_value(r16, imm16);
-    cpu.pc += 3;
+    cpu.pc = cpu.pc.wrapping_add(3);
     12
 }
 
@@ -128,7 +127,8 @@ fn load_r16mem_a(cpu: &mut Cpu, instruction: u8) -> u8 {
     if r16_mem == R16Mem::HLincrement || r16_mem == R16Mem::HLdecrement {
         utils::modify_hl(cpu, r16_mem);
     }
-    cpu.pc += 1;
+
+    cpu.pc = cpu.pc.wrapping_add(1);
     8
 }
 
@@ -142,7 +142,8 @@ fn load_a_r16mem(cpu: &mut Cpu, instruction: u8) -> u8 {
     if r16_mem == R16Mem::HLincrement || r16_mem == R16Mem::HLdecrement {
         utils::modify_hl(cpu, r16_mem);
     }
-    cpu.pc += 1;
+
+    cpu.pc = cpu.pc.wrapping_add(1);
     8
 }
 
@@ -196,7 +197,7 @@ fn inc_r8(cpu: &mut Cpu, instruction: u8) -> u8 {
     cpu.registers.set_half_carry_flag((value & 0x0F) + 1 > 0x0F);
 
     cpu.set_r8_value(r8, new_value);
-    cpu.pc += 1;
+    cpu.pc = cpu.pc.wrapping_add(1);
     4
 }
 
