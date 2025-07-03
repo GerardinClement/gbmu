@@ -2,7 +2,9 @@
 #![allow(dead_code)]
 
 pub mod mbc;
+pub mod timers;
 
+use self::timers::Timers;
 use crate::mmu::mbc::Mbc;
 
 #[derive(PartialEq, Eq, Debug)]
@@ -15,6 +17,7 @@ pub enum MemoryRegion {
     Oam,      // 0xFE00-0xFE9F: Sprite Attribute Table
     Unusable, // 0xFEA0-0xFEFF
     If,       // 0xFF0F: Interruption Flag: Inside IO
+    Timers,   // 0xFF04-0xFF07
     Io,       // 0xFF00-0xFF7F
     HRam,     // 0xFF80-0xFFFE
     Ie,       // 0xFFFF : Interruption Enable
@@ -30,6 +33,7 @@ impl MemoryRegion {
             0xE000..=0xFDFF => MemoryRegion::Mram,
             0xFE00..=0xFE9F => MemoryRegion::Oam,
             0xFEA0..=0xFEFF => MemoryRegion::Unusable,
+            0xFF04..=0xFF07 => MemoryRegion::Timers,
             0xFF0F => MemoryRegion::If,
             0xFF00..=0xFF7F => MemoryRegion::Io,
             0xFF80..=0xFFFE => MemoryRegion::HRam,
@@ -38,10 +42,10 @@ impl MemoryRegion {
     }
 }
 
-#[derive(Clone)]
 pub struct Mmu {
     data: [u8; 0x10000], // 0xFFFF (65535) + 1 = 0x10000 (65536)
     cart: Mbc,
+    timers: Timers,
 }
 
 impl Mmu {
@@ -49,6 +53,15 @@ impl Mmu {
         Mmu {
             data: [0; 0x10000],
             cart: Mbc::new(rom_image),
+            timers: Timers::default(),
+        }
+    }
+
+    pub fn tick_timers(&mut self) {
+        if self.timers.tick() {
+            let mut interupt_flags = self.read_byte(0xFF0F);
+            interupt_flags |= 0b100;
+            self.write_byte(0xFF0F, interupt_flags);
         }
     }
 
@@ -76,6 +89,9 @@ impl Mmu {
                 let mirror = addr - 0x2000;
 
                 self.data[mirror as usize] = val;
+            }
+            MemoryRegion::Timers => {
+                self.timers.write_byte(addr, val);
             }
             MemoryRegion::Unusable => {}
             _ => self.data[addr as usize] = val,

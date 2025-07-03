@@ -33,10 +33,7 @@ fn get_instruction_block2(instruction: u8) -> u8 {
     if match_opcode.len() == 1 {
         match_opcode[0]
     } else {
-        panic!(
-            "No unique instruction found for opcode: {:#04x}",
-            instruction
-        );
+        panic!("No unique instruction found for opcode: {instruction:#04x}");
     }
 }
 
