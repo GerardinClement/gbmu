@@ -59,8 +59,8 @@ impl Cpu {
     pub fn step(&mut self) {
         if self.halted {
             let bus = self.bus.borrow();
-            let iflag = bus.read_if();
-            let ienable = bus.read_ie();
+            let iflag = bus.read_interrupt_flag();
+            let ienable = bus.read_interrupt_enable();
 
             if ienable & iflag == 0 {
                 return;

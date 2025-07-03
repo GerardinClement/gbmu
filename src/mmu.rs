@@ -70,8 +70,8 @@ impl Mmu {
                 self.data[mirror as usize]
             }
             MemoryRegion::Unusable => 0xFF,
-            MemoryRegion::If => self.interrupts.read_if(),
-            MemoryRegion::Ie => self.interrupts.read_ie(),
+            MemoryRegion::If => self.interrupts.read_interrupt_flag(),
+            MemoryRegion::Ie => self.interrupts.read_interrupt_enable(),
             _ => self.data[addr as usize],
         }
     }
@@ -91,12 +91,12 @@ impl Mmu {
         }
     }
 
-    pub fn read_ie(&self) -> u8 {
-        self.interrupts.read_ie()
+    pub fn read_interrupt_enable(&self) -> u8 {
+        self.interrupts.read_interrupt_enable()
     }
 
-    pub fn read_if(&self) -> u8 {
-        self.interrupts.read_if()
+    pub fn read_interrupt_flag(&self) -> u8 {
+        self.interrupts.read_interrupt_flag()
     }
 
     pub fn interrupts_next_request(&self) -> Option<Interrupt> {

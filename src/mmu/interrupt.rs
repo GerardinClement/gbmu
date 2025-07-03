@@ -34,7 +34,7 @@ impl InterruptController {
         }
     }
 
-    pub fn read_ie(&self) -> u8 {
+    pub fn read_interrupt_enable(&self) -> u8 {
         self.ienable & 0b00011111
     }
 
@@ -42,7 +42,7 @@ impl InterruptController {
         self.ienable = val & 0b00011111;
     }
 
-    pub fn read_if(&self) -> u8 {
+    pub fn read_interrupt_flag(&self) -> u8 {
         self.iflag | 0b11100000
     }
 
@@ -90,37 +90,40 @@ mod tests {
     #[test]
     fn test_read_write_ie() {
         let mut ic = InterruptController::new();
-        assert_eq!(ic.read_ie(), 0);
+        assert_eq!(ic.read_interrupt_enable(), 0);
         ic.write_ie(0b1111_1111);
-        assert_eq!(ic.read_ie(), 0b0001_1111);
+        assert_eq!(ic.read_interrupt_enable(), 0b0001_1111);
         ic.write_ie(0b0000_0101);
-        assert_eq!(ic.read_ie(), 0b0000_0101);
+        assert_eq!(ic.read_interrupt_enable(), 0b0000_0101);
     }
 
     #[test]
     fn test_read_write_if() {
         let mut ic = InterruptController::new();
-        assert_eq!(ic.read_if(), 0b1110_0000);
+        assert_eq!(ic.read_interrupt_flag(), 0b1110_0000);
         ic.write_if(0b1010_1010);
-        assert_eq!(ic.read_if(), 0b1110_1010);
+        assert_eq!(ic.read_interrupt_flag(), 0b1110_1010);
         ic.write_if(0);
-        assert_eq!(ic.read_if(), 0b1110_0000);
+        assert_eq!(ic.read_interrupt_flag(), 0b1110_0000);
     }
 
     #[test]
     fn test_request_and_clear_request() {
         let mut ic = InterruptController::new();
-        assert_eq!(ic.read_if() & 0b0001_1111, 0);
+        assert_eq!(ic.read_interrupt_flag() & 0b0001_1111, 0);
         ic.request(Interrupt::Timer);
         ic.request(Interrupt::Serial);
         assert_eq!(
-            ic.read_if() & 0b0001_1111,
+            ic.read_interrupt_flag() & 0b0001_1111,
             (Interrupt::Timer as u8) | (Interrupt::Serial as u8)
         );
         ic.clear_request(Interrupt::Timer);
-        assert_eq!(ic.read_if() & 0b0001_1111, Interrupt::Serial as u8);
+        assert_eq!(
+            ic.read_interrupt_flag() & 0b0001_1111,
+            Interrupt::Serial as u8
+        );
         ic.clear_request(Interrupt::Serial);
-        assert_eq!(ic.read_if() & 0b0001_1111, 0);
+        assert_eq!(ic.read_interrupt_flag() & 0b0001_1111, 0);
     }
 
     #[test]
