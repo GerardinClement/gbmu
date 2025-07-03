@@ -26,6 +26,7 @@ pub struct Cpu {
     pub ime_delay: bool, // mimic hardware delay in EI
     pub halted: bool,    // for HALT instruction
     pub halt_bug: bool,
+    tick_to_wait: u8,
 }
 
 impl Default for Cpu {
@@ -38,7 +39,7 @@ impl Default for Cpu {
             ime_delay: false,
             halted: false,
             halt_bug: false,
-            tick_to_wait: 0
+            tick_to_wait: 0,
         }
     }
 }
@@ -46,13 +47,9 @@ impl Default for Cpu {
 impl Cpu {
     pub fn new(bus: Rc<RefCell<Mmu>>) -> Self {
         Cpu {
-            registers: Registers::default(),
-            bus,
             pc: 0x0100,
-            ime: false,
-            ime_delay: false,
-            halted: false,
-            halt_bug: false,
+            bus,
+            ..Default::default()
         }
     }
 
@@ -68,14 +65,22 @@ impl Cpu {
         }
     }
 
-    pub fn step(&mut self) {
+    pub fn tick(&mut self) {
+        if self.tick_to_wait > 0 {
+            self.tick_to_wait -= 1;
+        } else {
+            self.tick_to_wait = self.step();
+        }
+    }
+
+    fn step(&mut self) -> u8 {
         if self.halted {
             let bus = self.bus.borrow();
             let iflag = bus.read_interrupt_flag();
             let ienable = bus.read_interrupt_enable();
 
             if ienable & iflag == 0 {
-                return;
+                return 4;
             }
 
             self.halted = false;
@@ -101,13 +106,11 @@ impl Cpu {
                 bus.write_byte(sp2, (ret_addr & 0xFF) as u8);
 
                 self.pc = interrupt.vector();
-                return;
+                return 5;
             }
         }
         let instruction_byte = self.bus.borrow().read_byte(self.pc);
-        // println!("pc: 0x{:02X}", self.pc);
-        // println!("opcode: 0x{:02X}", instruction_byte);
-        self.execute_instruction(instruction_byte);
+        let tick_to_wait = self.execute_instruction(instruction_byte);
 
         if self.halt_bug {
             self.pc = self.pc.wrapping_sub(1);
@@ -118,7 +121,7 @@ impl Cpu {
             self.ime_delay = false;
         }
 
-        // println!("{}", self);
+        tick_to_wait
     }
 
     pub fn get_r8_value(&self, register: R8) -> u8 {
@@ -162,20 +165,6 @@ impl fmt::Display for Cpu {
             self.bus.borrow().read_byte(self.pc.wrapping_add(2)),
             self.bus.borrow().read_byte(self.pc.wrapping_add(3)),
         )
-    }
-}
-
-impl Default for Cpu {
-    fn default() -> Self {
-        Cpu {
-            registers: Registers::default(),
-            bus: Rc::new(RefCell::new(Mmu::default())),
-            pc: 0x0100,
-            ime: false,
-            ime_delay: false,
-            halted: false,
-            halt_bug: false,
-        }
     }
 }
 

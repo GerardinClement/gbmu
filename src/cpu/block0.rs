@@ -295,7 +295,7 @@ fn jr(cpu: &mut Cpu, instruction: u8, has_cond: bool) -> u8 {
         let cond = convert_index_to_cond(instruction);
         if !cond.test(&mut cpu.registers) {
             cpu.pc = cpu.pc.wrapping_add(2);
-            return 8
+            return 8;
         }
     }
     let offset = cpu.bus.borrow().read_byte(cpu.pc + 1) as i8;
