@@ -18,6 +18,14 @@ use std::rc::Rc;
 use crate::cpu::registers::{R8, R16, Registers};
 use crate::mmu::Mmu;
 
+const BLOCK_MASK: u8 = 0b11000000;
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum StepStatus {
+    Continue,
+    Halted,
+}
+
 pub struct Cpu {
     pub registers: Registers,
     pub pc: u16,
@@ -42,8 +50,7 @@ impl Cpu {
     }
 
     fn execute_instruction(&mut self, instruction: u8) {
-        let block_mask = 0b11000000;
-        let block = (instruction & block_mask) >> 6;
+        let block = (instruction & BLOCK_MASK) >> 6;
         match block {
             0b00 => block0::execute_instruction_block0(self, instruction),
             0b01 => block1::execute_instruction_block1(self, instruction),
@@ -56,14 +63,14 @@ impl Cpu {
         }
     }
 
-    pub fn step(&mut self) {
+    fn handle_halt_state(&mut self) -> StepStatus {
         if self.halted {
             let bus = self.bus.borrow();
             let iflag = bus.read_interrupt_flag();
             let ienable = bus.read_interrupt_enable();
 
             if ienable & iflag == 0 {
-                return;
+                return StepStatus::Halted;
             }
 
             self.halted = false;
@@ -72,6 +79,10 @@ impl Cpu {
                 self.halt_bug = true;
             }
         }
+        StepStatus::Continue
+    }
+
+    fn handle_ime_state(&mut self) -> StepStatus {
         if self.ime {
             let mut bus = self.bus.borrow_mut();
             if let Some(interrupt) = bus.interrupts_next_request() {
@@ -89,22 +100,42 @@ impl Cpu {
                 bus.write_byte(sp2, (ret_addr & 0xFF) as u8);
 
                 self.pc = interrupt.vector();
-                return;
+                StepStatus::Halted
+            } else {
+                StepStatus::Continue
             }
+        } else {
+            StepStatus::Continue
         }
-        let instruction_byte = self.bus.borrow().read_byte(self.pc);
-        // println!("pc: 0x{:02X}", self.pc);
-        // println!("opcode: 0x{:02X}", instruction_byte);
-        self.execute_instruction(instruction_byte);
+    }
 
+    fn handle_halt_bug(&mut self) {
         if self.halt_bug {
             self.pc = self.pc.wrapping_sub(1);
             self.halt_bug = false;
         }
+    }
+
+    fn handle_ime_delay(&mut self) {
         if self.ime_delay {
             self.ime = true;
             self.ime_delay = false;
         }
+    }
+
+    pub fn step(&mut self) {
+        if self.handle_halt_state() == StepStatus::Halted {
+            return;
+        }
+        if self.handle_ime_state() == StepStatus::Halted {
+            return;
+        }
+
+        let instruction_byte = self.bus.borrow().read_byte(self.pc);
+        self.execute_instruction(instruction_byte);
+
+        self.handle_halt_bug();
+        self.handle_ime_delay();
 
         // println!("{}", self);
     }

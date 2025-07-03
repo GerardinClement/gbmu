@@ -10,6 +10,8 @@ use crate::cpu::utils;
 const R16STK_MASK: u8 = 0b00110000;
 const TGT3_MASK: u8 = 0b00111000;
 const COND_MASK: u8 = 0b00011000;
+const FIRST_3_BITS_MASK: u8 = 0b11100000;
+const LAST_3_BITS_MASK: u8 = 0b00000111;
 
 const RST_VEC: [u8; 8] = [0x00, 0x08, 0x10, 0x18, 0x20, 0x28, 0x30, 0x38];
 
@@ -72,9 +74,6 @@ fn check_stack_stk16_instruction(instruction: u8) -> u8 {
 }
 
 fn get_instruction_block3(instruction: u8) -> u8 {
-    let block3_mask = 0b00000111;
-    let cond_mask = 0b11100000;
-
     if INSTRUCTIONS_BLOCK3.contains(&instruction) || INSTRUCTION_INTERRUPT.contains(&instruction) {
         return instruction;
     }
@@ -87,7 +86,7 @@ fn get_instruction_block3(instruction: u8) -> u8 {
     let match_opcode: Vec<u8> = INSTRUCTIONS_BLOCK3
         .iter()
         .cloned()
-        .filter(|&opcode| (instruction & block3_mask) == (opcode & block3_mask))
+        .filter(|&opcode| (instruction & LAST_3_BITS_MASK) == (opcode & LAST_3_BITS_MASK))
         .collect();
 
     if match_opcode.len() == 1 {
@@ -96,7 +95,7 @@ fn get_instruction_block3(instruction: u8) -> u8 {
 
     let match_cond_opcode: Vec<u8> = match_opcode
         .into_iter()
-        .filter(|&opcode| (instruction & cond_mask) == (opcode & cond_mask))
+        .filter(|&opcode| (instruction & FIRST_3_BITS_MASK) == (opcode & FIRST_3_BITS_MASK))
         .collect();
 
     if match_cond_opcode.len() == 1 {
@@ -677,24 +676,6 @@ mod tests {
 
         assert_eq!(cpu.registers.get_sp(), 0x1234);
     }
-
-    // #[test]
-    // fn test_di() {
-    //     let mut cpu = Cpu::default();
-    //     cpu.registers.set_interrupts_enabled(true);
-    //     execute_instruction_block3(&mut cpu, 0xF3); // DI
-
-    //     assert!(!cpu.registers.get_interrupts_enabled());
-    // }
-
-    // #[test]
-    // fn test_ei() {
-    //     let mut cpu = Cpu::default();
-    //     cpu.registers.set_interrupts_enabled(false);
-    //     execute_instruction_block3(&mut cpu, 0xFB); // EI
-
-    //     assert!(cpu.registers.get_interrupts_enabled());
-    // }
 
     #[test]
     fn test_ldh_a_c() {

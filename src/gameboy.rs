@@ -8,6 +8,8 @@ use crate::cpu::Cpu;
 use crate::mmu::Mmu;
 use crate::ppu::Ppu;
 
+const FRAME_CYCLES: u32 = 70224;
+
 #[derive(Default)]
 pub struct GameBoy {
     pub cpu: Cpu,
@@ -27,7 +29,7 @@ impl GameBoy {
     pub fn run_frame(&mut self) -> Vec<u8> {
         let mut cycles_this_frame = 0;
 
-        while cycles_this_frame < 70224 {
+        while cycles_this_frame < FRAME_CYCLES {
             self.bus.borrow_mut().tick_timers();
             self.cpu.step();
             cycles_this_frame += 1;

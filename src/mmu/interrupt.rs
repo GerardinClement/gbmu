@@ -38,7 +38,7 @@ impl InterruptController {
         self.ienable & 0b00011111
     }
 
-    pub fn write_ie(&mut self, val: u8) {
+    pub fn write_interrupt_enable(&mut self, val: u8) {
         self.ienable = val & 0b00011111;
     }
 
@@ -46,7 +46,7 @@ impl InterruptController {
         self.iflag | 0b11100000
     }
 
-    pub fn write_if(&mut self, val: u8) {
+    pub fn write_interrupt_flag(&mut self, val: u8) {
         self.iflag = val & 0b00011111;
     }
 
@@ -88,22 +88,22 @@ mod tests {
     }
 
     #[test]
-    fn test_read_write_ie() {
+    fn test_read_write_interrupt_enable() {
         let mut ic = InterruptController::new();
         assert_eq!(ic.read_interrupt_enable(), 0);
-        ic.write_ie(0b1111_1111);
+        ic.write_interrupt_enable(0b1111_1111);
         assert_eq!(ic.read_interrupt_enable(), 0b0001_1111);
-        ic.write_ie(0b0000_0101);
+        ic.write_interrupt_enable(0b0000_0101);
         assert_eq!(ic.read_interrupt_enable(), 0b0000_0101);
     }
 
     #[test]
-    fn test_read_write_if() {
+    fn test_read_write_interrupt_flag() {
         let mut ic = InterruptController::new();
         assert_eq!(ic.read_interrupt_flag(), 0b1110_0000);
-        ic.write_if(0b1010_1010);
+        ic.write_interrupt_flag(0b1010_1010);
         assert_eq!(ic.read_interrupt_flag(), 0b1110_1010);
-        ic.write_if(0);
+        ic.write_interrupt_flag(0);
         assert_eq!(ic.read_interrupt_flag(), 0b1110_0000);
     }
 
@@ -129,7 +129,7 @@ mod tests {
     #[test]
     fn test_next_request_priority_and_masking() {
         let mut ic = InterruptController::new();
-        ic.write_ie(
+        ic.write_interrupt_enable(
             (Interrupt::VBlank as u8) | (Interrupt::Timer as u8) | (Interrupt::Joypad as u8),
         );
         for &int in &[

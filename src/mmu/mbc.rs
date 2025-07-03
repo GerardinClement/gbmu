@@ -1,5 +1,7 @@
 use std::cmp::min;
 
+const ROM_BANK_SIZE: usize = 0x4000;
+
 #[derive(Clone)]
 pub struct Mbc {
     banks: Vec<[u8; 0x4000]>,
@@ -12,17 +14,17 @@ impl Mbc {
         let mut offset = 0;
 
         while offset < rom_image.len() {
-            let mut bank = [0u8; 0x4000];
+            let mut bank = [0u8; ROM_BANK_SIZE];
 
-            let end = min(offset + 0x4000, rom_image.len());
+            let end = min(offset + ROM_BANK_SIZE, rom_image.len());
             let len = end - offset;
 
             bank[..len].copy_from_slice(&rom_image[offset..end]);
             banks.push(bank);
-            offset += 0x4000;
+            offset += ROM_BANK_SIZE;
         }
         if banks.len() < 2 {
-            banks.resize(2, [0u8; 0x4000]);
+            banks.resize(2, [0u8; ROM_BANK_SIZE]);
         }
 
         Mbc { banks, current: 1 }
@@ -31,10 +33,10 @@ impl Mbc {
     pub fn read(&self, addr: u16) -> u8 {
         let i = addr as usize;
 
-        if i < 0x4000 {
+        if i < ROM_BANK_SIZE {
             self.banks[0][i]
         } else {
-            let off = i - 0x4000;
+            let off = i - ROM_BANK_SIZE;
 
             self.banks[self.current][off]
         }

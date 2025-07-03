@@ -8,6 +8,8 @@ use crate::cpu::utils;
 
 const R8_MASK: u8 = 0b00000111;
 const B3_MASK: u8 = 0b00111000;
+const MIDDLE_3_BITS_MASK: u8 = 0b00111000;
+const FIRST_2_BITS_MASK: u8 = 0b11000000;
 
 const RST_VEC: [u8; 8] = [0x00, 0x08, 0x10, 0x18, 0x20, 0x28, 0x30, 0x38];
 
@@ -28,18 +30,12 @@ const INSTRUCTIONS_BLOCK_PREFIX2: [u8; 3] = [
     0b11000000, //set b3, r8
 ];
 
-/// GET the instruction based on the opcode and returns the corresponding instruction.
 fn get_instruction_block_prefix(instruction: u8) -> u8 {
-    // Masques pour identifier les groupes d'instructions
-    let block_prefix_mask1 = 0b00111000; // Bits 3 à 5
-    let block_prefix_mask2 = 0b11000000; // Bits 6 et 7
-
-    // Vérifier si l'instruction appartient au groupe PREFIX2 (BIT, RES, SET)
-    if (instruction & block_prefix_mask2) != 0 {
+    if (instruction & FIRST_2_BITS_MASK) != 0 {
         let match_opcode: Vec<u8> = INSTRUCTIONS_BLOCK_PREFIX2
             .iter()
             .cloned()
-            .filter(|&opcode| (instruction & block_prefix_mask2) == (opcode & block_prefix_mask2))
+            .filter(|&opcode| (instruction & FIRST_2_BITS_MASK) == (opcode & FIRST_2_BITS_MASK))
             .collect();
 
         if match_opcode.len() == 1 {
@@ -47,18 +43,16 @@ fn get_instruction_block_prefix(instruction: u8) -> u8 {
         }
     }
 
-    // Sinon, vérifier si l'instruction appartient au groupe PREFIX1 (RLC, RRC, etc.)
     let match_opcode: Vec<u8> = INSTRUCTIONS_BLOCK_PREFIX1
         .iter()
         .cloned()
-        .filter(|&opcode| (instruction & block_prefix_mask1) == (opcode & block_prefix_mask1))
+        .filter(|&opcode| (instruction & MIDDLE_3_BITS_MASK) == (opcode & MIDDLE_3_BITS_MASK))
         .collect();
 
     if match_opcode.len() == 1 {
         return match_opcode[0];
     }
 
-    // Si aucune correspondance unique n'est trouvée
     panic!("No unique instruction found for opcode: {instruction:#04x}");
 }
 

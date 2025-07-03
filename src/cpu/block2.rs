@@ -8,6 +8,7 @@ use crate::cpu::utils;
 const R16_MASK: u8 = 0b00110000;
 const R8_MASK: u8 = 0b00111000;
 const COND_MASK: u8 = 0b00011000;
+const MIDDLE_3_BITS_MASK: u8 = 0b00111000;
 
 const INSTRUCTIONS_BLOCK2: [u8; 8] = [
     0b10000000, //add a, r8
@@ -21,12 +22,10 @@ const INSTRUCTIONS_BLOCK2: [u8; 8] = [
 ];
 
 fn get_instruction_block2(instruction: u8) -> u8 {
-    let block2_mask: u8 = 0b00111000;
-
     let match_opcode: Vec<u8> = INSTRUCTIONS_BLOCK2
         .iter()
         .cloned()
-        .filter(|&opcode| (instruction & block2_mask) == (opcode & block2_mask))
+        .filter(|&opcode| (instruction & MIDDLE_3_BITS_MASK) == (opcode & MIDDLE_3_BITS_MASK))
         .collect();
 
     if match_opcode.len() == 1 {
@@ -48,7 +47,6 @@ pub fn execute_instruction_block2(cpu: &mut Cpu, instruction: u8) {
         0b10101000 => xor_a_r8(cpu, instruction),
         0b10110000 => or_a_r8(cpu, instruction),
         0b10111000 => cp_a_r8(cpu, instruction),
-        // implement halt
         _ => cpu.pc = cpu.pc.wrapping_add(1),
     }
 }
