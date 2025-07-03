@@ -102,10 +102,7 @@ fn get_instruction_block3(instruction: u8) -> u8 {
     if match_cond_opcode.len() == 1 {
         match_cond_opcode[0]
     } else {
-        panic!(
-            "No unique instruction found for opcode: {:#04x}",
-            instruction
-        );
+        panic!("No unique instruction found for opcode: {instruction:#04x}");
     }
 }
 
@@ -292,7 +289,7 @@ fn rst_tgt3(cpu: &mut Cpu, instruction: u8) {
         cpu.pc = cpu.registers.pop_sp(&cpu.bus.borrow_mut());
         cpu.pc = tgt3_address as u16;
     } else {
-        panic!("Invalid tgt3_index: {}", tgt3_index);
+        panic!("Invalid tgt3_index: {tgt3_index}");
     }
 }
 

@@ -50,7 +50,7 @@ impl Cpu {
             0b10 => block2::execute_instruction_block2(self, instruction),
             0b11 => block3::execute_instruction_block3(self, instruction),
             _ => {
-                println!("Unknown instruction block: {}", block);
+                println!("Unknown instruction block: {block}");
                 self.pc = self.pc.wrapping_add(1);
             }
         }

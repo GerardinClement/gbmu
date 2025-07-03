@@ -21,7 +21,7 @@ impl From<u8> for R16 {
             1 => R16::DE,
             2 => R16::HL,
             3 => R16::SP,
-            _ => panic!("Invalid value for R16: {}", value),
+            _ => panic!("Invalid value for R16: {value}"),
         }
     }
 }
@@ -52,7 +52,7 @@ impl From<u8> for R16Mem {
             1 => R16Mem::DE,
             2 => R16Mem::HLincrement,
             3 => R16Mem::HLdecrement,
-            _ => panic!("Invalid value for R16Mem: {}", value),
+            _ => panic!("Invalid value for R16Mem: {value}"),
         }
     }
 }
@@ -81,7 +81,7 @@ impl From<u8> for R8 {
             5 => R8::L,
             6 => R8::HLIndirect,
             7 => R8::A,
-            _ => panic!("Invalid value for R8: {}", value),
+            _ => panic!("Invalid value for R8: {value}"),
         }
     }
 }
