@@ -24,8 +24,6 @@ const SCY_ADDR: u16 = 0xFF42; // Scroll Y
 const WY_ADDR: u16 = 0xFF4A; // Window Y Position
 const WX_ADDR: u16 = 0xFF4B; // Window X Position
 const LCD_CONTROL_ADDR: u16 = 0xFF40; // LCDC Control
-const TILE_DATA_0: std::ops::Range<u16> = 0x8800..0x9800; // Tile Data Area 0
-const TILE_DATA_1: std::ops::Range<u16> = 0x8000..0x9000; // Tile Data Area 1
 
 #[derive(Default)]
 pub struct Ppu {
@@ -148,8 +146,8 @@ impl Ppu {
         let offset = (y * 32 + x) as u16;
         let tile_number = self.bus.borrow().read_byte(tilemap_base.start + offset);
         match self.lcd_control.bg_window_tile_data_area() {
-            TILE_DATA_1 => 0x8000 + (tile_number as u16) * 16,
-            TILE_DATA_0 => 0x8800 + ((tile_number as i8 as i16) as u16) * 16,
+            lcd_control::TILE_DATA_1 => 0x8000 + (tile_number as u16) * 16,
+            lcd_control::TILE_DATA_0 => 0x8800 + ((tile_number as i8 as i16) as u16) * 16,
             _ => unreachable!(),
         }
     }
