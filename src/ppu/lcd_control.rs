@@ -3,11 +3,11 @@
 
 use std::ops::Range;
 
-pub const TILE_MAP_0: Range<u16> = 0x9800..0x9C00;
-pub const TILE_MAP_1: Range<u16> = 0x9C00..0xA000;
+pub const TILE_MAP_0: Range<u16> = 0x9800..0x9BFF;
+pub const TILE_MAP_1: Range<u16> = 0x9C00..0x9FFF;
 
-pub const TILE_DATA_0: Range<u16> = 0x8800..0x9800;
-pub const TILE_DATA_1: Range<u16> = 0x8000..0x9000;
+pub const TILE_DATA_0: Range<u16> = 0x8800..0x97FF;
+pub const TILE_DATA_1: Range<u16> = 0x8000..0x8FFF;
 
 const PPU_ENABLE_MASK: u8 = 0b1000_0000;
 const WINDOW_TILE_MAP_MASK: u8 = 0b0100_0000;
