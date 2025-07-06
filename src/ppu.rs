@@ -10,8 +10,7 @@ use crate::mmu::Mmu;
 use crate::ppu::colors_palette::Color;
 use crate::ppu::lcd_control::LcdControl;
 use crate::ppu::lcd_status::LcdStatus;
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::{Arc, RwLock};
 
 const WIN_SIZE_X: usize = 160; // Window size in X direction
 const WIN_SIZE_Y: usize = 144; // Window size in Y direction
@@ -27,7 +26,7 @@ const LCD_CONTROL_ADDR: u16 = 0xFF40; // LCDC Control
 
 #[derive(Default)]
 pub struct Ppu {
-    pub bus: Rc<RefCell<Mmu>>,
+    pub bus: Arc<RwLock<Mmu>>,
     lcd_control: LcdControl,
     lcd_status: LcdStatus, // LCD Status register
     scx: u8,               // Scroll X
@@ -39,7 +38,7 @@ pub struct Ppu {
 }
 
 impl Ppu {
-    pub fn new(bus: Rc<RefCell<Mmu>>) -> Self {
+    pub fn new(bus: Arc<RwLock<Mmu>>) -> Self {
         Ppu {
             bus,
             lcd_control: LcdControl::default(),
@@ -55,7 +54,11 @@ impl Ppu {
 
     pub fn display_vram(&self) {
         for i in 0..0x2000 {
-            let byte = self.bus.borrow().read_byte(VRAM.to_address() + i as u16);
+            let byte = self
+                .bus
+                .read()
+                .unwrap()
+                .read_byte(VRAM.to_address() + i as u16);
             print!("{byte:02X} ");
             if (i + 1) % 16 == 0 {
                 println!();
@@ -71,7 +74,8 @@ impl Ppu {
             for byte_index in 0..16 {
                 let byte = self
                     .bus
-                    .borrow()
+                    .read()
+                    .unwrap()
                     .read_byte(tile_address + byte_index as u16);
                 print!("{byte:02X} ");
             }
@@ -84,7 +88,11 @@ impl Ppu {
         for y in 0..32 {
             for x in 0..32 {
                 let offset = (y * 32 + x) as u16;
-                let tile_number = self.bus.borrow().read_byte(tile_map_address + offset);
+                let tile_number = self
+                    .bus
+                    .read()
+                    .unwrap()
+                    .read_byte(tile_map_address + offset);
                 print!("{tile_number:02X} ");
             }
             println!();
@@ -112,7 +120,7 @@ impl Ppu {
         let mut tile_data = [0; 16];
 
         for (i, byte) in tile_data.iter_mut().enumerate() {
-            *byte = self.bus.borrow().read_byte(tile_address + i as u16);
+            *byte = self.bus.read().unwrap().read_byte(tile_address + i as u16);
         }
 
         tile_data
@@ -144,7 +152,11 @@ impl Ppu {
         let tilemap_base: std::ops::Range<u16> = self.lcd_control.bg_tile_map_area();
 
         let offset = (y * 32 + x) as u16;
-        let tile_number = self.bus.borrow().read_byte(tilemap_base.start + offset);
+        let tile_number = self
+            .bus
+            .read()
+            .unwrap()
+            .read_byte(tilemap_base.start + offset);
         match self.lcd_control.bg_window_tile_data_area() {
             lcd_control::TILE_DATA_1 => 0x8000 + (tile_number as u16) * 16,
             lcd_control::TILE_DATA_0 => 0x8800 + ((tile_number as i8 as i16) as u16) * 16,
@@ -169,13 +181,13 @@ impl Ppu {
     }
 
     pub fn update_registers(&mut self) {
-        self.ly = self.bus.borrow().read_byte(LY_ADDR);
-        self.lyc = self.bus.borrow().read_byte(LYC_ADDR);
-        self.scy = self.bus.borrow().read_byte(SCY_ADDR);
-        self.scx = self.bus.borrow().read_byte(SCX_ADDR);
-        self.wy = self.bus.borrow().read_byte(WY_ADDR);
-        self.wx = self.bus.borrow().read_byte(WX_ADDR);
+        self.ly = self.bus.read().unwrap().read_byte(LY_ADDR);
+        self.lyc = self.bus.read().unwrap().read_byte(LYC_ADDR);
+        self.scy = self.bus.read().unwrap().read_byte(SCY_ADDR);
+        self.scx = self.bus.read().unwrap().read_byte(SCX_ADDR);
+        self.wy = self.bus.read().unwrap().read_byte(WY_ADDR);
+        self.wx = self.bus.read().unwrap().read_byte(WX_ADDR);
         self.lcd_control
-            .update_from_byte(self.bus.borrow().read_byte(LCD_CONTROL_ADDR));
+            .update_from_byte(self.bus.read().unwrap().read_byte(LCD_CONTROL_ADDR));
     }
 }
