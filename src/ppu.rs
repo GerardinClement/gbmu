@@ -11,9 +11,6 @@ use crate::mmu::Mmu;
 use crate::ppu::colors_palette::Color;
 use crate::ppu::lcd_control::LcdControl;
 use crate::ppu::lcd_status::LcdStatus;
-use crate::ppu::lcd_status::PpuMode;
-use crate::ppu::pixel::Pixel;
-use crate::ppu::pixel_fifo::PixelFifo;
 use std::sync::{Arc, RwLock};
 
 pub const WIN_SIZE_X: usize = 160; // Window size in X direction
@@ -207,6 +204,7 @@ impl Ppu {
     }
 
     pub fn update_registers(&mut self) {
+        self.ly = self.bus.read().unwrap().read_byte(LY_ADDR);
         self.lyc = self.bus.read().unwrap().read_byte(LYC_ADDR);
         self.scy = self.bus.read().unwrap().read_byte(SCY_ADDR);
         self.scx = self.bus.read().unwrap().read_byte(SCX_ADDR);
