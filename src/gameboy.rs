@@ -1,8 +1,7 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::{Arc, RwLock};
 
 use crate::cpu::Cpu;
 use crate::mmu::Mmu;
@@ -14,12 +13,12 @@ const FRAME_CYCLES: u32 = 70224;
 pub struct GameBoy {
     pub cpu: Cpu,
     pub ppu: Ppu,
-    pub bus: Rc<RefCell<Mmu>>,
+    pub bus: Arc<RwLock<Mmu>>,
 }
 
 impl GameBoy {
     pub fn new(rom: Vec<u8>) -> Self {
-        let bus = Rc::new(RefCell::new(Mmu::new(&rom)));
+        let bus = Arc::new(RwLock::new(Mmu::new(&rom)));
         let cpu = Cpu::new(bus.clone());
         let ppu = Ppu::new(bus.clone());
 
@@ -30,7 +29,7 @@ impl GameBoy {
         let mut cycles_this_frame = 0;
 
         while cycles_this_frame < FRAME_CYCLES {
-            self.bus.borrow_mut().tick_timers();
+            self.bus.write().unwrap().tick_timers();
             self.cpu.tick();
             cycles_this_frame += 1;
             self.ppu.update_registers();

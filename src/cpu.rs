@@ -11,9 +11,8 @@ pub mod flags_registers;
 pub mod registers;
 pub mod utils;
 
-use std::cell::RefCell;
 use std::fmt;
-use std::rc::Rc;
+use std::sync::{Arc, RwLock};
 
 use crate::cpu::registers::{R8, R16, Registers};
 use crate::mmu::Mmu;
@@ -29,7 +28,7 @@ enum StepStatus {
 pub struct Cpu {
     pub registers: Registers,
     pub pc: u16,
-    pub bus: Rc<RefCell<Mmu>>,
+    pub bus: Arc<RwLock<Mmu>>,
     pub ime: bool,
     pub ime_delay: bool, // mimic hardware delay in EI
     pub halted: bool,    // for HALT instruction
@@ -41,7 +40,7 @@ impl Default for Cpu {
     fn default() -> Self {
         Cpu {
             registers: Registers::default(),
-            bus: Rc::new(RefCell::new(Mmu::default())),
+            bus: Arc::new(RwLock::new(Mmu::default())),
             pc: 0x0100,
             ime: false,
             ime_delay: false,
@@ -53,7 +52,7 @@ impl Default for Cpu {
 }
 
 impl Cpu {
-    pub fn new(bus: Rc<RefCell<Mmu>>) -> Self {
+    pub fn new(bus: Arc<RwLock<Mmu>>) -> Self {
         Cpu {
             pc: 0x0100,
             bus,
@@ -82,7 +81,7 @@ impl Cpu {
 
     fn handle_halt_state(&mut self) -> StepStatus {
         if self.halted {
-            let bus = self.bus.borrow();
+            let bus = self.bus.read().unwrap();
             let iflag = bus.read_interrupt_flag();
             let ienable = bus.read_interrupt_enable();
 
@@ -101,7 +100,7 @@ impl Cpu {
 
     fn handle_ime_state(&mut self) -> StepStatus {
         if self.ime {
-            let mut bus = self.bus.borrow_mut();
+            let mut bus = self.bus.write().unwrap();
             if let Some(interrupt) = bus.interrupts_next_request() {
                 self.ime = false;
                 bus.interrupts_clear_request(interrupt);
@@ -148,7 +147,7 @@ impl Cpu {
             return 5;
         }
 
-        let instruction_byte = self.bus.borrow().read_byte(self.pc);
+        let instruction_byte = self.bus.read().unwrap().read_byte(self.pc);
         let tick_to_wait = self.execute_instruction(instruction_byte);
 
         self.handle_halt_bug();
@@ -161,7 +160,7 @@ impl Cpu {
         match register {
             R8::HLIndirect => {
                 let addr = self.registers.get_r16_value(R16::HL);
-                self.bus.borrow().read_byte(addr)
+                self.bus.read().unwrap().read_byte(addr)
             }
             _ => self.registers.get_r8_value(register),
         }
@@ -171,7 +170,7 @@ impl Cpu {
         match register {
             R8::HLIndirect => {
                 let addr = self.registers.get_r16_value(R16::HL);
-                self.bus.borrow_mut().write_byte(addr, value);
+                self.bus.write().unwrap().write_byte(addr, value);
             }
             _ => self.registers.set_r8_value(register, value),
         }
@@ -193,10 +192,10 @@ impl fmt::Display for Cpu {
             self.registers.get_r8_value(R8::L),
             self.registers.get_sp(),
             self.pc,
-            self.bus.borrow().read_byte(self.pc),
-            self.bus.borrow().read_byte(self.pc.wrapping_add(1)),
-            self.bus.borrow().read_byte(self.pc.wrapping_add(2)),
-            self.bus.borrow().read_byte(self.pc.wrapping_add(3)),
+            self.bus.read().unwrap().read_byte(self.pc),
+            self.bus.read().unwrap().read_byte(self.pc.wrapping_add(1)),
+            self.bus.read().unwrap().read_byte(self.pc.wrapping_add(2)),
+            self.bus.read().unwrap().read_byte(self.pc.wrapping_add(3)),
         )
     }
 }
@@ -204,11 +203,9 @@ impl fmt::Display for Cpu {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::cell::RefCell;
     use std::fs;
     use std::io::Write;
     use std::path::Path;
-    use std::rc::Rc;
 
     use crate::mmu::interrupt::Interrupt;
 
@@ -223,7 +220,7 @@ mod tests {
         mmu.write_byte(0xFF0F, Interrupt::Timer as u8);
 
         // 2) Create CPU with that MMU
-        let bus = Rc::new(RefCell::new(mmu));
+        let bus = Arc::new(RwLock::new(mmu));
         let mut cpu = Cpu::new(bus.clone());
 
         // 3) Initialize PC and SP
@@ -239,7 +236,7 @@ mod tests {
         assert_eq!(cpu.registers.get_sp(), 0xFFFC);
 
         // 6) Check the two bytes on the stack (little-endian: low then high)
-        let mmu = bus.borrow();
+        let mmu = bus.read().unwrap();
         // Low byte of 0x1234 at address 0xFFFC
         assert_eq!(mmu.read_byte(0xFFFC), 0x34);
         // High byte of 0x1234 at address 0xFFFD
@@ -261,7 +258,7 @@ mod tests {
         // Setup: place a HALT (0x76) at address 0x200
         let mut mmu = Mmu::new(&[]);
         mmu.write_byte(0x8000, 0x76);
-        let bus = Rc::new(RefCell::new(mmu));
+        let bus = Arc::new(RwLock::new(mmu));
 
         let mut cpu = Cpu::new(bus);
         cpu.pc = 0x8000;
@@ -278,7 +275,7 @@ mod tests {
     fn test_step_halt_stays_halted_without_interrupt() {
         // If halted==true and no pending interrupt, step() must do nothing
         let mmu = Mmu::new(&[]);
-        let bus = Rc::new(RefCell::new(mmu));
+        let bus = Arc::new(RwLock::new(mmu));
         let mut cpu = Cpu::new(bus);
 
         cpu.halted = true;
@@ -300,7 +297,7 @@ mod tests {
         mmu.write_byte(0xFFFF, Interrupt::Timer as u8);
         // Also put a dummy opcode (0x00 = NOP) at PC so we can see it execute.
         mmu.write_byte(0x300, 0x00);
-        let bus = Rc::new(RefCell::new(mmu));
+        let bus = Arc::new(RwLock::new(mmu));
         let mut cpu = Cpu::new(bus.clone());
         cpu.pc = 0x300;
         cpu.registers.set_sp(0xFFFE);
@@ -317,7 +314,7 @@ mod tests {
             "PC should *not* advance thanks to the halt bug"
         );
         // And IF should remain unchanged, since IME==false means no service
-        let mmu = bus.borrow();
+        let mmu = bus.read().unwrap();
         assert_ne!(
             mmu.read_byte(0xFF0F) & (Interrupt::Timer as u8),
             0,
@@ -331,7 +328,7 @@ mod tests {
         let mut mmu = Mmu::new(&[]);
         mmu.write_byte(0xFF0F, Interrupt::Timer as u8);
         mmu.write_byte(0xFFFF, Interrupt::Timer as u8);
-        let bus = Rc::new(RefCell::new(mmu));
+        let bus = Arc::new(RwLock::new(mmu));
         let mut cpu = Cpu::new(bus.clone());
 
         cpu.pc = 0x400;
@@ -343,7 +340,7 @@ mod tests {
 
         // Should have pushed return addr 0x400, jumped to 0x50, cleared halted & IME
         assert_eq!(cpu.registers.get_sp(), 0xFFFC);
-        let mmu = bus.borrow();
+        let mmu = bus.read().unwrap();
         assert_eq!(mmu.read_byte(0xFFFC), 0x00, "low byte of 0x0400");
         assert_eq!(mmu.read_byte(0xFFFD), 0x04, "high byte of 0x0400");
         assert_eq!(cpu.pc, Interrupt::Timer.vector());
@@ -368,14 +365,14 @@ mod tests {
         mmu.write_byte(0xC001, 0x04);
 
         // 2) Create CPU, point it at our “program”
-        let bus = Rc::new(RefCell::new(mmu));
+        let bus = Arc::new(RwLock::new(mmu));
         let mut cpu = Cpu::new(bus.clone());
         cpu.pc = 0xC000;
         cpu.registers.set_r8_value(R8::B, 0);
 
         // 3) Trigger the halt bug: IME=0, and set IF & IE so (IE&IF)!=0
         {
-            let mut mmu = bus.borrow_mut();
+            let mut mmu = bus.write().unwrap();
             mmu.write_byte(0xFFFF, Interrupt::Timer as u8); // IE
             mmu.write_byte(0xFF0F, Interrupt::Timer as u8); // IF
         }
@@ -405,7 +402,7 @@ mod tests {
         }
 
         let rom_data = fs::read(rom_path).expect("Failed to read ROM file");
-        let bus = Rc::new(RefCell::new(Mmu::new(&rom_data)));
+        let bus = Arc::new(RwLock::new(Mmu::new(&rom_data)));
         let mut cpu = Cpu::new(bus.clone());
         let mut logfile = fs::File::create(format!("logfiles/{}", logfile_name))
             .expect("Failed to create logfile");
