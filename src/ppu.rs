@@ -1,19 +1,24 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
-pub mod colors_palette;
-pub mod lcd_control;
-pub mod lcd_status;
+mod colors_palette;
+mod lcd_control;
+mod lcd_status;
+mod pixel;
+mod pixel_fifo;
 
 use crate::mmu::MemoryRegion;
 use crate::mmu::Mmu;
 use crate::ppu::colors_palette::Color;
 use crate::ppu::lcd_control::LcdControl;
 use crate::ppu::lcd_status::LcdStatus;
+use crate::ppu::pixel::Pixel;
+use crate::ppu::pixel_fifo::PixelFifo;
 use std::sync::{Arc, RwLock};
 
-const WIN_SIZE_X: usize = 160; // Window size in X direction
-const WIN_SIZE_Y: usize = 144; // Window size in Y direction
+pub const WIN_SIZE_X: usize = 160; // Window size in X direction
+pub const WIN_SIZE_Y: usize = 144; // Window size in Y direction
+pub const VBLANK_SIZE: usize = 10; // VBlank size in lines
 const VRAM: MemoryRegion = MemoryRegion::Vram; // Start of VRAM
 const LY_ADDR: u16 = 0xFF44; // LCDC Y-Coordinate
 const LYC_ADDR: u16 = 0xFF45; // LY Compare
@@ -35,6 +40,8 @@ pub struct Ppu {
     wx: u8,                // Window X position
     ly: u8,
     lyc: u8,
+    x: usize,
+    bg_fifo: PixelFifo, // Background pixel FIFO
 }
 
 impl Ppu {
@@ -49,6 +56,8 @@ impl Ppu {
             wx: 0x00,
             ly: 0x00,
             lyc: 0x00,
+            x: 0,
+            bg_fifo: PixelFifo::default(),
         }
     }
 
@@ -164,24 +173,66 @@ impl Ppu {
         }
     }
 
-    pub fn render_frame(&self) -> Vec<u8> {
-        let mut frame = vec![0; WIN_SIZE_X * WIN_SIZE_Y * 3];
-        for y in 0..WIN_SIZE_Y {
-            for x in 0..WIN_SIZE_X {
-                let y_tile = y / 8;
-                let x_tile = x / 8;
-                let tile_address = self.get_tile_address(y_tile, x_tile);
-                let tile_data = self.read_tile_data(tile_address);
-                let color = self.get_pixel_color(tile_data, x, y);
-                let color_offset = (y * WIN_SIZE_X + x) * 3;
-                self.set_pixel_color(&mut frame, color_offset, color);
+    fn fetcher(&self) -> Vec<Pixel> {
+        let mut screen_x = self.x;
+        let screen_y = self.ly as usize;
+        let mut pixels = Vec::new();
+
+        for _ in 0..8 {
+            let use_window = self.lcd_control.is_window_enabled()
+                && (screen_y >= self.wy as usize)
+                && (screen_x + 7 >= self.wx as usize);
+
+            let (bg_x, bg_y) = if use_window {
+                let win_x = screen_x + 7 - self.wx as usize;
+                let win_y = screen_y - self.wy as usize;
+                (win_x % 256, win_y % 256)
+            } else {
+                (
+                    (screen_x + self.scx as usize) % 256,
+                    (screen_y + self.scy as usize) % 256,
+                )
+            };
+
+            let tile_x = bg_x / 8;
+            let tile_y = bg_y / 8;
+            let tile_address = self.get_tile_address(tile_y, tile_x);
+            let tile = self.read_tile_data(tile_address);
+            let pixel_x = bg_x % 8;
+            let pixel_y = bg_y % 8;
+            let color = self.get_pixel_color(tile, pixel_x, pixel_y);
+            let pixel = Pixel::new(color, 0, 0, 0);
+            pixels.push(pixel);
+            screen_x += 1;
+        }
+
+        pixels
+    }
+
+    pub fn render_frame(&mut self, frame: &mut [u8]) {
+        let pixels = self.fetcher();
+        for pixel in &pixels {
+            self.bg_fifo.push(pixel.clone());
+        }
+
+        for i in 0..8 {
+            if let Some(p) = self.bg_fifo.pop() {
+                let offset = ((self.ly as usize * WIN_SIZE_X) + (self.x + i)) * 3;
+                self.set_pixel_color(frame, offset, p.get_color());
             }
         }
-        frame
+
+        self.x += 8;
+        if self.x >= WIN_SIZE_X {
+            self.x = 0;
+            self.ly += 1;
+            if self.ly >= WIN_SIZE_Y as u8 {
+                self.ly = 0;
+            }
+        }
     }
 
     pub fn update_registers(&mut self) {
-        self.ly = self.bus.read().unwrap().read_byte(LY_ADDR);
         self.lyc = self.bus.read().unwrap().read_byte(LYC_ADDR);
         self.scy = self.bus.read().unwrap().read_byte(SCY_ADDR);
         self.scx = self.bus.read().unwrap().read_byte(SCX_ADDR);

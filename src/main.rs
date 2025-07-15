@@ -102,7 +102,7 @@ fn emulation_button(ui: &mut egui::Ui) -> Option<EmulatedGame> {
             command_query_sender,
             debug_response_receiver,
             handler: tokio::spawn(launch_game(
-                "roms/individual/09-op r,r.gb".to_string(),
+                "roms/gb-test-roms/cpu_instrs/cpu_instrs.gb".to_string(),
                 input_receiver,
                 image_sender,
                 command_query_receiver,
