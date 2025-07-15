@@ -68,7 +68,7 @@ fn emulation_button(ui: &mut egui::Ui) -> Option<EmulatedGame> {
             input_sender,
             image_receiver,
             handler: tokio::spawn(launch_game(
-                "gb-test-roms/cpu_instrs/individual/02-interrupts.gb".to_string(),
+                "roms/gb-test-roms/cpu_instrs/cpu_instrs.gb".to_string(),
                 input_receiver,
                 image_sender,
             )),

@@ -8,6 +8,9 @@ use crate::mmu::Mmu;
 use crate::ppu::Ppu;
 
 const FRAME_CYCLES: u32 = 70224;
+const WIN_SIZE_X: usize = 160; // Window size in X direction
+const WIN_SIZE_Y: usize = 144; // Window size in Y direction
+const VBLANK_SIZE: usize = 10; // VBlank size in lines
 
 #[derive(Default)]
 pub struct GameBoy {
@@ -27,14 +30,15 @@ impl GameBoy {
 
     pub fn run_frame(&mut self) -> Vec<u8> {
         let mut cycles_this_frame = 0;
+        let mut frame = vec![0; WIN_SIZE_X * WIN_SIZE_Y * 3];
 
         while cycles_this_frame < FRAME_CYCLES {
             self.bus.write().unwrap().tick_timers();
             self.cpu.tick();
             cycles_this_frame += 1;
             self.ppu.update_registers();
+            self.ppu.render_frame(&mut frame)
         }
-
-        self.ppu.render_frame()
+        frame
     }
 }

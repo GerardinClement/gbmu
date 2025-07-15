@@ -1,4 +1,5 @@
 use crate::gameboy::GameBoy;
+use crate::ppu::{self};
 
 #[derive(Default)]
 pub struct GameApp {
@@ -12,7 +13,7 @@ impl GameApp {
         println!("{}", gameboy.cpu);
         Self {
             gameboy,
-            framebuffer: vec![0; 160 * 144 * 4],
+            framebuffer: vec![0; ppu::WIN_SIZE_X * ppu::WIN_SIZE_Y * 4],
         }
     }
 
@@ -22,7 +23,7 @@ impl GameApp {
     }
 
     fn rgb_to_rgba(rgb_frame: &[u8]) -> Vec<u8> {
-        let mut rgba_frame = Vec::with_capacity(160 * 144 * 4);
+        let mut rgba_frame = Vec::with_capacity(ppu::WIN_SIZE_X * ppu::WIN_SIZE_Y * 4);
         for chunk in rgb_frame.chunks(3) {
             rgba_frame.extend_from_slice(chunk);
             rgba_frame.push(255);
