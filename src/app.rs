@@ -1,10 +1,7 @@
-use crate::gameboy::GameBoy;
-use crate::gui::{DebugCommandQueries, DebugResponse, WatchedAdresses};
+#![allow(unreachable_code)]
+
+use crate::{DebugCommandQueries, DebugResponse, WatchedAdresses, gameboy::GameBoy};
 use crate::ppu;
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
-};
 use tokio::sync::mpsc::{Receiver, Sender};
 
 #[derive(Default)]

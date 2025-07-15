@@ -5,12 +5,15 @@ mod colors_palette;
 mod lcd_control;
 mod lcd_status;
 mod pixel;
+mod pixel_fifo;
 
 use crate::mmu::MemoryRegion;
 use crate::mmu::Mmu;
 use crate::ppu::colors_palette::Color;
 use crate::ppu::lcd_control::LcdControl;
 use crate::ppu::lcd_status::LcdStatus;
+use crate::ppu::pixel::Pixel;
+use crate::ppu::pixel_fifo::PixelFifo;
 use std::sync::{Arc, RwLock};
 
 pub const WIN_SIZE_X: usize = 160; // Window size in X direction
@@ -174,37 +177,66 @@ impl Ppu {
         }
     }
 
-    pub fn render_horizontal_line(&self, y: usize) -> Vec<u8> {
-        let mut line_buffer: Vec<u8> = vec![0; WIN_SIZE_X * 3];
-        for x in 0..WIN_SIZE_X {
-            let y_tile = (self.ly / 8) as usize;
-            let x_tile = x / 8;
-            let tile_address = self.get_tile_address(y_tile, x_tile);
-            let tile_data = self.read_tile_data(tile_address);
-            let tile_offset_y = self.ly % 8;
-            let tile_line_start_index = 8 * tile_offset_y as usize;
-            line_buffer = tile_data[tile_line_start_index..tile_line_start_index + 8].to_vec();
+    fn fetcher(&self) -> Vec<Pixel> {
+        let mut screen_x = self.x;
+        let screen_y = self.ly as usize;
+        let mut pixels = Vec::new();
+
+        for _ in 0..8 {
+            let use_window = self.lcd_control.is_window_enabled()
+                && (screen_y >= self.wy as usize)
+                && (screen_x + 7 >= self.wx as usize);
+
+            let (bg_x, bg_y) = if use_window {
+                let win_x = screen_x + 7 - self.wx as usize;
+                let win_y = screen_y - self.wy as usize;
+                (win_x % 256, win_y % 256)
+            } else {
+                (
+                    (screen_x + self.scx as usize) % 256,
+                    (screen_y + self.scy as usize) % 256,
+                )
+            };
+
+            let tile_x = bg_x / 8;
+            let tile_y = bg_y / 8;
+            let tile_address = self.get_tile_address(tile_y, tile_x);
+            let tile = self.read_tile_data(tile_address);
+            let pixel_x = bg_x % 8;
+            let pixel_y = bg_y % 8;
+            let color = self.get_pixel_color(tile, pixel_x, pixel_y);
+            let pixel = Pixel::new(color, 0, 0, 0);
+            pixels.push(pixel);
+            screen_x += 1;
         }
-        line_buffer
+
+        pixels
     }
 
-    pub fn render_frame(&self) -> Vec<u8> {
-        let mut frame = vec![0; WIN_SIZE_X * WIN_SIZE_Y * 3];
-        for y in 0..WIN_SIZE_Y {
-            for x in 0..WIN_SIZE_X {
-                let y_tile = y / 8;
-                let x_tile = x / 8;
-                let tile_address = self.get_tile_address(y_tile, x_tile);
-                let tile_data = self.read_tile_data(tile_address);
-                let color = self.get_pixel_color(tile_data, x, y);
-                let color_offset = (y * WIN_SIZE_X + x) * 3;
-                self.set_pixel_color(&mut frame, color_offset, color);
+    pub fn render_frame(&mut self, frame: &mut [u8]) {
+        let pixels = self.fetcher();
+        for pixel in &pixels {
+            self.bg_fifo.push(pixel.clone());
+        }
+
+        for i in 0..8 {
+            if let Some(p) = self.bg_fifo.pop() {
+                let offset = ((self.ly as usize * WIN_SIZE_X) + (self.x + i)) * 3;
+                self.set_pixel_color(frame, offset, p.get_color());
+            }
+        }
+
+        self.x += 8;
+        if self.x >= WIN_SIZE_X {
+            self.x = 0;
+            self.ly += 1;
+            if self.ly >= WIN_SIZE_Y as u8 {
+                self.ly = 0;
             }
         }
     }
 
     pub fn update_registers(&mut self) {
-        self.ly = self.bus.read().unwrap().read_byte(LY_ADDR);
         self.lyc = self.bus.read().unwrap().read_byte(LYC_ADDR);
         self.scy = self.bus.read().unwrap().read_byte(SCY_ADDR);
         self.scx = self.bus.read().unwrap().read_byte(SCX_ADDR);
