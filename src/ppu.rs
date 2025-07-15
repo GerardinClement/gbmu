@@ -1,9 +1,10 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
-pub mod colors_palette;
-pub mod lcd_control;
-pub mod lcd_status;
+mod colors_palette;
+mod lcd_control;
+mod lcd_status;
+mod pixel;
 
 use crate::mmu::MemoryRegion;
 use crate::mmu::Mmu;
@@ -150,6 +151,20 @@ impl Ppu {
             lcd_control::TILE_DATA_0 => 0x8800 + ((tile_number as i8 as i16) as u16) * 16,
             _ => unreachable!(),
         }
+    }
+
+    pub fn render_horizontal_line(&self, y: usize) -> Vec<u8> {
+        let mut line_buffer: Vec<u8> = vec![0; WIN_SIZE_X * 3];
+        for x in 0..WIN_SIZE_X {
+            let y_tile = (self.ly / 8) as usize;
+            let x_tile = x / 8;
+            let tile_address = self.get_tile_address(y_tile, x_tile);
+            let tile_data = self.read_tile_data(tile_address);
+            let tile_offset_y = self.ly % 8;
+            let tile_line_start_index = 8 * tile_offset_y as usize;
+            line_buffer = tile_data[tile_line_start_index..tile_line_start_index + 8].to_vec();
+        }
+        line_buffer
     }
 
     pub fn render_frame(&self) -> Vec<u8> {

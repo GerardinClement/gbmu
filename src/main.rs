@@ -35,7 +35,7 @@ fn main() {
         args.pop()
             .expect("Expected a ROM name as the second argument")
     } else {
-        "roms/individual/02-interrupts.gb".to_string()
+        "roms/dmg_boot.bin".to_string()
     };
 
     let rom_data: Vec<u8> = read_rom(rom_path);
