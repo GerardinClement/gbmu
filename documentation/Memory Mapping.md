@@ -48,10 +48,15 @@
 
 #### 7. OAM (`0xFE00-0xFE9F`)
 - **Sprite Attribute Table**: 40 sprites × 4 bytes:
-    1. Y-position
-    2. X-position
-    3. Tile index
-    4. Flags (palette, flip, priority)
+    0. Y-position
+    1. X-position
+    2. Tile index
+    3. Attributs (flags):
+        - Bits 0–2 : palette (DMG) ou palette & banc de tiles (CGB)
+        - Bit 3 : banc de tiles (CGB seulement)
+        - Bit 5 : miroir horizontal (X-flip)
+        - Bit 6 : miroir vertical (Y-flip)
+        - Bit 7 : priorité (sprite devant ou derrière le fond)
 
 - **DMA**: a write to `0xFF46` starts a quick 160 B copy from `val<<8` → `0xFE00–0xFE9F`.
 
