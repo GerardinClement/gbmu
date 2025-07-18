@@ -4,11 +4,13 @@
 pub mod interrupt;
 pub mod mbc;
 pub mod timers;
+pub mod oam;
 
 use self::timers::Timers;
 use crate::mmu::interrupt::Interrupt;
 use crate::mmu::interrupt::InterruptController;
 use crate::mmu::mbc::Mbc;
+use crate::mmu::oam::Oam;
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum MemoryRegion {
@@ -67,6 +69,7 @@ pub struct Mmu {
     cart: Mbc,
     interrupts: InterruptController,
     timers: Timers,
+    oam: Oam,
 }
 
 impl Mmu {
@@ -76,6 +79,7 @@ impl Mmu {
             cart: Mbc::new(rom_image),
             interrupts: InterruptController::new(),
             timers: Timers::default(),
+            oam: Oam::default(),
         }
     }
 
@@ -96,6 +100,7 @@ impl Mmu {
 
                 self.data[mirror as usize]
             }
+            MemoryRegion::Oam => self.oam.read(addr),
             MemoryRegion::Unusable => 0xFF,
             MemoryRegion::InterruptFlag => self.interrupts.read_interrupt_flag(),
             MemoryRegion::InterruptEnable => self.interrupts.read_interrupt_enable(),
@@ -110,11 +115,12 @@ impl Mmu {
                 let mirror = addr - 0x2000;
 
                 self.data[mirror as usize] = val;
-            }
+            },
             MemoryRegion::Timers => {
                 self.timers.write_byte(addr, val);
-            }
-            MemoryRegion::Unusable => {}
+            },
+            MemoryRegion::Oam => self.oam.write(addr, val),
+            MemoryRegion::Unusable => {},
             MemoryRegion::InterruptFlag => self.interrupts.write_interrupt_flag(val),
             MemoryRegion::InterruptEnable => self.interrupts.write_interrupt_enable(val),
             _ => self.data[addr as usize] = val,

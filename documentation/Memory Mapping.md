@@ -48,6 +48,7 @@
 
 #### 7. OAM (`0xFE00-0xFE9F`)
 - **Sprite Attribute Table**: 40 sprites × 4 bytes:
+
     0. Y-position
     1. X-position
     2. Tile index
