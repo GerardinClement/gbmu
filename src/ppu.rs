@@ -5,12 +5,15 @@ mod colors_palette;
 mod lcd_control;
 mod lcd_status;
 mod pixel;
+mod pixel_fifo;
 
 use crate::mmu::MemoryRegion;
 use crate::mmu::Mmu;
 use crate::ppu::colors_palette::Color;
 use crate::ppu::lcd_control::LcdControl;
 use crate::ppu::lcd_status::LcdStatus;
+use crate::ppu::pixel::Pixel;
+use crate::ppu::pixel_fifo::PixelFifo;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -37,6 +40,8 @@ pub struct Ppu {
     wx: u8,                // Window X position
     ly: u8,
     lyc: u8,
+    x: usize,
+    bg_fifo: PixelFifo, // Background pixel FIFO
 }
 
 impl Ppu {
@@ -51,6 +56,8 @@ impl Ppu {
             wx: 0x00,
             ly: 0x00,
             lyc: 0x00,
+            x: 0,
+            bg_fifo: PixelFifo::default(),
         }
     }
 
@@ -153,31 +160,31 @@ impl Ppu {
         }
     }
 
-    pub fn render_horizontal_line(&self, y: usize) -> Vec<u8> {
-        let mut line_buffer: Vec<u8> = vec![0; WIN_SIZE_X * 3];
-        for x in 0..WIN_SIZE_X {
-            let y_tile = (self.ly / 8) as usize;
-            let x_tile = x / 8;
-            let tile_address = self.get_tile_address(y_tile, x_tile);
-            let tile_data = self.read_tile_data(tile_address);
-            let tile_offset_y = self.ly % 8;
-            let tile_line_start_index = 8 * tile_offset_y as usize;
-            line_buffer = tile_data[tile_line_start_index..tile_line_start_index + 8].to_vec();
-        }
-        line_buffer
+    fn fetcher(&self) -> Pixel {
+        let y_tile = (self.ly / 8) as usize;
+        let x_tile = self.x / 8;
+        let tile_address = self.get_tile_address(y_tile, x_tile);
+        let tile = self.read_tile_data(tile_address);
+        let tile_offset_y = self.ly % 8;
+        let tile_line_start_index = 8 * tile_offset_y as usize;
+        let color = self.get_pixel_color(tile, self.x, tile_line_start_index);
+
+        Pixel::new(
+            color,
+            0, // palette is not used in this context
+            0, // sprite priority is not used in this context
+            0, // background priority is not used in this context
+        )
     }
 
-    pub fn render_frame(&self) -> Vec<u8> {
+    pub fn render_frame(&mut self) -> Vec<u8> {
         let mut frame = vec![0; WIN_SIZE_X * WIN_SIZE_Y * 3];
         for y in 0..WIN_SIZE_Y {
             for x in 0..WIN_SIZE_X {
-                let y_tile = y / 8;
-                let x_tile = x / 8;
-                let tile_address = self.get_tile_address(y_tile, x_tile);
-                let tile_data = self.read_tile_data(tile_address);
-                let color = self.get_pixel_color(tile_data, x, y);
-                let color_offset = (y * WIN_SIZE_X + x) * 3;
-                self.set_pixel_color(&mut frame, color_offset, color);
+                self.x = x;
+                self.ly = y as u8;
+                let pixel = self.fetcher();
+                self.bg_fifo.push(pixel.clone());
             }
         }
         frame

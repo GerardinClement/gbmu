@@ -4,6 +4,8 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use winit::dpi::Pixel;
+
 use crate::cpu::Cpu;
 use crate::mmu::Mmu;
 use crate::ppu::Ppu;
