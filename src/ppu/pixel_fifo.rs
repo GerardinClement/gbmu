@@ -21,12 +21,7 @@ impl PixelFifo {
     }
 
     pub fn push(&mut self, pixel: Pixel) {
-        if self.bg.len() < 8 {
-            self.bg.push_back(pixel);
-        } else {
-            self.bg.pop_front();
-            self.bg.push_back(pixel);
-        }
+        self.bg.push_back(pixel);
     }
 
     pub fn pop(&mut self) -> Option<Pixel> {
@@ -35,6 +30,10 @@ impl PixelFifo {
 
     pub fn is_empty(&self) -> bool {
         self.bg.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        self.bg.len()
     }
 
     pub fn clear(&mut self) {

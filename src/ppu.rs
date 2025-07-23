@@ -177,17 +177,24 @@ impl Ppu {
         )
     }
 
-    pub fn render_frame(&mut self) -> Vec<u8> {
-        let mut frame = vec![0; WIN_SIZE_X * WIN_SIZE_Y * 3];
-        for y in 0..WIN_SIZE_Y {
-            for x in 0..WIN_SIZE_X {
-                self.x = x;
-                self.ly = y as u8;
-                let pixel = self.fetcher();
-                self.bg_fifo.push(pixel.clone());
+    pub fn render_frame(&mut self, frame: &mut Vec<u8>) {
+        let pixel = self.fetcher();
+        self.bg_fifo.push(pixel.clone());
+        if self.bg_fifo.len() > 8 {
+            let pixel = self.bg_fifo.pop();
+            if let Some(p) = pixel {
+                let offset = ((self.ly as usize * WIN_SIZE_X) + self.x) * 3;
+                self.set_pixel_color(frame, offset, p.get_color());
             }
         }
-        frame
+        self.x = self.x + 1;
+        if self.x >= WIN_SIZE_X {
+            self.x = 0;
+            self.ly = self.ly + 1;
+            if self.ly >= WIN_SIZE_Y as u8 {
+                self.ly = 0; // Reset to the top of the screen
+            }
+        }
     }
 
     pub fn update_registers(&mut self) {
