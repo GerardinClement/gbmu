@@ -6,6 +6,7 @@ use winit::event_loop::{ActiveEventLoop, ControlFlow};
 use winit::window::{Window, WindowId};
 
 use crate::gameboy::GameBoy;
+use crate::ppu::{self};
 
 #[derive(Default)]
 pub struct App<'win> {
@@ -23,7 +24,7 @@ impl App<'_> {
             window: None,
             pixels: None,
             gameboy,
-            framebuffer: vec![0; 160 * 144 * 4],
+            framebuffer: vec![0; ppu::WIN_SIZE_X * ppu::WIN_SIZE_Y * 4],
         }
     }
 
@@ -38,7 +39,7 @@ impl App<'_> {
     }
 
     fn rgb_to_rgba(rgb_frame: &[u8]) -> Vec<u8> {
-        let mut rgba_frame = Vec::with_capacity(160 * 144 * 4);
+        let mut rgba_frame = Vec::with_capacity(ppu::WIN_SIZE_X * ppu::WIN_SIZE_Y * 4);
         for chunk in rgb_frame.chunks(3) {
             rgba_frame.extend_from_slice(chunk);
             rgba_frame.push(255);
@@ -72,7 +73,7 @@ impl ApplicationHandler for App<'_> {
         self.window = Some(window.clone());
 
         let surface_texture = SurfaceTexture::new(size.width, size.height, window.clone());
-        let pixels = Pixels::new(160, 144, surface_texture).unwrap();
+        let pixels = Pixels::new(ppu::WIN_SIZE_X as u32, ppu::WIN_SIZE_Y as u32, surface_texture).unwrap();
 
         self.pixels = Some(pixels);
     }

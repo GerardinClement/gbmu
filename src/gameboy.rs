@@ -12,6 +12,7 @@ use crate::ppu::Ppu;
 const FRAME_CYCLES: u32 = 70224;
 const WIN_SIZE_X: usize = 160; // Window size in X direction
 const WIN_SIZE_Y: usize = 144; // Window size in Y direction
+const VBLANK_SIZE: usize = 10; // VBlank size in lines
 
 #[derive(Default)]
 pub struct GameBoy {

@@ -17,8 +17,9 @@ use crate::ppu::pixel_fifo::PixelFifo;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-const WIN_SIZE_X: usize = 160; // Window size in X direction
-const WIN_SIZE_Y: usize = 144; // Window size in Y direction
+pub const WIN_SIZE_X: usize = 160; // Window size in X direction
+pub const WIN_SIZE_Y: usize = 144; // Window size in Y direction
+pub const VBLANK_SIZE: usize = 10; // VBlank size in lines
 const VRAM: MemoryRegion = MemoryRegion::Vram; // Start of VRAM
 const LY_ADDR: u16 = 0xFF44; // LCDC Y-Coordinate
 const LYC_ADDR: u16 = 0xFF45; // LY Compare
@@ -161,16 +162,35 @@ impl Ppu {
     }
 
     fn fetcher(&self) -> Pixel {
-        let y_tile = (self.ly / 8) as usize;
-        let x_tile = self.x / 8;
-        let tile_address = self.get_tile_address(y_tile, x_tile);
+        let screen_x = self.x;
+        let screen_y = self.ly as usize;
+        let use_window = self.lcd_control.is_window_enabled()
+            && (screen_y >= self.wy as usize)
+            && (screen_x + 7 >= self.wx as usize);
+
+        let (bg_x, bg_y) = if use_window {
+            // Window: ignore SCX, use WX/WY
+            let win_x = screen_x + 7 - self.wx as usize;
+            let win_y = screen_y - self.wy as usize;
+            (win_x % 256, win_y % 256)
+        } else {
+            // Background: apply SCX/SCY
+            (
+                (screen_x + self.scx as usize) % 256,
+                (screen_y + self.scy as usize) % 256,
+            )
+        };
+
+        let tile_x = bg_x / 8;
+        let tile_y = bg_y / 8;
+        let tile_address = self.get_tile_address(tile_y, tile_x);
         let tile = self.read_tile_data(tile_address);
-        let tile_offset_y = self.ly % 8;
-        let tile_line_start_index = 8 * tile_offset_y as usize;
-        let color = self.get_pixel_color(tile, self.x, tile_line_start_index);
+        let pixel_x = bg_x % 8;
+        let pixel_y = bg_y % 8;
+        let color = self.get_pixel_color(tile, pixel_x, pixel_y);
 
         Pixel::new(
-            color,
+            color, 
             0, // palette is not used in this context
             0, // sprite priority is not used in this context
             0, // background priority is not used in this context
@@ -198,7 +218,6 @@ impl Ppu {
     }
 
     pub fn update_registers(&mut self) {
-        self.ly = self.bus.borrow().read_byte(LY_ADDR);
         self.lyc = self.bus.borrow().read_byte(LYC_ADDR);
         self.scy = self.bus.borrow().read_byte(SCY_ADDR);
         self.scx = self.bus.borrow().read_byte(SCX_ADDR);

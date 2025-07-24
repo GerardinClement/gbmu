@@ -89,10 +89,6 @@ impl Mmu {
     }
 
     pub fn read_byte(&self, addr: u16) -> u8 {
-        if addr == 0xFF44 {
-            return 0x90;
-        }
-
         match MemoryRegion::from(addr) {
             MemoryRegion::Mbc => self.cart.read(addr),
             MemoryRegion::Mram => {
@@ -108,6 +104,9 @@ impl Mmu {
     }
 
     pub fn write_byte(&mut self, addr: u16, val: u8) {
+        if addr == 0xFF44 {
+            return;
+        }
         match MemoryRegion::from(addr) {
             MemoryRegion::Mbc => self.cart.write(addr, val),
             MemoryRegion::Mram => {
