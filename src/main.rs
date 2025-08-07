@@ -83,14 +83,21 @@ impl eframe::App for MyApp {
         // --- Central Panel for Content based on Mode ---
         egui::CentralPanel::default().show(ctx, |ui| {
             if let Some(game) = &mut self.emulated_game {
-                let width = 160;
-                let height = 144;
+                let initial_width = 160;
+                let initial_height = 144;
+                let scale = 3;
                 let white_pxl = [255u8, 255, 255, 255];
                 if let Ok(new_image) = game.image_receiver.try_recv() {
                     self.actual_image = new_image;
                 }
-                let color_image =
-                    egui::ColorImage::from_rgba_unmultiplied([width, height], &self.actual_image);
+
+                let resized_image =
+                    double_size_image(&self.actual_image, initial_width, initial_height, scale);
+
+                let color_image = egui::ColorImage::from_rgba_unmultiplied(
+                    [initial_width * scale, initial_height * scale],
+                    &resized_image,
+                );
                 let texture_handle =
                     ctx.load_texture("gb_frame", color_image, egui::TextureOptions::default());
                 ui.image(&texture_handle);
@@ -100,6 +107,24 @@ impl eframe::App for MyApp {
         });
         ctx.request_repaint();
     }
+}
+
+fn double_size_image(pixels: &[u8], width: usize, height: usize, scale: usize) -> Vec<u8> {
+    let scale_w = width * scale;
+    let scale_h = height * scale;
+    let size = scale_h * scale_w;
+
+    (0..size)
+        .map(|index| {
+            let y = index / scale_w;
+            let x = index % scale_w;
+            let orig_y = y / scale;
+            let orig_x = x / scale;
+            let index_to_copy = (orig_y * width + orig_x) * 4;
+            &pixels[index_to_copy..index_to_copy + 4]
+        })
+        .flat_map(|slice| slice.iter().copied())
+        .collect()
 }
 
 struct EmulatedGame {
