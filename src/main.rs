@@ -211,18 +211,25 @@ impl eframe::App for MyApp {
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            if let Some(handle) = &texture_handle {
-                ui.vertical_centered(|ui| {
-                    ui.image(handle);
+            if let Some(game) = &mut self.emulated_game {
+                let initial_width = 160;
+                let initial_height = 144;
+                let scale = 3;
+                let white_pxl = [255u8, 255, 255, 255];
+                if let Ok(new_image) = game.image_receiver.try_recv() {
+                    self.actual_image = new_image;
+                }
 
-                    ui.add_space(10.0);
+                let resized_image =
+                    double_size_image(&self.actual_image, initial_width, initial_height, scale);
 
-                    if let Some(game) = &mut self.emulated_game {
-                        if !game.is_debug && ui.button("🐛 Open Debug Panel").clicked() {
-                            game.is_debug = true;
-                        }
-                    }
-                });
+                let color_image = egui::ColorImage::from_rgba_unmultiplied(
+                    [initial_width * scale, initial_height * scale],
+                    &resized_image,
+                );
+                let texture_handle =
+                    ctx.load_texture("gb_frame", color_image, egui::TextureOptions::default());
+                ui.image(&texture_handle);
             } else {
                 self.emulated_game = emulation_button(ui);
             }
