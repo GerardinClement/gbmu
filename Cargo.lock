@@ -1060,15 +1060,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "egui-dropdown"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82d277c6c1f49e4e227344e920132d2d22a51810296b5c78f90e6aef4eed63ea"
-dependencies = [
- "egui 0.31.1",
-]
-
-[[package]]
 name = "egui-winit"
 version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1378,7 +1369,6 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.31.1",
- "egui-dropdown",
  "pixels",
  "tokio",
  "winit 0.30.11",
