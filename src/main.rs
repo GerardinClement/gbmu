@@ -156,8 +156,3 @@ async fn main() {
         Box::new(|_cc| Box::new(MyApp::default())),
     );
 }
-
-/*
-
-}
-    */
