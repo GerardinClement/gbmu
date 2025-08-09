@@ -8,8 +8,8 @@ pub const SOURCE_R8_MASK: u8 = 0b00000111;
 pub const COND_MASK: u8 = 0b00011000;
 
 pub fn get_imm16(cpu: &mut Cpu) -> u16 {
-    let lsb = cpu.bus.borrow().read_byte(cpu.pc + 1) as u16;
-    let msb = cpu.bus.borrow().read_byte(cpu.pc + 2) as u16;
+    let lsb = cpu.bus.read().unwrap().read_byte(cpu.pc + 1) as u16;
+    let msb = cpu.bus.read().unwrap().read_byte(cpu.pc + 2) as u16;
     (msb << 8) | lsb
 }
 

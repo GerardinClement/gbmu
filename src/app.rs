@@ -1,40 +1,24 @@
-use pixels::{Pixels, SurfaceTexture};
-use std::sync::Arc;
-use winit::application::ApplicationHandler;
-use winit::event::WindowEvent;
-use winit::event_loop::{ActiveEventLoop, ControlFlow};
-use winit::window::{Window, WindowId};
-
 use crate::gameboy::GameBoy;
 
 #[derive(Default)]
-pub struct App<'win> {
-    window: Option<Arc<Window>>,
-    pixels: Option<Pixels<'win>>,
+pub struct GameApp {
     gameboy: GameBoy,
     framebuffer: Vec<u8>,
 }
 
-impl App<'_> {
+impl GameApp {
     pub fn new(rom: Vec<u8>) -> Self {
         let gameboy = GameBoy::new(rom);
         println!("{}", gameboy.cpu);
-        App {
-            window: None,
-            pixels: None,
+        Self {
             gameboy,
             framebuffer: vec![0; 160 * 144 * 4],
         }
     }
 
-    pub fn update(&mut self) {
-        if let Some(window) = self.window.as_ref() {
-            let rgb_frame = self.gameboy.run_frame();
-            self.framebuffer = App::rgb_to_rgba(&rgb_frame);
-            Window::request_redraw(window);
-        } else {
-            eprintln!("Error: Window is not initialized.");
-        }
+    pub fn update(&mut self) -> Option<Vec<u8>> {
+        let rgb_frame = self.gameboy.run_frame();
+        Some(Self::rgb_to_rgba(&rgb_frame))
     }
 
     fn rgb_to_rgba(rgb_frame: &[u8]) -> Vec<u8> {
@@ -44,57 +28,5 @@ impl App<'_> {
             rgba_frame.push(255);
         }
         rgba_frame
-    }
-}
-
-impl ApplicationHandler for App<'_> {
-    fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: winit::event::StartCause) {
-        match cause {
-            winit::event::StartCause::Init => {
-                self.resumed(event_loop);
-            }
-            winit::event::StartCause::ResumeTimeReached { .. } => {
-                self.update();
-            }
-            _ => (),
-        }
-        event_loop.set_control_flow(ControlFlow::WaitUntil(std::time::Instant::now()));
-    }
-
-    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        let window = Arc::new(
-            event_loop
-                .create_window(Window::default_attributes())
-                .unwrap(),
-        );
-        let size = window.inner_size();
-
-        self.window = Some(window.clone());
-
-        let surface_texture = SurfaceTexture::new(size.width, size.height, window.clone());
-        let pixels = Pixels::new(160, 144, surface_texture).unwrap();
-
-        self.pixels = Some(pixels);
-    }
-
-    fn window_event(&mut self, event_loop: &ActiveEventLoop, id: WindowId, event: WindowEvent) {
-        match event {
-            WindowEvent::CloseRequested => {
-                // println!("{:?}", self.gameboy.ppu.display_vram());
-                // self.gameboy.ppu.display_tile_map_area(0x9800);
-                // self.gameboy.ppu.display_tile_map_area(0x9C00);
-                // self.gameboy.ppu.display_tiles_data();
-                event_loop.exit();
-            }
-            WindowEvent::RedrawRequested => {
-                let pixels = self.pixels.as_mut().unwrap();
-                let frame = pixels.frame_mut();
-
-                frame.copy_from_slice(&self.framebuffer);
-
-                let _ = pixels.render();
-            }
-            _ => (),
-        }
     }
 }
