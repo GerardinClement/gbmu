@@ -12,6 +12,7 @@ use crate::mmu::Mmu;
 use crate::ppu::colors_palette::Color;
 use crate::ppu::lcd_control::LcdControl;
 use crate::ppu::lcd_status::LcdStatus;
+use crate::ppu::lcd_status::PpuMode;
 use crate::ppu::pixel::Pixel;
 use crate::ppu::pixel_fifo::PixelFifo;
 use std::sync::{Arc, RwLock};
@@ -157,8 +158,12 @@ impl Ppu {
         frame[offset + 2] = color_rgb[2];
     }
 
-    fn get_tile_address(&self, y: usize, x: usize) -> u16 {
-        let tilemap_base: std::ops::Range<u16> = self.lcd_control.bg_tile_map_area();
+    fn get_tile_address(&self, y: usize, x: usize, use_window: bool) -> u16 {
+        let tilemap_base: std::ops::Range<u16> = if use_window {
+            self.lcd_control.window_tile_map_area()
+        } else {
+            self.lcd_control.bg_tile_map_area()
+        };
 
         let offset = (y * 32 + x) as u16;
         let tile_number = self
@@ -196,7 +201,7 @@ impl Ppu {
 
             let tile_x = bg_x / 8;
             let tile_y = bg_y / 8;
-            let tile_address = self.get_tile_address(tile_y, tile_x);
+            let tile_address = self.get_tile_address(tile_y, tile_x, use_window);
             let tile = self.read_tile_data(tile_address);
             let pixel_x = bg_x % 8;
             let pixel_y = bg_y % 8;
@@ -210,15 +215,17 @@ impl Ppu {
     }
 
     pub fn render_frame(&mut self, frame: &mut [u8]) {
-        let pixels = self.fetcher();
-        for pixel in &pixels {
-            self.bg_fifo.push(pixel.clone());
-        }
+        if self.lcd_status.get_ppu_mode() != PpuMode::VBlank {
+            let pixels = self.fetcher();
+            for pixel in &pixels {
+                self.bg_fifo.push(pixel.clone());
+            }
 
-        for i in 0..8 {
-            if let Some(p) = self.bg_fifo.pop() {
-                let offset = ((self.ly as usize * WIN_SIZE_X) + (self.x + i)) * 3;
-                self.set_pixel_color(frame, offset, p.get_color());
+            for i in 0..8 {
+                if let Some(p) = self.bg_fifo.pop() {
+                    let offset = ((self.ly as usize * WIN_SIZE_X) + (self.x + i)) * 3;
+                    self.set_pixel_color(frame, offset, p.get_color());
+                }
             }
         }
 
@@ -226,8 +233,14 @@ impl Ppu {
         if self.x >= WIN_SIZE_X {
             self.x = 0;
             self.ly += 1;
-            if self.ly >= WIN_SIZE_Y as u8 {
+            if self.ly >= WIN_SIZE_Y as u8 && self.ly <= WIN_SIZE_Y as u8 + VBLANK_SIZE as u8 {
+                self.lcd_status.update_ppu_mode(PpuMode::VBlank);
+            }
+            else if self.ly >= WIN_SIZE_Y as u8 + VBLANK_SIZE as u8 {
                 self.ly = 0;
+                self.lcd_status.update_ppu_mode(PpuMode::HBlank);
+            } else {
+                self.lcd_status.update_ppu_mode(PpuMode::PixelTransfer);
             }
         }
     }

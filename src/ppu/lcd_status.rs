@@ -32,6 +32,10 @@ impl LcdStatus {
         }
     }
 
+    pub fn get_ppu_mode(&self) -> PpuMode {
+        self.ppu_mode
+    }
+
     pub fn update_ppu_mode(&mut self, mode: PpuMode) {
         self.ppu_mode = mode;
     }
