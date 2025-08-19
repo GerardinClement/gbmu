@@ -10,6 +10,22 @@ pub enum PpuMode {
     PixelTransfer = 3,
 }
 
+impl PpuMode {
+    pub fn from_u8(value: u8) -> Self {
+        match value {
+            0 => PpuMode::HBlank,
+            1 => PpuMode::VBlank,
+            2 => PpuMode::OamSearch,
+            3 => PpuMode::PixelTransfer,
+            _ => panic!("Invalid PPU mode value: {}", value),
+        }
+    }
+
+    pub fn to_u8(self) -> u8 {
+        self as u8
+    }
+}
+
 #[derive(Default)]
 pub struct LcdStatus {
     lyc_int_select: bool,

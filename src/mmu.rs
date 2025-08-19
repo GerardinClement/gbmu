@@ -67,6 +67,7 @@ pub struct Mmu {
     cart: Mbc,
     interrupts: InterruptController,
     timers: Timers,
+    ppu_mode: u8,
 }
 
 impl Mmu {
@@ -76,6 +77,7 @@ impl Mmu {
             cart: Mbc::new(rom_image),
             interrupts: InterruptController::new(),
             timers: Timers::default(),
+            ppu_mode: 2,
         }
     }
 
@@ -88,7 +90,22 @@ impl Mmu {
         }
     }
 
+    pub fn check_if_memory_region_is_accessible(&self, addr: u16) -> bool {
+        if self.ppu_mode == 2 && MemoryRegion::from(addr) == MemoryRegion::Oam {
+            return false;
+        }
+        else if self.ppu_mode == 3 && MemoryRegion::from(addr) == MemoryRegion::Vram || MemoryRegion::from(addr) == MemoryRegion::Oam {
+            return false;
+        }
+        else {
+            return true;
+        }
+    }
+
     pub fn read_byte(&self, addr: u16) -> u8 {
+        if !self.check_if_memory_region_is_accessible(addr) {
+            return 0xFF; // Return 0xFF for inaccessible regions
+        }
         match MemoryRegion::from(addr) {
             MemoryRegion::Mbc => self.cart.read(addr),
             MemoryRegion::Mram => {
@@ -104,6 +121,9 @@ impl Mmu {
     }
 
     pub fn write_byte(&mut self, addr: u16, val: u8) {
+        if !self.check_if_memory_region_is_accessible(addr) {
+            return;
+        }
         match MemoryRegion::from(addr) {
             MemoryRegion::Mbc => self.cart.write(addr, val),
             MemoryRegion::Mram => {
@@ -139,6 +159,14 @@ impl Mmu {
 
     pub fn interrupts_request(&mut self, interrupt: Interrupt) {
         self.interrupts.request(interrupt);
+    }
+
+    pub fn get_ppu_mode(&self) -> u8 {
+        self.ppu_mode
+    }
+
+    pub fn set_ppu_mode(&mut self, mode: u8) {
+        self.ppu_mode = mode;
     }
 }
 

@@ -11,7 +11,7 @@ use crate::mmu::MemoryRegion;
 use crate::mmu::Mmu;
 use crate::ppu::colors_palette::Color;
 use crate::ppu::lcd_control::LcdControl;
-use crate::ppu::lcd_status::LcdStatus;
+pub use crate::ppu::lcd_status::LcdStatus;
 use crate::ppu::lcd_status::PpuMode;
 use crate::ppu::pixel::Pixel;
 use crate::ppu::pixel_fifo::PixelFifo;
@@ -235,12 +235,24 @@ impl Ppu {
             self.ly += 1;
             if self.ly >= WIN_SIZE_Y as u8 && self.ly <= WIN_SIZE_Y as u8 + VBLANK_SIZE as u8 {
                 self.lcd_status.update_ppu_mode(PpuMode::VBlank);
+                self.bus
+                    .write()
+                    .unwrap()
+                    .set_ppu_mode(PpuMode::VBlank.to_u8());
             }
             else if self.ly >= WIN_SIZE_Y as u8 + VBLANK_SIZE as u8 {
                 self.ly = 0;
                 self.lcd_status.update_ppu_mode(PpuMode::HBlank);
+                self.bus
+                    .write()
+                    .unwrap()
+                    .set_ppu_mode(PpuMode::HBlank.to_u8());
             } else {
                 self.lcd_status.update_ppu_mode(PpuMode::PixelTransfer);
+                self.bus
+                    .write()
+                    .unwrap()
+                    .set_ppu_mode(PpuMode::PixelTransfer.to_u8());
             }
         }
     }
