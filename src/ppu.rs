@@ -224,7 +224,7 @@ impl Ppu {
             for i in 0..8 {
                 if let Some(p) = self.bg_fifo.pop() {
                     let offset = ((self.ly as usize * WIN_SIZE_X) + (self.x + i)) * 3;
-                    self.set_pixel_color(frame, offset, p.get_color());
+                    self.set_pixel_color(frame, offset, *p.get_color());
                 }
             }
         }
@@ -235,8 +235,7 @@ impl Ppu {
             self.ly += 1;
             if self.ly >= WIN_SIZE_Y as u8 && self.ly <= WIN_SIZE_Y as u8 + VBLANK_SIZE as u8 {
                 self.lcd_status.update_ppu_mode(PpuMode::VBlank);
-            }
-            else if self.ly >= WIN_SIZE_Y as u8 + VBLANK_SIZE as u8 {
+            } else if self.ly >= WIN_SIZE_Y as u8 + VBLANK_SIZE as u8 {
                 self.ly = 0;
                 self.lcd_status.update_ppu_mode(PpuMode::HBlank);
             } else {

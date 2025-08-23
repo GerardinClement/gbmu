@@ -21,8 +21,8 @@ impl Pixel {
         }
     }
 
-    pub fn get_color(&self) -> Color {
-        self.color.clone()
+    pub fn get_color(&self) -> &Color {
+        &self.color
     }
 
     pub fn get_palette(&self) -> u8 {
