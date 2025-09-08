@@ -1,7 +1,8 @@
 #![allow(unreachable_code)]
 
 use crate::ppu;
-use crate::{DebugCommandQueries, DebugResponse, WatchedAdresses, gameboy::GameBoy};
+use crate::gameboy::GameBoy;
+use crate::gui::{DebugCommandQueries, DebugResponse, WatchedAdresses};
 use tokio::sync::mpsc::{Receiver, Sender};
 
 pub struct GameApp {
