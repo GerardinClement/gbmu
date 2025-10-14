@@ -8,7 +8,11 @@ mod debugger;
 mod gameboy;
 mod mmu;
 mod ppu;
+mod ui_states;
+mod displayable;
 
+
+/*<<<<<<< HEAD
 use app::GameApp;
 use debugger::debbuger::*;
 use eframe::egui;
@@ -17,28 +21,14 @@ use std::fs;
 use std::process;
 use tokio::sync::mpsc::{Receiver, Sender, channel};
 use tokio::task::JoinHandle;
+======= */
+use eframe::egui;
 
-fn read_rom(rom_path: String) -> Vec<u8> {
-    if !rom_path.is_empty() {
-        match fs::read(&rom_path) {
-            Ok(data) => data,
-            Err(e) => {
-                eprintln!("Failed to read the file: {e}");
-                process::exit(1);
-            }
-        }
-    } else {
-        Vec::new()
-    }
-}
+use crate::displayable::UpdatableState;
+use crate::ui_states::StartingMenuState;
 
-#[derive(Debug, PartialEq, Clone, Copy)]
-enum ColorChoice {
-    Red,
-    Green,
-    Blue,
-}
 
+/*<<<<<<< HEAD
 #[derive(PartialEq, Debug, Clone, Copy)]
 enum AppMode {
     View,
@@ -124,6 +114,9 @@ fn emulation_button(ui: &mut egui::Ui) -> Option<EmulatedGame> {
         None
     }
 }
+=======
+>>>>>>> 862f237 (refactor: refactor de la partie egui)
+*/
 
 impl MyApp {
     fn update_frame(&mut self) -> Option<ColorImage> {
@@ -151,6 +144,8 @@ impl MyApp {
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+/*
+<<<<<<< HEAD
         let color_image = self.update_frame();
         let texture_handle = color_image
             .map(|image| ctx.load_texture("gb_frame", image, egui::TextureOptions::default()));
@@ -235,10 +230,17 @@ impl eframe::App for MyApp {
             }
         });
 
+=======
+*/
+        if let Some(new_app_state) = self.app_state.update(ctx, _frame) {
+            self.app_state = new_app_state;
+        }
         ctx.request_repaint();
     }
 }
 
+/*
+<<<<<<< HEAD
 fn double_size_image(pixels: &[u8], width: usize, height: usize, scale: usize) -> Vec<u8> {
     let scale_w = width * scale;
     let scale_h = height * scale;
@@ -279,18 +281,19 @@ pub struct EmulatedGame {
     hex_string: String,
 }
 
+=======
+>>>>>>> 862f237 (refactor: refactor de la partie egui)
+*/
 impl Default for MyApp {
     fn default() -> Self {
         MyApp {
-            emulated_game: None,
-            actual_image: vec![0; 160 * 144 * 4],
+            app_state: Box::new(StartingMenuState::default())
         }
     }
 }
 
 struct MyApp {
-    emulated_game: Option<EmulatedGame>,
-    actual_image: Vec<u8>,
+    app_state: Box<dyn UpdatableState>,
 }
 
 #[tokio::main]
