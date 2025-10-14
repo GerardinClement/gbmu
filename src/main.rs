@@ -5,12 +5,11 @@
 mod app;
 mod cpu;
 mod debugger;
+mod displayable;
 mod gameboy;
 mod mmu;
 mod ppu;
 mod ui_states;
-mod displayable;
-
 
 /*<<<<<<< HEAD
 use app::GameApp;
@@ -25,9 +24,8 @@ use tokio::task::JoinHandle;
 use eframe::egui;
 
 use crate::displayable::UpdatableState;
-use crate::ui_states::StartingMenuState;
 
-
+<<<<<<< HEAD
 /*<<<<<<< HEAD
 #[derive(PartialEq, Debug, Clone, Copy)]
 enum AppMode {
@@ -141,6 +139,9 @@ impl MyApp {
         }
     }
 }
+=======
+use ui_states::starting_menu::StartingMenuState;
+>>>>>>> 6c1b5e6 (refactor: add states file to manage gui)
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -287,7 +288,7 @@ pub struct EmulatedGame {
 impl Default for MyApp {
     fn default() -> Self {
         MyApp {
-            app_state: Box::new(StartingMenuState::default())
+            app_state: Box::new(StartingMenuState),
         }
     }
 }
