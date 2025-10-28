@@ -60,7 +60,7 @@ impl Cpu {
         }
     }
 
-    fn execute_instruction(&mut self, instruction: u8) -> u8 {
+    pub fn execute_instruction(&mut self, instruction: u8) -> u8 {
         let block = (instruction & BLOCK_MASK) >> 6;
         match block {
             0b00 => block0::execute_instruction_block0(self, instruction),
@@ -149,6 +149,22 @@ impl Cpu {
 
         let instruction_byte = self.bus.read().unwrap().read_byte(self.pc);
         let tick_to_wait = self.execute_instruction(instruction_byte);
+
+        self.handle_halt_bug();
+        self.handle_ime_delay();
+
+        tick_to_wait
+    }
+
+    pub fn debug_step(&mut self, instruction: u8) -> u8 {
+        if self.handle_halt_state() == StepStatus::Halted {
+            return 4;
+        }
+        if self.handle_ime_state() == StepStatus::Halted {
+            return 5;
+        }
+
+        let tick_to_wait = self.execute_instruction(instruction);
 
         self.handle_halt_bug();
         self.handle_ime_delay();
