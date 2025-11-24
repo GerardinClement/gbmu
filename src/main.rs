@@ -13,8 +13,8 @@ mod ui_states;
 
 /*<<<<<<< HEAD
 use app::GameApp;
-use debugger::debbuger::*;
 use eframe::egui;
+use debugger::debbuger::*;
 use eframe::egui::ColorImage;
 use std::fs;
 use std::process;
@@ -25,97 +25,7 @@ use eframe::egui;
 
 use crate::displayable::UpdatableState;
 
-<<<<<<< HEAD
-/*<<<<<<< HEAD
-#[derive(PartialEq, Debug, Clone, Copy)]
-enum AppMode {
-    View,
-    Edit,
-    Settings,
-}
-
-async fn launch_game(
-    rom_path: String,
-    input_receiver: Receiver<Vec<u8>>,
-    image_sender: Sender<Vec<u8>>,
-    command_query_receiver: Receiver<DebugCommandQueries>,
-    debug_response_sender: Sender<DebugResponse>,
-) {
-    let rom_data: Vec<u8> = read_rom(rom_path);
-    let mut app = GameApp::new(rom_data, command_query_receiver, debug_response_sender);
-
-    loop {
-        let buffer = app.update();
-        if let Some(image) = buffer {
-            _ = image_sender.send(image).await;
-        }
-    }
-}
-
-pub struct WatchedAdresses {
-    addresses_n_values: Vec<(u16, u16)>,
-}
-
-pub enum DebugCommandQueries {
-    SetDebugMode,
-    SetStepMode,
-    ExecuteInstruction(u8),
-    ExecuteNextInstructions(usize),
-    GetNextInstructions(u8),
-    GetRegisters,
-    WatchAddress(u16),
-    GetAddresses,
-}
-
-pub enum DebugResponse {
-    DebugModeSet(bool),
-    StepModeSet(bool),
-    InstructionsExecuted(usize),
-    NextInstructions(Vec<u16>),
-    AddressesWatched(WatchedAdresses),
-    Registers(u8, u8, u8, u8, u8, u8, u8, u16, u16),
-}
-
-fn emulation_button(ui: &mut egui::Ui) -> Option<EmulatedGame> {
-    // Put the buttons and label on the same row:
-    let button = ui.button("ceci est un bouton");
-    if button.clicked() {
-        let (input_sender, input_receiver) = channel::<Vec<u8>>(1);
-        let (image_sender, image_receiver) = channel::<Vec<u8>>(1);
-        let (command_query_sender, command_query_receiver) = channel::<DebugCommandQueries>(1);
-        let (debug_response_sender, debug_response_receiver) = channel::<DebugResponse>(10);
-        Some(EmulatedGame {
-            input_sender,
-            image_receiver,
-            command_query_sender,
-            debug_response_receiver,
-            handler: tokio::spawn(launch_game(
-                "roms/gb-test-roms/cpu_instrs/cpu_instrs.gb".to_string(),
-                input_receiver,
-                image_sender,
-                command_query_receiver,
-                debug_response_sender,
-            )),
-            next_instructions: Vec::new(),
-            watched_adress: WatchedAdresses {
-                addresses_n_values: Vec::new(),
-            },
-            registers: (0, 0, 0, 0, 0, 0, 0, 0, 0),
-            is_debug: false,
-            is_step: false,
-            watched_address_value: 0,
-            nb_instruction: 0,
-            error_message: None,
-            hex_string: String::new(),
-        })
-    } else {
-        None
-    }
-}
-=======
->>>>>>> 862f237 (refactor: refactor de la partie egui)
-*/
-
+/*
 impl MyApp {
     fn update_frame(&mut self) -> Option<ColorImage> {
         if let Some(game) = &mut self.emulated_game {
@@ -140,8 +50,9 @@ impl MyApp {
     }
 }
 =======
+*/
 use ui_states::starting_menu::StartingMenuState;
->>>>>>> 6c1b5e6 (refactor: add states file to manage gui)
+
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -241,25 +152,6 @@ impl eframe::App for MyApp {
 }
 
 /*
-<<<<<<< HEAD
-fn double_size_image(pixels: &[u8], width: usize, height: usize, scale: usize) -> Vec<u8> {
-    let scale_w = width * scale;
-    let scale_h = height * scale;
-    let size = scale_h * scale_w;
-
-    (0..size)
-        .map(|index| {
-            let y = index / scale_w;
-            let x = index % scale_w;
-            let orig_y = y / scale;
-            let orig_x = x / scale;
-            let index_to_copy = (orig_y * width + orig_x) * 4;
-            &pixels[index_to_copy..index_to_copy + 4]
-        })
-        .flat_map(|slice| slice.iter().copied())
-        .collect()
-}
-
 pub struct EmulatedGame {
     handler: JoinHandle<()>,
     input_sender: Sender<Vec<u8>>,
@@ -271,16 +163,6 @@ pub struct EmulatedGame {
     Info stored for the GUI to use them;
     These are the responses from the sending/receiving operation
     */
-    next_instructions: Vec<u16>,
-    watched_adress: WatchedAdresses,
-    registers: (u8, u8, u8, u8, u8, u8, u8, u16, u16),
-    is_debug: bool,
-    is_step: bool,
-    watched_address_value: u16,
-    nb_instruction: u8,
-    error_message: Option<String>,
-    hex_string: String,
-}
 
 =======
 >>>>>>> 862f237 (refactor: refactor de la partie egui)

@@ -3,17 +3,15 @@
 
 pub mod debbuger {
 
-    use crate::{DebugCommandQueries, DebugResponse, EmulatedGame};
+    use crate::{DebugCommandQueries, DebugResponse};
+    use crate::ui_states::debuging_game::DebugedGame;
     use eframe::egui;
 
-    pub fn update_info_struct(game: &mut EmulatedGame) {
+    pub fn update_info_struct(game: &mut DebugedGame) {
         if let Ok(debug) = game.debug_response_receiver.try_recv() {
             match debug {
                 DebugResponse::AddressesWatched(wa) => {
                     game.watched_adress = wa;
-                }
-                DebugResponse::DebugModeSet(value) => {
-                    game.is_debug = value;
                 }
                 DebugResponse::StepModeSet(value) => {
                     game.is_step = value;
@@ -32,19 +30,7 @@ pub mod debbuger {
         }
     }
 
-    pub fn debug_mode_button(ui: &mut egui::Ui, game: &mut EmulatedGame) {
-        let s = if game.is_debug {
-            "Desactivate debug mode".to_string()
-        } else {
-            "Activate debug mode".to_string()
-        };
-        let button = ui.button(s);
-        if button.clicked() {
-            game.set_debug_mode();
-        }
-    }
-
-    pub fn step_mode_button(ui: &mut egui::Ui, game: &mut EmulatedGame) {
+    pub fn step_mode_button(ui: &mut egui::Ui, game: &mut DebugedGame) {
         let s = if game.is_step {
             "Desactivate step mode".to_string()
         } else {
@@ -56,21 +42,15 @@ pub mod debbuger {
         }
     }
 
-    pub fn step_button(ui: &mut egui::Ui, game: &mut EmulatedGame) {
+    pub fn step_button(ui: &mut egui::Ui, game: &mut DebugedGame) {
         let button = ui.button("Next Step");
         if button.clicked() {
             game.executed_next_step(1);
         }
     }
 
-    pub fn get_registers(ui: &mut egui::Ui, game: &mut EmulatedGame) {
+    pub fn get_registers(ui: &mut egui::Ui, game: &mut DebugedGame) {
         // Button to refresh registers
-        ui.horizontal(|ui| {
-            if ui.button("🔄 Refresh Registers").clicked() {
-                game.get_registers();
-            }
-        });
-
         ui.add_space(8.0);
 
         // Display registers in a structured table format
@@ -155,7 +135,7 @@ pub mod debbuger {
             });
     }
 
-    pub fn get_next_instructions(ui: &mut egui::Ui, game: &mut EmulatedGame) {
+    pub fn get_next_instructions(ui: &mut egui::Ui, game: &mut DebugedGame) {
         // Input section
         ui.group(|ui| {
             ui.horizontal(|ui| {
@@ -261,7 +241,7 @@ pub mod debbuger {
         }
     }
 
-    pub fn watch_address(ui: &mut egui::Ui, game: &mut EmulatedGame) {
+    pub fn watch_address(ui: &mut egui::Ui, game: &mut DebugedGame) {
         // Input section with better layout
         ui.group(|ui| {
             ui.horizontal(|ui| {
@@ -471,52 +451,52 @@ pub mod debbuger {
         });
     }
 
-    impl EmulatedGame {
-        fn execute_instruction(&self, instr: u8) {
+    impl DebugedGame {
+        pub fn execute_instruction(&self, instr: u8) {
             let _ = self
-                .command_query_sender
+                .debug_sender
                 .try_send(DebugCommandQueries::ExecuteInstruction(instr));
         }
 
-        fn get_next_instructions(&self, instr_nb: u8) {
+        pub fn get_next_instructions(&self, instr_nb: u8) {
             let _ = self
-                .command_query_sender
+                .debug_sender
                 .try_send(DebugCommandQueries::GetNextInstructions(instr_nb));
         }
 
-        fn get_registers(&self) {
+        pub fn get_registers(&self) {
             let _ = self
-                .command_query_sender
+                .debug_sender
                 .try_send(DebugCommandQueries::GetRegisters);
         }
 
-        fn set_step_mode(&mut self) {
+        pub fn set_step_mode(&mut self) {
             let _ = self
-                .command_query_sender
+                .debug_sender
                 .try_send(DebugCommandQueries::SetStepMode);
         }
 
-        fn set_debug_mode(&self) {
+        pub fn set_debug_mode(&self) {
             let _ = self
-                .command_query_sender
+                .debug_sender
                 .try_send(DebugCommandQueries::SetDebugMode);
         }
 
-        fn executed_next_step(&self, nb_instru: usize) {
+        pub fn executed_next_step(&self, nb_instru: usize) {
             let _ = self
-                .command_query_sender
+                .debug_sender
                 .try_send(DebugCommandQueries::ExecuteNextInstructions(nb_instru));
         }
 
-        fn watch_address(&self, address: u16) {
+        pub fn watch_address(&self, address: u16) {
             let _ = self
-                .command_query_sender
+                .debug_sender
                 .try_send(DebugCommandQueries::WatchAddress(address));
         }
 
-        fn get_watched_addresses(&self) {
+        pub fn get_watched_addresses(&self) {
             let _ = self
-                .command_query_sender
+                .debug_sender
                 .try_send(DebugCommandQueries::GetAddresses);
         }
     }

@@ -1,7 +1,7 @@
 #![allow(unreachable_code)]
 
 use crate::ppu;
-use crate::{DebugCommandQueries, DebugResponse, WatchedAdresses, gameboy::GameBoy};
+use crate::{gameboy::GameBoy};
 use tokio::sync::mpsc::{Receiver, Sender};
 
 pub struct GameApp {
@@ -171,3 +171,4 @@ impl GameApp {
         rgba_frame
     }
 }
+*/
