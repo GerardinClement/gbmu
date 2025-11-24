@@ -269,16 +269,18 @@ pub mod debbuger {
 
                 // Hex input with better formatting
                 ui.label("(0x)");
-                let response = ui.add(
-                    egui::TextEdit::singleline(&mut game.hex_string)
-                        .desired_width(60.0)
-                        .hint_text("0000")
-                        .char_limit(4),
-                );
+                let response_changed = ui
+                    .add(
+                        egui::TextEdit::singleline(&mut game.hex_string)
+                            .desired_width(60.0)
+                            .hint_text("0000")
+                            .char_limit(4),
+                    )
+                    .changed();
 
                 // Parse hex input
-                if response.changed() {
-                    if let Ok(value) = u16::from_str_radix(game.hex_string.as_ref(), 16) {
+                if let Ok(value) = u16::from_str_radix(game.hex_string.as_ref(), 16) {
+                    if response_changed {
                         game.watched_address_value = value;
                     }
                 }
@@ -419,16 +421,15 @@ pub mod debbuger {
                         }
                     });
 
-                if let Some(addr) = address_to_remove {
-                    if let Some(index) = game
+                if let Some(addr) = address_to_remove
+                    && let Some(index) = game
                         .watched_adress
                         .addresses_n_values
                         .iter()
                         .position(|(address, _)| *address == addr)
-                    {
-                        game.watched_adress.addresses_n_values.remove(index);
-                        game.watch_address(address_to_remove.unwrap());
-                    }
+                {
+                    game.watched_adress.addresses_n_values.remove(index);
+                    game.watch_address(address_to_remove.unwrap());
                 }
             });
         }

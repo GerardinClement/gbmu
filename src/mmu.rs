@@ -89,10 +89,6 @@ impl Mmu {
     }
 
     pub fn read_byte(&self, addr: u16) -> u8 {
-        if addr == 0xFF44 {
-            return 0x90;
-        }
-
         match MemoryRegion::from(addr) {
             MemoryRegion::Mbc => self.cart.read(addr),
             MemoryRegion::Mram => {
@@ -169,9 +165,6 @@ mod tests {
         // Write to WRAM region and read back
         mmu.write_byte(0xC000, 0xAB);
         assert_eq!(mmu.read_byte(0xC000), 0xAB);
-
-        // FF44 is hardcoded
-        assert_eq!(mmu.read_byte(0xFF44), 0x90);
     }
 
     #[test]

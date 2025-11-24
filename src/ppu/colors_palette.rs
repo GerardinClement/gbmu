@@ -1,6 +1,7 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
+#[derive(Clone, Debug, Copy)]
 pub enum Color {
     White,
     LightGray,
@@ -9,7 +10,7 @@ pub enum Color {
 }
 
 impl Color {
-    pub fn to_rgb(&self) -> [u8; 3] {
+    pub fn to_rgb(self) -> [u8; 3] {
         match self {
             Color::White => [255, 255, 255],
             Color::LightGray => [192, 192, 192],
