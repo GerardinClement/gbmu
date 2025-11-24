@@ -28,7 +28,7 @@ impl UpdatableState for StartingMenuState {
                 *data.borrow_mut() = Some(Box::new(GameLaunchedState {
                     emulated_game: EmulatedGame::new(
                         tokio::spawn(launch_game(
-                            "gb-test-roms/cpu_instrs/individual/02-interrupts.gb".to_string(),
+                            "roms/gb-test-roms/cpu_instrs/individual/02-interrupts.gb".to_string(),
                             input_receiver,
                             image_sender,
                         )),
