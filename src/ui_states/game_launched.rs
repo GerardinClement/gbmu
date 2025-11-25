@@ -1,14 +1,14 @@
-use tokio::sync::mpsc::{Receiver, Sender};
-use tokio::task::JoinHandle;
-use crate::ui_states::debuging_game::{DebugCommandQueries, DebugResponse};
+use crate::app::GameApp;
+use crate::ui_states::debuging_game::{DebugCommandQueries, DebugResponse, DebugedGame, DebugingGame};
 use std::{fs, process};
 use tokio::sync::mpsc::{Receiver, Sender, channel};
+use tokio::task::JoinHandle;
 
 use eframe::egui;
 
 use crate::displayable::UpdatableState;
 use crate::ui_states::starting_menu::StartingMenuState;
-
+use crate::displayable::NextState;
 
 pub struct GameLaunchedState {
     pub emulated_game: EmulatedGame,
@@ -24,9 +24,7 @@ pub struct EmulatedGame {
 }
 
 impl EmulatedGame {
-    pub fn new(
-        rom_path: String,
-    ) -> Self {
+    pub fn new(rom_path: String) -> Self {
         let (input_sender, input_receiver) = channel::<Vec<u8>>(1);
         let (image_sender, image_receiver) = channel::<Vec<u8>>(1);
         let (command_sender, command_query_receiver) = channel::<DebugCommandQueries>(1);
@@ -40,7 +38,6 @@ impl EmulatedGame {
             debug_response_sender,
         ));
 
-
         EmulatedGame {
             handler,
             input_sender,
@@ -49,16 +46,25 @@ impl EmulatedGame {
             debug_receiver,
         }
     }
+
+    pub fn to_debuged_game(
+        self
+    ) -> DebugedGame {
+        DebugedGame::new(
+            self.handler,
+            self.input_sender,
+            self.image_receiver,
+            self.command_sender,
+            self.debug_receiver,
+        )
+    }
 }
 
+
 impl UpdatableState for GameLaunchedState {
-    fn update(
-        &mut self,
-        ctx: &egui::Context,
-        _frame: &mut eframe::Frame,
-    ) -> Option<Box<dyn UpdatableState>> {
+    fn display_gui(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) -> Option<NextState> {
         use std::cell::RefCell;
-        let data = RefCell::new(None);
+        let next_state = RefCell::new(None);
         egui::CentralPanel::default().show(ctx, |ui| {
             let initial_width = 160;
             let initial_height = 144;
@@ -81,12 +87,30 @@ impl UpdatableState for GameLaunchedState {
 
             let button = ui.button("Activate debug mode".to_string());
             if button.clicked() {
-                *data.borrow_mut() = Some(Box::new(StartingMenuState::default())
-                as Box<dyn UpdatableState>);
+                *next_state.borrow_mut() = Some(NextState::Debug);
             }
         });
+        
 
-        data.into_inner()
+        next_state.into_inner()
+    }
+
+
+    fn update(
+        self: Box<Self>,
+        next_state: NextState,
+    ) -> Option<Box<dyn UpdatableState>> {
+        match next_state {
+            NextState::Debug => {
+                Some(Box::new(DebugingGame{
+                    actual_image: self.actual_image,
+                    emulated_game: self.emulated_game.to_debuged_game(),
+                }) as Box<dyn UpdatableState>)
+            }
+            _ => {
+                unreachable!()
+            }
+        }
     }
 }
 
@@ -112,18 +136,19 @@ async fn launch_game(
     rom_path: String,
     input_receiver: Receiver<Vec<u8>>,
     image_sender: Sender<Vec<u8>>,
-    command_query_receiver: Receiver<DebugCommandQueries>,
-    debug_response_sender: Sender<DebugResponse>,
+    command_receiver: Receiver<DebugCommandQueries>,
+    debug_sender: Sender<DebugResponse>,
 ) {
     let rom_data: Vec<u8> = read_rom(rom_path);
-    let mut app = GameApp::new(rom_data);
-    loop {
-        let buffer = app.update();
-        if let Some(image) = buffer {
-            _ = image_sender.send(image).await;
-        }
-    }
+    let app = GameApp::new(rom_data,
+        input_receiver,
+        image_sender,
+        command_receiver, 
+        debug_sender,
+    );
+    app.game_loop().await;
 }
+
 fn read_rom(rom_path: String) -> Vec<u8> {
     if !rom_path.is_empty() {
         match fs::read(&rom_path) {

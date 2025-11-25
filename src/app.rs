@@ -1,12 +1,15 @@
 #![allow(unreachable_code)]
 
+use crate::gameboy::GameBoy;
 use crate::ppu;
-use crate::{gameboy::GameBoy};
+use crate::ui_states::debuging_game::{DebugCommandQueries, DebugResponse, WatchedAdresses};
 use tokio::sync::mpsc::{Receiver, Sender};
 
 pub struct GameApp {
     gameboy: GameBoy,
     framebuffer: Vec<u8>,
+    input_receiver: Receiver<Vec<u8>>,
+    image_sender: Sender<Vec<u8>>,
     debug_receiver: Receiver<DebugCommandQueries>,
     debug_sender: Sender<DebugResponse>,
     is_step_mode: bool,
@@ -19,16 +22,20 @@ pub struct GameApp {
 impl GameApp {
     pub fn new(
         rom: Vec<u8>,
-        receiver: Receiver<DebugCommandQueries>,
-        sender: Sender<DebugResponse>,
+        input_receiver: Receiver<Vec<u8>>,
+        image_sender: Sender<Vec<u8>>,
+        debug_receiver: Receiver<DebugCommandQueries>,
+        debug_sender: Sender<DebugResponse>,
     ) -> Self {
         let gameboy = GameBoy::new(rom);
         println!("{}", gameboy.cpu);
         Self {
             gameboy,
             framebuffer: vec![0; 160 * 144 * 4],
-            debug_receiver: receiver,
-            debug_sender: sender,
+            debug_receiver,
+            debug_sender,
+            input_receiver,
+            image_sender,
             is_step_mode: false,
             is_debug_mode: false,
             is_sending_registers: false,
@@ -170,5 +177,13 @@ impl GameApp {
         }
         rgba_frame
     }
+
+    pub async  fn game_loop(mut self) {
+        loop {
+            let buffer = self.update();
+            if let Some(image) = buffer {
+                _ = self.image_sender.send(image).await;
+            }
+        }
+    }
 }
-*/

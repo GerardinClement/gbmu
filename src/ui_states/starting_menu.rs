@@ -1,5 +1,4 @@
-
-use crate::displayable::UpdatableState;
+use crate::displayable::{NextState, UpdatableState};
 use crate::ui_states::game_launched::{EmulatedGame, GameLaunchedState};
 use eframe::egui;
 
@@ -7,11 +6,11 @@ use eframe::egui;
 pub struct StartingMenuState;
 
 impl UpdatableState for StartingMenuState {
-    fn update(
+    fn display_gui(
         &mut self,
         ctx: &egui::Context,
         _frame: &mut eframe::Frame,
-    ) -> Option<Box<dyn UpdatableState>> {
+    ) -> Option<NextState> {
         use std::cell::RefCell;
 
         // Use RefCell to mutate data inside the closure
@@ -20,16 +19,30 @@ impl UpdatableState for StartingMenuState {
         egui::CentralPanel::default().show(ctx, |ui| {
             let button = ui.button("Launch Game");
             if button.clicked() {
-                    *data.borrow_mut() = Some(Box::new(GameLaunchedState {
-                        emulated_game: EmulatedGame::new(
-                            "roms/gb-test-roms/cpu_instrs/individual/02-interrupts.gb".to_string()
-                        ),
-                        actual_image: vec![0; 160 * 144 * 4],
-                }) as Box<dyn UpdatableState>)
+                *data.borrow_mut() = Some(NextState::GameLaunched)
             }
         });
-
         data.into_inner()
     }
-}
 
+    fn update(
+        self: Box<Self>,
+        next_state: NextState,
+    ) -> Option<Box<dyn UpdatableState>> {
+        println!("this is comming");
+        match next_state {
+            NextState::GameLaunched => {
+                println!("this is comming in ");
+                    Some(Box::new(GameLaunchedState {
+                    emulated_game: EmulatedGame::new(
+                        "gb-test-roms/cpu_instrs/individual/02-interrupts.gb".to_string(),
+                    ),
+                    actual_image: vec![0; 160 * 144 * 4],
+                }) as Box<dyn UpdatableState>)
+            }
+            NextState::Debug => {
+                todo!()
+            }
+        }
+    }
+}

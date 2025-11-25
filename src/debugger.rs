@@ -3,12 +3,11 @@
 
 pub mod debbuger {
 
-    use crate::{DebugCommandQueries, DebugResponse};
-    use crate::ui_states::debuging_game::DebugedGame;
+    use crate::ui_states::debuging_game::{DebugedGame , DebugCommandQueries, DebugResponse};
     use eframe::egui;
 
     pub fn update_info_struct(game: &mut DebugedGame) {
-        if let Ok(debug) = game.debug_response_receiver.try_recv() {
+        if let Ok(debug) = game.debug_receiver.try_recv() {
             match debug {
                 DebugResponse::AddressesWatched(wa) => {
                     game.watched_adress = wa;
@@ -25,6 +24,9 @@ pub mod debbuger {
                 }
                 DebugResponse::Registers(a, b, c, d, e, h, l, hl, sp) => {
                     game.registers = (a, b, c, d, e, h, l, hl, sp);
+                }
+                DebugResponse::DebugModeSet(is_in_debug) => {
+                    println!("This is debuging {}", is_in_debug);
                 }
             }
         }
@@ -471,9 +473,7 @@ pub mod debbuger {
         }
 
         pub fn set_step_mode(&mut self) {
-            let _ = self
-                .debug_sender
-                .try_send(DebugCommandQueries::SetStepMode);
+            let _ = self.debug_sender.try_send(DebugCommandQueries::SetStepMode);
         }
 
         pub fn set_debug_mode(&self) {
