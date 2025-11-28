@@ -7,7 +7,6 @@ use tokio::task::JoinHandle;
 use eframe::egui;
 
 use crate::displayable::UpdatableState;
-use crate::ui_states::starting_menu::StartingMenuState;
 use crate::displayable::NextState;
 
 pub struct GameLaunchedState {
@@ -24,7 +23,7 @@ pub struct EmulatedGame {
 }
 
 impl EmulatedGame {
-    pub fn new(rom_path: String) -> Self {
+    pub fn from_rom_path(rom_path: String) -> Self {
         let (input_sender, input_receiver) = channel::<Vec<u8>>(1);
         let (image_sender, image_receiver) = channel::<Vec<u8>>(1);
         let (command_sender, command_query_receiver) = channel::<DebugCommandQueries>(1);
@@ -45,6 +44,22 @@ impl EmulatedGame {
             command_sender,
             debug_receiver,
         }
+    }
+
+    pub fn new(
+        handler: JoinHandle<()>,
+        input_sender: Sender<Vec<u8>>,
+        image_receiver: Receiver<Vec<u8>>,
+        command_sender: Sender<DebugCommandQueries>,
+        debug_receiver: Receiver<DebugResponse>,
+    ) -> Self {
+        Self {
+            handler,
+            input_sender,
+            image_receiver,
+            command_sender,
+            debug_receiver,
+        } 
     }
 
     pub fn to_debuged_game(
@@ -114,7 +129,7 @@ impl UpdatableState for GameLaunchedState {
     }
 }
 
-fn double_size_image(pixels: &[u8], width: usize, height: usize, scale: usize) -> Vec<u8> {
+pub fn double_size_image(pixels: &[u8], width: usize, height: usize, scale: usize) -> Vec<u8> {
     let scale_w = width * scale;
     let scale_h = height * scale;
     let size = scale_h * scale_w;

@@ -28,17 +28,18 @@ impl UpdatableState for StartingMenuState {
     fn update(
         self: Box<Self>,
         next_state: NextState,
-    ) -> Option<Box<dyn UpdatableState>> {
+    ) -> Box<dyn UpdatableState>{
         println!("this is comming");
         match next_state {
             NextState::GameLaunched => {
                 println!("this is comming in ");
-                    Some(Box::new(GameLaunchedState {
-                    emulated_game: EmulatedGame::new(
+                Box::new(
+                    GameLaunchedState {
+                    emulated_game: EmulatedGame::from_rom_path(
                         "gb-test-roms/cpu_instrs/individual/02-interrupts.gb".to_string(),
                     ),
                     actual_image: vec![0; 160 * 144 * 4],
-                }) as Box<dyn UpdatableState>)
+                }) as Box<dyn UpdatableState>
             }
             NextState::Debug => {
                 todo!()

@@ -22,9 +22,9 @@ impl eframe::App for MyApp {
         if let Some(new_app_state) = self.app_state.display_gui(ctx, _frame) {
             let last_state = std::mem::replace(&mut self.app_state, Box::new(StartingMenuState));
             if let Some(new_state) = last_state.update(new_app_state) {
+                println!("new state detected");
                 let _ = std::mem::replace(&mut self.app_state, new_state);
             }
-            
         }
         ctx.request_repaint();
     }

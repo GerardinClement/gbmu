@@ -5,7 +5,7 @@ pub trait UpdatableState {
     fn update(
         self: Box<Self>,
         next_state: NextState,
-    ) -> Option<Box<dyn UpdatableState>>;
+    ) -> Box<dyn UpdatableState>;
 }
 
 

@@ -4,7 +4,8 @@ use tokio::task::JoinHandle;
 use crate::debugger::debbuger::{
     step_button, step_mode_button,
 };
-use crate::displayable::UpdatableState;
+use crate::displayable::{NextState, UpdatableState};
+use crate::ui_states::game_launched::{double_size_image, EmulatedGame, GameLaunchedState};
 use crate::ui_states::starting_menu::StartingMenuState;
 
 pub struct DebugingGame {
@@ -29,6 +30,7 @@ pub struct DebugedGame {
     pub error_message: Option<String>,
     pub hex_string: String,
 }
+
 
 
 
@@ -89,6 +91,30 @@ impl DebugedGame {
 
 impl UpdatableState for DebugingGame {
     fn display_gui(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) -> Option<crate::displayable::NextState> {
+
+        eframe::egui::CentralPanel::default().show(ctx, |ui| {
+            let initial_width = 160;
+            let initial_height = 144;
+            let scale = 5;
+            let white_pxl = [255u8, 255, 255, 255];
+            if let Ok(new_image) = self.emulated_game.image_receiver.try_recv() {
+                self.actual_image = new_image;
+            }
+
+            let resized_image =
+                double_size_image(&self.actual_image, initial_width, initial_height, scale);
+
+            let color_image = eframe::egui::ColorImage::from_rgba_unmultiplied(
+                [initial_width * scale, initial_height * scale],
+                &resized_image,
+            );
+            let texture_handle =
+                ctx.load_texture("gb_frame", color_image, eframe::egui::TextureOptions::default());
+            ui.image(&texture_handle);
+        });
+        
+
+
         use std::cell::RefCell;
         let data = RefCell::new(None);
         eframe::egui::SidePanel::right("debug_panel")
@@ -447,22 +473,60 @@ impl UpdatableState for DebugingGame {
                             |ui| {
                                 if ui.button("✖ Close").clicked() {
                                     *data.borrow_mut() =
-                                        Some(Box::new(StartingMenuState::default())
-                                            as Box<dyn UpdatableState>);
+                                        Some(NextState::GameLaunched)
                                 }
                             },
                         );
                     });
                 });
             });
+        data.into_inner()
 
-        None
     }
 
     fn update(
             self: Box<Self>,
             next_state: crate::displayable::NextState,
-        ) -> Option<Box<dyn UpdatableState>> {
-        todo!()
+        ) -> Box<dyn UpdatableState> {
+        match next_state {
+            NextState::GameLaunched => {
+                let game = self.emulated_game;
+                Box::new(GameLaunchedState{
+                    actual_image: self.actual_image,
+                    emulated_game: EmulatedGame::from( 
+                        game
+                    )}
+                )}
+            NextState::Debug => {
+                    todo!()
+                }
+        }
+            
+    }
+}
+
+impl From<DebugedGame> for EmulatedGame {
+    fn from(game: DebugedGame) -> Self {
+        let (handler, command_sender, input_sender, debug_receiver, image_receiver) = game.decompose();
+        EmulatedGame::new(
+            handler,
+            command_sender,
+            input_sender,
+            debug_receiver,
+            image_receiver,
+        )
+
+    }
+}
+impl DebugedGame {
+    pub fn decompose(self) -> (JoinHandle<()>, Sender<Vec<u8>, Receiver<Vec<u8>>, Sender<DebugCommandQueries>, Receiver<DebugResponse>) {
+        (
+            self.handler,
+            self.input_sender,
+            self.image_receiver,
+            self.debug_sender,
+            self.debug_receiver
+
+        )
     }
 }
