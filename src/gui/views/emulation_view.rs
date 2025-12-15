@@ -1,10 +1,10 @@
-use crate::gui::{AppState, CoreGameDevice, DebugingDevice, EmulationDevice, WatchedAdresses};
+use crate::{gui::{AppState, CoreGameDevice, DebugingDevice, EmulationDevice, WatchedAdresses}, ppu};
 use eframe::egui::{ColorImage, Context, TextureOptions};
 
 
 impl EmulationDevice {
     pub fn emulation_view(mut self, ctx: &Context, _frame: &mut eframe::Frame) -> AppState {
-        let color_image = update_frame(&mut self.core_game);
+        let color_image = update_and_get_image(&mut self.core_game);
         let texture_handle = ctx.load_texture("gb_frame", color_image, TextureOptions::default());
 
         eframe::egui::CentralPanel::default().show(ctx, |ui| {
@@ -48,9 +48,9 @@ impl From<DebugingDevice> for EmulationDevice {
     }
 }
 
-fn update_frame(game: &mut CoreGameDevice) -> ColorImage {
-    let initial_width = 160;
-    let initial_height = 144;
+fn update_and_get_image(game: &mut CoreGameDevice) -> ColorImage {
+    let initial_width = ppu::WIN_SIZE_X;
+    let initial_height = ppu::WIN_SIZE_Y;
     let scale = 3;
     let white_pxl = [255u8, 255, 255, 255];
     if let Ok(new_image) = game.image_receiver.try_recv() {
