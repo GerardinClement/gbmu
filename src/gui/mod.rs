@@ -3,6 +3,7 @@
 #![allow(dead_code)]
 
 mod views;
+mod common;
 
 #[derive(Default)]
 pub struct MyApp {
