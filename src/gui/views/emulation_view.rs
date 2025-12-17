@@ -1,6 +1,8 @@
 use crate::{gui::{AppState, CoreGameDevice, DebugingDevice, EmulationDevice, WatchedAdresses}, ppu};
 use eframe::egui::{ColorImage, Context, TextureOptions};
 
+use std::sync::atomic::Ordering;
+
 
 impl EmulationDevice {
     pub fn emulation_view(mut self, ctx: &Context, _frame: &mut eframe::Frame) -> AppState {
@@ -15,7 +17,7 @@ impl EmulationDevice {
             if ui.button("🐛 Open Debug Panel").clicked() {
                 AppState::DebugingHub(self.into())
             } else {
-                AppState::EmulationHub(self.into())
+                AppState::EmulationHub(self)
             }
         }).inner
     }
@@ -23,6 +25,7 @@ impl EmulationDevice {
 
 impl From<EmulationDevice> for DebugingDevice {
     fn from(original: EmulationDevice) -> Self {
+        original.core_game.global_is_debug.fetch_xor(true, Ordering::Relaxed);
         Self{
             core_game: original.core_game,
             next_instructions: Vec::new(),
@@ -30,7 +33,6 @@ impl From<EmulationDevice> for DebugingDevice {
                 addresses_n_values: Vec::new(),
             },
             registers: (0, 0, 0, 0, 0, 0, 0, 0, 0),
-            is_debug: false,
             is_step: false,
             watched_address_value: 0,
             nb_instruction: 0,
@@ -42,6 +44,7 @@ impl From<EmulationDevice> for DebugingDevice {
 
 impl From<DebugingDevice> for EmulationDevice {
     fn from(original: DebugingDevice) -> Self {
+        original.core_game.global_is_debug.fetch_xor(true, Ordering::Relaxed);
         Self {
             core_game: original.core_game
         }

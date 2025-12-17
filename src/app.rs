@@ -4,14 +4,16 @@ use crate::ppu;
 use crate::gameboy::GameBoy;
 use crate::gui::{DebugCommandQueries, DebugResponse, WatchedAdresses};
 use tokio::sync::mpsc::{Receiver, Sender};
+use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
 
 pub struct GameApp {
+    
+    is_debug_mode: Arc<AtomicBool>,
     gameboy: GameBoy,
     framebuffer: Vec<u8>,
     debug_receiver: Receiver<DebugCommandQueries>,
     debug_sender: Sender<DebugResponse>,
     is_step_mode: bool,
-    is_debug_mode: bool,
     nb_next_intruction: u8,
     is_sending_registers: bool,
     watched_adress: WatchedAdresses,
@@ -22,6 +24,7 @@ impl GameApp {
         rom: Vec<u8>,
         receiver: Receiver<DebugCommandQueries>,
         sender: Sender<DebugResponse>,
+        global_bool: Arc<AtomicBool>,
     ) -> Self {
         let gameboy = GameBoy::new(rom);
         println!("{}", gameboy.cpu);
@@ -31,7 +34,7 @@ impl GameApp {
             debug_receiver: receiver,
             debug_sender: sender,
             is_step_mode: false,
-            is_debug_mode: false,
+            is_debug_mode: global_bool,
             is_sending_registers: false,
             nb_next_intruction: 0,
             watched_adress: WatchedAdresses {
@@ -90,76 +93,79 @@ impl GameApp {
     }
 
     pub fn update(&mut self) -> Option<Vec<u8>> {
-        if let Ok(debug) = self.debug_receiver.try_recv() {
-            match debug {
-                DebugCommandQueries::ExecuteInstruction(instruction) => {
-                    self.gameboy.cpu.debug_step(instruction);
-                    let _ = self
-                        .debug_sender
-                        .try_send(DebugResponse::InstructionsExecuted(instruction as usize));
-                }
-                DebugCommandQueries::GetNextInstructions(instr_nb) => {
-                    self.nb_next_intruction = instr_nb;
-                    self.send_next_instructions();
-                }
-                DebugCommandQueries::GetRegisters => {
-                    self.is_sending_registers = !self.is_sending_registers;
-                    self.send_registers();
-                }
-                DebugCommandQueries::SetStepMode => {
-                    self.is_step_mode = !self.is_step_mode;
-                    let _ = self
-                        .debug_sender
-                        .try_send(DebugResponse::StepModeSet(self.is_step_mode));
-                }
-                DebugCommandQueries::SetDebugMode => {
-                    self.is_debug_mode = !self.is_debug_mode;
-                    let _ = self
-                        .debug_sender
-                        .try_send(DebugResponse::DebugModeSet(self.is_debug_mode));
-                }
-                DebugCommandQueries::WatchAddress(addr) => {
-                    if !self
-                        .watched_adress
-                        .addresses_n_values
-                        .iter()
-                        .any(|(a, _)| *a == addr)
-                    {
-                        self.watched_adress.addresses_n_values.push((addr, 0));
-                    } else if let Some(index) = self
-                        .watched_adress
-                        .addresses_n_values
-                        .iter()
-                        .position(|(address, _)| *address == addr)
-                    {
-                        self.watched_adress.addresses_n_values.remove(index);
+        println!("update");
+        let mut instruction_to_execute = !self.is_step_mode as usize;
+        let is_debug = self.is_debug_mode.load(Ordering::Relaxed);
+        if is_debug {
+            while let Ok(debug) = self.debug_receiver.try_recv() {
+                match debug {
+                    DebugCommandQueries::ExecuteInstruction(instruction) => {
+                        println!("execute instruction received! {instruction}");
+                        self.gameboy.cpu.debug_step(instruction);
+                        let _ = self
+                            .debug_sender
+                            .try_send(DebugResponse::InstructionsExecuted(instruction as usize));
                     }
-                    self.send_watched_address();
-                }
-                DebugCommandQueries::ExecuteNextInstructions(nb_instruction) => {
-                    let mut last_frame = None;
-                    for _ in 0..nb_instruction {
-                        let rgb_frame = self.gameboy.run_frame();
-                        last_frame = Some(Self::rgb_to_rgba(&rgb_frame));
+                    DebugCommandQueries::GetNextInstructions(instr_nb) => {
+                        println!("get next instruction received! {instr_nb}");
+                        self.nb_next_intruction = instr_nb;
+                        self.send_next_instructions();
                     }
-                    return last_frame;
-                }
-                DebugCommandQueries::GetAddresses => {
-                    self.send_watched_address();
+                    DebugCommandQueries::GetRegisters => {
+                        println!("get registers received!");
+                        self.is_sending_registers = !self.is_sending_registers;
+                        self.send_registers();
+                    }
+                    DebugCommandQueries::SetStepMode => {
+                        println!("set step mode rs received!");
+                        self.is_step_mode = !self.is_step_mode;
+                        let _ = self
+                            .debug_sender
+                            .try_send(DebugResponse::StepModeSet(self.is_step_mode));
+                    }
+                    DebugCommandQueries::WatchAddress(addr) => {
+                        if !self
+                            .watched_adress
+                            .addresses_n_values
+                            .iter()
+                            .any(|(a, _)| *a == addr)
+                        {
+                            self.watched_adress.addresses_n_values.push((addr, 0));
+                        } else if let Some(index) = self
+                            .watched_adress
+                            .addresses_n_values
+                            .iter()
+                            .position(|(address, _)| *address == addr)
+                        {
+                            self.watched_adress.addresses_n_values.remove(index);
+                        }
+                        self.send_watched_address();
+                    }
+                    DebugCommandQueries::ExecuteNextInstructions(nb_instruction) => {
+                        instruction_to_execute = nb_instruction;
+                        println!("execute next instruction received! {nb_instruction}");
+                    }
+                    DebugCommandQueries::GetAddresses => {
+                        self.send_watched_address();
+                    }
                 }
             }
         }
+            
 
-        if !self.is_step_mode {
+        let mut last_frame = None;
+        if is_debug {
+            for _ in 0..instruction_to_execute {
+                let rgb_frame = self.gameboy.run_frame();
+                self.send_next_instructions();
+                self.send_watched_address();
+                self.send_registers();
+                last_frame = Some(Self::rgb_to_rgba(&rgb_frame));
+            }
+            last_frame
+        } else {
             let rgb_frame = self.gameboy.run_frame();
             Some(Self::rgb_to_rgba(&rgb_frame))
-        } else {
-            if self.nb_next_intruction != 0 {
-                self.send_next_instructions();
-            };
-            self.send_watched_address();
-            self.send_registers();
-            None
         }
     }
 

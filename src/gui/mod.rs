@@ -17,7 +17,7 @@ use std::fs;
 use crate::app::GameApp;
 use eframe::egui;
 
-
+use std::sync::{Arc, atomic::AtomicBool};
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -67,9 +67,10 @@ async fn launch_game(
     image_sender: Sender<Vec<u8>>,
     command_query_receiver: Receiver<DebugCommandQueries>,
     debug_response_sender: Sender<DebugResponse>,
+    global_is_debug: Arc<AtomicBool>,
 ) {
     let rom_data: Vec<u8> = read_rom(rom_path);
-    let mut app = GameApp::new(rom_data, command_query_receiver, debug_response_sender);
+    let mut app = GameApp::new(rom_data, command_query_receiver, debug_response_sender, global_is_debug);
 
     loop {
         let buffer = app.update();
@@ -80,7 +81,6 @@ async fn launch_game(
 }
 
 pub enum DebugCommandQueries {
-    SetDebugMode,
     SetStepMode,
     ExecuteInstruction(u8),
     ExecuteNextInstructions(usize),
@@ -91,7 +91,6 @@ pub enum DebugCommandQueries {
 }
 
 pub enum DebugResponse {
-    DebugModeSet(bool),
     StepModeSet(bool),
     InstructionsExecuted(usize),
     NextInstructions(Vec<u16>),
@@ -111,6 +110,7 @@ pub struct CoreGameDevice {
     pub command_query_sender: Sender<DebugCommandQueries>,
     pub debug_response_receiver: Receiver<DebugResponse>,
     pub actual_image: Vec<u8>,
+    pub global_is_debug: Arc<AtomicBool>,
 }
 
 
@@ -121,6 +121,7 @@ impl CoreGameDevice {
         let (image_sender, image_receiver) = channel::<Vec<u8>>(1);
         let (command_query_sender, command_query_receiver) = channel::<DebugCommandQueries>(1);
         let (debug_response_sender, debug_response_receiver) = channel::<DebugResponse>(10);
+        let global_is_debug = Arc::new(AtomicBool::new(false));
         Self {
             input_sender,
             image_receiver,
@@ -132,41 +133,13 @@ impl CoreGameDevice {
                 image_sender,
                 command_query_receiver,
                 debug_response_sender,
+                global_is_debug.clone(),
             )),
             actual_image: vec![0; 160 * 144 * 4], //TODO -> variabilisier les chars
+            global_is_debug,
         }
     }
 }
-
-
-
-
-
-
-        /*
-        * TODO -> passer le display du jeu dans une fonction a appeler dans les views
-        let color_image = self.update_frame();
-        let texture_handle = color_image
-            .map(|image| ctx.load_texture("gb_frame", image, egui::TextureOptions::default()));
-
-        egui::CentralPanel::default().show(ctx, |ui| {
-            if let Some(handle) = &texture_handle {
-                ui.vertical_centered(|ui| {
-                    ui.image(handle);
-
-                    ui.add_space(10.0);
-
-                    if let Some(game) = &mut self.emulated_game {
-                        if !game.is_debug && ui.button("🐛 Open Debug Panel").clicked() {
-                            game.is_debug = true;
-                        }
-                    }
-                });
-            }
-        });
-
-*/
-
 
 #[derive(Default)]
 pub struct SelectionDevice {}
@@ -196,9 +169,7 @@ pub struct DebugingDevice {
     pub registers: (u8, u8, u8, u8, u8, u8, u8, u16, u16),
     pub is_step: bool,
     pub watched_address_value: u16,
-    pub nb_instruction: u8,
-
-    pub is_debug: bool,
+    pub nb_instruction: usize,
 
     pub error_message: Option<String>,
     pub hex_string: String,
