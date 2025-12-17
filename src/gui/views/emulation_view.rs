@@ -48,10 +48,10 @@ impl From<DebugingDevice> for EmulationDevice {
     }
 }
 
-fn update_and_get_image(game: &mut CoreGameDevice) -> ColorImage {
+pub fn update_and_get_image(game: &mut CoreGameDevice) -> ColorImage {
     let initial_width = ppu::WIN_SIZE_X;
     let initial_height = ppu::WIN_SIZE_Y;
-    let scale = 3;
+    let scale = 5;
     let white_pxl = [255u8, 255, 255, 255];
     if let Ok(new_image) = game.image_receiver.try_recv() {
         game.actual_image = new_image;

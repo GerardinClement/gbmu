@@ -44,16 +44,14 @@ pub mod debbuger {
         }
     }
 
-    pub fn step_mode_button(ui: &mut egui::Ui, game: &mut DebugingDevice) {
-        let s = if game.is_step {
+    pub fn step_mode_button(ui: &mut egui::Ui, is_step: &mut bool) {
+        let s = if *is_step {
             "Desactivate step mode".to_string()
         } else {
             "Activate step mode".to_string()
         };
         let button = ui.button(s);
-        if button.clicked() {
-            game.set_step_mode();
-        }
+        *is_step = button.clicked()
     }
 
     pub fn step_button(ui: &mut egui::Ui, game: &DebugingDevice) {
@@ -86,16 +84,8 @@ pub mod debbuger {
                 ui.label(egui::RichText::new("Binary").strong());
                 ui.end_row();
 
-                // 8-bit registers
-                let registers_8bit = [
-                    ("A", game.registers.0),
-                    ("B", game.registers.1),
-                    ("C", game.registers.2),
-                    ("D", game.registers.3),
-                    ("E", game.registers.4),
-                    ("H", game.registers.5),
-                ];
 
+                /*
                 for (name, value) in registers_8bit.iter() {
                     ui.label(
                         egui::RichText::new(*name).color(egui::Color32::from_rgb(100, 200, 255)),
@@ -117,6 +107,7 @@ pub mod debbuger {
 
                     ui.end_row();
                 }
+*/
 
                 ui.separator();
                 ui.separator();
