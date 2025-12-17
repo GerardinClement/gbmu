@@ -14,6 +14,13 @@ struct DebugingDataIn<'a> {
     registers: &'a (u8, u8, u8, u8, u8, u8, u8, u16, u16),
 }
 
+struct DebugingDataOut {
+    step_clicked: bool,
+    step_mode_clicked: bool,
+    refresh_register_clicked: bool,
+    next_state: OutState,
+}
+
 
 enum OutState {
     Emulating,
@@ -21,7 +28,7 @@ enum OutState {
 }
 
 impl DebugingDevice {
-    fn update_and_get_debuging_data(&mut self, ctx: &Context) -> DebugingDataIn {
+    fn update_and_get_debuging_data(&mut self, ctx: &Context) -> DebugingDataIn<'_> {
         let color_image = update_and_get_image(&mut self.core_game);
         let game_texture_handle = ctx.load_texture("gb_frame", color_image, TextureOptions::default());
         debbuger::update_info_struct(self);
@@ -33,14 +40,19 @@ impl DebugingDevice {
         }
     }
 
-    fn display_interface(ctx: &Context, _frame: &mut eframe::Frame, data: DebugingDataIn) -> OutState {
-        let close_button_is_clicked = eframe::egui::SidePanel::right("debug_panel")
+    fn display_interface(ctx: &Context, _frame: &mut eframe::Frame, data: DebugingDataIn) -> DebugingDataOut {
+        let (
+            close_btn_clkd,
+            step_mode_btn_clkd,
+            stp_btn_clkd,
+            refresh_register_clicked
+        ) = eframe::egui::SidePanel::right("debug_panel")
             .resizable(true)
             .default_width(400.0)
             .min_width(300.0)
             .show(ctx, |ui| {
                 eframe::egui::ScrollArea::vertical().show(ui, |ui| {
-                    let close_button_clicked = ui.horizontal(|inner_ui| {
+                    let close_button_is_clicked  = ui.horizontal(|inner_ui| {
                         inner_ui.heading("Debug Panel");
                         inner_ui.with_layout(
                             eframe::egui::Layout::right_to_left(eframe::egui::Align::Center), |rtl_ui| {
@@ -61,28 +73,41 @@ impl DebugingDevice {
 
                     ui.add_space(8.0);
 
-                    ui.group(|mut inner_ui|{
+                    let refresh_register_clicked = ui.group(|mut inner_ui|{
                         inner_ui.label(RichText::new("Registers").strong());
-                        get_registers(&mut inner_ui, &data);
-                    });
+                        get_registers(&mut inner_ui, &data)
+                    }).inner;
 
-                    close_button_clicked
+                    (
+                        close_button_is_clicked,
+                        step_mode_button_clicked,
+                        step_button_clicked,
+                        refresh_register_clicked,
+                    )
                 }).inner
             }).inner;
 
         display_game(data.game_texture_handle, ctx);
 
-        if close_button_is_clicked {
+        let next_state = if close_btn_clkd{
             OutState::Emulating
         } else {
             OutState::Debuging
+        };
+        DebugingDataOut {
+            step_clicked: stp_btn_clkd,
+            step_mode_clicked: step_mode_btn_clkd,
+            next_state,
+            refresh_register_clicked
         }
+
     }
 
     pub fn debug_view(mut self, ctx: &Context, _frame: &mut eframe::Frame) -> AppState {
         let debuging_data_in = self.update_and_get_debuging_data(ctx);
-        let next_state = DebugingDevice::display_interface(ctx, _frame, debuging_data_in);
-        self.switch_state(next_state)
+        let actions_to_perform = DebugingDevice::display_interface(ctx, _frame, debuging_data_in);
+        //let next_state = perform(actions_to_perform;)
+        self.switch_state(actions_to_perform.next_state)
     }
 
     fn switch_state(self, next_state: OutState) -> AppState {
@@ -110,7 +135,7 @@ fn step_button(ui: &mut Ui) -> bool {
     ui.button("Next Step").clicked()
 }
 
-pub fn get_registers(ui: &mut Ui, debuging_data: &DebugingDataIn) -> bool {
+fn get_registers(ui: &mut Ui, debuging_data: &DebugingDataIn) -> bool {
     // Button to refresh registers
     let refresh_button_is_clicked = ui.horizontal(|ui| {
         ui.button("🔄 Refresh Registers").clicked()
