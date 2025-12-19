@@ -217,7 +217,6 @@ impl Ppu {
                 // Il faut remplir l'OAM ici
             },
             PpuMode::PixelTransfer => {
-                let rendered_scanline = self.render_scanline();
                 if self.ly >= NUMBER_OF_SCANLINE_IN_A_FRAME as u8 {
                     self.ly = 0;
                     self.lcd_status.update_ppu_mode(PpuMode::HBlank);

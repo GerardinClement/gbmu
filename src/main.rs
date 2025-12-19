@@ -131,7 +131,6 @@ impl MyApp {
             let initial_width = 160;
             let initial_height = 144;
             let scale = 3;
-            let white_pxl = [255u8, 255, 255, 255];
             if let Ok(new_image) = game.image_receiver.try_recv() {
                 self.actual_image = new_image;
             }

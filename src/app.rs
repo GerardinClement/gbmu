@@ -1,7 +1,7 @@
 #![allow(unreachable_code)]
 
 use crate::gameboy::ScanlineRender;
-use crate::ppu::{self, WIN_SIZE_X};
+use crate::ppu::{self, WIN_SIZE_X, WIN_SIZE_Y};
 use crate::{DebugCommandQueries, DebugResponse, WatchedAdresses, gameboy::GameBoy};
 use tokio::sync::mpsc::{Receiver, Sender};
 
@@ -27,7 +27,7 @@ impl GameApp {
         println!("{}", gameboy.cpu);
         Self {
             gameboy,
-            framebuffer: vec![0; 160 * 144 * 4],
+            framebuffer: vec![0; WIN_SIZE_Y * WIN_SIZE_X * 4],
             debug_receiver: receiver,
             debug_sender: sender,
             is_step_mode: false,
@@ -162,12 +162,8 @@ impl GameApp {
     }
 
     fn tick(&mut self) -> Option<Vec<u8>> {
-        let mut render_was_done = false;
         if let Some(scanline_render) = self.gameboy.tick() {
             self.apply_to_framebuffer(scanline_render);
-            render_was_done = true;
-        }
-        if render_was_done {
             Some(self.framebuffer.clone())
         } else {
             None
@@ -176,7 +172,9 @@ impl GameApp {
 
     fn apply_to_framebuffer(&mut self, render: ScanlineRender) {
         let rgba_scanline = Self::rgb_to_rgba(&render.line[..]);
+        println!("offset  {}", render.index);
         let offset = (render.index as usize) * WIN_SIZE_X * 4;
+        println!("offset  {}", offset);
         _ = &self.framebuffer[offset..offset + rgba_scanline.len()].copy_from_slice(&rgba_scanline);
     }
 
