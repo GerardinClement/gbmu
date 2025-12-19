@@ -36,11 +36,11 @@ impl GameBoy {
         GameBoy { cpu, bus, ppu }
     }
 
-    pub fn tick(&mut self) -> Option<ScanlineRender> {
+    pub fn tick(&mut self, framebuffer: &mut [u8]) -> bool {
         self.bus.write().unwrap().tick_timers();
         self.cpu.tick();
 
         self.ppu.update_registers();
-        self.ppu.tick() 
+        self.ppu.tick(framebuffer)
     }
 }

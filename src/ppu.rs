@@ -190,7 +190,7 @@ impl Ppu {
     }
 
 
-    pub fn tick(&mut self) -> Option<ScanlineRender> {
+    pub fn tick(&mut self, framebuffer: &mut [u8]) -> bool {
         self.dots += 4;
         match self.lcd_status.get_ppu_mode() {
             PpuMode::HBlank => {
@@ -200,29 +200,30 @@ impl Ppu {
                 else if self.dots % NUMBER_OF_DOTS_IN_ONE_LINE_RENDER == 0 {
                     self.lcd_status.update_ppu_mode(PpuMode::OamSearch);
                 }
-                None
+                false
             },
             PpuMode::VBlank => {
                 if self.dots % NUMBER_OF_DOTS_IN_ONE_FRAME_RENDER == 0 {
                     self.lcd_status.update_ppu_mode(PpuMode::OamSearch);
                     self.dots = 0;
                 }
-                None
+                false
             },
             PpuMode::OamSearch => {
                 if self.dots % NUMBER_OF_DOTS_IN_ONE_LINE_RENDER <= OAM_DOT_DURATION { 
                     self.lcd_status.update_ppu_mode(PpuMode::PixelTransfer);
                 }
-                None
+                false
                 // Il faut remplir l'OAM ici
             },
             PpuMode::PixelTransfer => {
                 if self.ly >= NUMBER_OF_SCANLINE_IN_A_FRAME as u8 {
                     self.ly = 0;
                     self.lcd_status.update_ppu_mode(PpuMode::HBlank);
-                    None
+                    false
                 } else {
-                    Some(self.render_scanline())
+                    self.render_scanline(framebuffer);
+                    true
                 }
             },
         }
@@ -231,7 +232,7 @@ impl Ppu {
     fn fetch_a_line(&self) -> Vec<Pixel> {
         let mut screen_x = self.x;
         let screen_y = self.ly as usize;
-        let mut pixels = Vec::new();
+        let mut pixels = Vec::with_capacity(WIN_SIZE_X);
 
         for _ in 0..WIN_SIZE_X {
             let use_window = self.lcd_control.is_window_enabled()
@@ -263,22 +264,16 @@ impl Ppu {
         pixels
     }
 
-    pub fn render_scanline(&mut self) -> ScanlineRender {
+    pub fn render_scanline(&mut self, framebuffer: &mut [u8]) {
         let pixels = self.fetch_a_line();
-        let mut line: Vec<u8> = vec![0; WIN_SIZE_Y * 3];
-
-        for i in 0..WIN_SIZE_X {
-            if let Some(p) = self.bg_fifo.pop() {
-                let offset = ((self.ly as usize * WIN_SIZE_X) + (i)) * 3;
-                self.set_pixel_color(&mut line[..], offset, *p.get_color());
-            }
+        let mut i = 0;
+        let line_offset: usize = self.ly as usize * WIN_SIZE_Y * 3;
+        for p in pixels.into_iter() {
+            let offset = i + line_offset;
+            self.set_pixel_color(framebuffer, offset, *p.get_color());
+            i += 3;
         }
-        let rendered = ScanlineRender {
-            index: self.ly,
-            line
-        };
         self.ly += 1;
-        rendered
     }
 
     pub fn update_registers(&mut self) {

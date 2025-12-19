@@ -137,11 +137,15 @@ impl GameApp {
                     self.send_watched_address();
                 }
                 DebugCommandQueries::ExecuteNextInstructions(nb_instruction) => {
-                    let mut frame = None;
+                    let mut frame = false;
                     for _ in 0..nb_instruction {
                         frame = self.tick()
                     }
-                    return frame;
+                    return if frame {
+                        Some(self.framebuffer.clone())
+                    } else {
+                        None
+                    }
                 }
                 DebugCommandQueries::GetAddresses => {
                     self.send_watched_address();
@@ -150,7 +154,11 @@ impl GameApp {
         }
 
         if !self.is_step_mode {
-            self.tick()
+            if self.tick() {
+                Some(self.framebuffer.clone())
+            } else {
+                None
+            }
         } else {
             if self.nb_next_intruction != 0 {
                 self.send_next_instructions();
@@ -161,20 +169,13 @@ impl GameApp {
         }
     }
 
-    fn tick(&mut self) -> Option<Vec<u8>> {
-        if let Some(scanline_render) = self.gameboy.tick() {
-            self.apply_to_framebuffer(scanline_render);
-            Some(self.framebuffer.clone())
-        } else {
-            None
-        }
+    fn tick(&mut self) -> bool {
+        self.gameboy.tick(&mut self.framebuffer[..])
     }
 
     fn apply_to_framebuffer(&mut self, render: ScanlineRender) {
         let rgba_scanline = Self::rgb_to_rgba(&render.line[..]);
-        println!("offset  {}", render.index);
         let offset = (render.index as usize) * WIN_SIZE_X * 4;
-        println!("offset  {}", offset);
         _ = &self.framebuffer[offset..offset + rgba_scanline.len()].copy_from_slice(&rgba_scanline);
     }
 
