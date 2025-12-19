@@ -283,7 +283,7 @@ impl Default for MyApp {
     fn default() -> Self {
         MyApp {
             emulated_game: None,
-            actual_image: vec![0; 160 * 144 * 4],
+            actual_image: vec![255; 160 * 144 * 4],
         }
     }
 }

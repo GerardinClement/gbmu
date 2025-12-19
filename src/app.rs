@@ -1,6 +1,7 @@
 #![allow(unreachable_code)]
 
-use crate::ppu;
+use crate::gameboy::ScanlineRender;
+use crate::ppu::{self, WIN_SIZE_X};
 use crate::{DebugCommandQueries, DebugResponse, WatchedAdresses, gameboy::GameBoy};
 use tokio::sync::mpsc::{Receiver, Sender};
 
@@ -136,12 +137,11 @@ impl GameApp {
                     self.send_watched_address();
                 }
                 DebugCommandQueries::ExecuteNextInstructions(nb_instruction) => {
-                    let mut last_frame = None;
+                    let mut frame = None;
                     for _ in 0..nb_instruction {
-                        let rgb_frame = self.gameboy.run_frame();
-                        last_frame = Some(Self::rgb_to_rgba(&rgb_frame));
+                        frame = self.tick()
                     }
-                    return last_frame;
+                    return frame;
                 }
                 DebugCommandQueries::GetAddresses => {
                     self.send_watched_address();
@@ -150,8 +150,7 @@ impl GameApp {
         }
 
         if !self.is_step_mode {
-            let rgb_frame = self.gameboy.run_frame();
-            Some(Self::rgb_to_rgba(&rgb_frame))
+            self.tick()
         } else {
             if self.nb_next_intruction != 0 {
                 self.send_next_instructions();
@@ -160,6 +159,25 @@ impl GameApp {
             self.send_registers();
             None
         }
+    }
+
+    fn tick(&mut self) -> Option<Vec<u8>> {
+        let mut render_was_done = false;
+        if let Some(scanline_render) = self.gameboy.tick() {
+            self.apply_to_framebuffer(scanline_render);
+            render_was_done = true;
+        }
+        if render_was_done {
+            Some(self.framebuffer.clone())
+        } else {
+            None
+        }
+    }
+
+    fn apply_to_framebuffer(&mut self, render: ScanlineRender) {
+        let rgba_scanline = Self::rgb_to_rgba(&render.line[..]);
+        let offset = (render.index as usize) * WIN_SIZE_X * 4;
+        _ = &self.framebuffer[offset..offset + rgba_scanline.len()].copy_from_slice(&rgba_scanline);
     }
 
     fn rgb_to_rgba(rgb_frame: &[u8]) -> Vec<u8> {

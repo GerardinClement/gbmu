@@ -7,6 +7,7 @@ mod lcd_status;
 mod pixel;
 mod pixel_fifo;
 
+use crate::gameboy::ScanlineRender;
 use crate::mmu::MemoryRegion;
 use crate::mmu::Mmu;
 use crate::ppu::colors_palette::Color;
@@ -29,6 +30,14 @@ const SCY_ADDR: u16 = 0xFF42; // Scroll Y
 const WY_ADDR: u16 = 0xFF4A; // Window Y Position
 const WX_ADDR: u16 = 0xFF4B; // Window X Position
 const LCD_CONTROL_ADDR: u16 = 0xFF40; // LCDC Control
+const NUMBER_OF_DOTS_IN_ONE_LINE_RENDER: u32 = 456;
+const NUMBER_OF_DOTS_IN_ONE_FRAME_RENDER: u32 = 456 * 154;
+const NUMBER_OF_DOTS_BEFORE_VBLANK: u32 = 456 * 144;
+const VBLANK_DOT_DURATION: u32 = NUMBER_OF_DOTS_IN_ONE_LINE_RENDER * 10;
+const OAM_DOT_DURATION: u32 = 80;
+const PIXEL_TRANSFER_DOT_DURATION: u32 = 280;
+const OAM_AND_TRANSFER_DURATION: u32 = OAM_DOT_DURATION + PIXEL_TRANSFER_DOT_DURATION;
+const NUMBER_OF_SCANLINE_IN_A_FRAME: u32 = 144;
 
 #[derive(Default)]
 pub struct Ppu {
@@ -43,6 +52,7 @@ pub struct Ppu {
     lyc: u8,
     x: usize,
     bg_fifo: PixelFifo, // Background pixel FIFO
+    dots: u32,
 }
 
 impl Ppu {
@@ -59,6 +69,7 @@ impl Ppu {
             lyc: 0x00,
             x: 0,
             bg_fifo: PixelFifo::default(),
+            dots: 0,
         }
     }
 
@@ -178,12 +189,52 @@ impl Ppu {
         }
     }
 
-    fn fetcher(&self) -> Vec<Pixel> {
+
+    pub fn tick(&mut self) -> Option<ScanlineRender> {
+        self.dots += 4;
+        match self.lcd_status.get_ppu_mode() {
+            PpuMode::HBlank => {
+                if self.ly >= NUMBER_OF_SCANLINE_IN_A_FRAME as u8 {
+                    self.lcd_status.update_ppu_mode(PpuMode::VBlank);
+                }
+                else if self.dots % NUMBER_OF_DOTS_IN_ONE_LINE_RENDER == 0 {
+                    self.lcd_status.update_ppu_mode(PpuMode::OamSearch);
+                }
+                None
+            },
+            PpuMode::VBlank => {
+                if self.dots % NUMBER_OF_DOTS_IN_ONE_FRAME_RENDER == 0 {
+                    self.lcd_status.update_ppu_mode(PpuMode::OamSearch);
+                    self.dots = 0;
+                }
+                None
+            },
+            PpuMode::OamSearch => {
+                if self.dots % NUMBER_OF_DOTS_IN_ONE_LINE_RENDER <= OAM_DOT_DURATION { 
+                    self.lcd_status.update_ppu_mode(PpuMode::PixelTransfer);
+                }
+                None
+                // Il faut remplir l'OAM ici
+            },
+            PpuMode::PixelTransfer => {
+                let rendered_scanline = self.render_scanline();
+                if self.ly >= NUMBER_OF_SCANLINE_IN_A_FRAME as u8 {
+                    self.ly = 0;
+                    self.lcd_status.update_ppu_mode(PpuMode::HBlank);
+                    None
+                } else {
+                    Some(self.render_scanline())
+                }
+            },
+        }
+    }
+
+    fn fetch_a_line(&self) -> Vec<Pixel> {
         let mut screen_x = self.x;
         let screen_y = self.ly as usize;
         let mut pixels = Vec::new();
 
-        for _ in 0..8 {
+        for _ in 0..WIN_SIZE_X {
             let use_window = self.lcd_control.is_window_enabled()
                 && (screen_y >= self.wy as usize)
                 && (screen_x + 7 >= self.wx as usize);
@@ -210,38 +261,25 @@ impl Ppu {
             pixels.push(pixel);
             screen_x += 1;
         }
-
         pixels
     }
 
-    pub fn render_frame(&mut self, frame: &mut [u8]) {
-        if self.lcd_status.get_ppu_mode() != PpuMode::VBlank {
-            let pixels = self.fetcher();
-            for pixel in &pixels {
-                self.bg_fifo.push(pixel.clone());
-            }
+    pub fn render_scanline(&mut self) -> ScanlineRender {
+        let pixels = self.fetch_a_line();
+        let mut line: Vec<u8> = vec![0; WIN_SIZE_Y * 3];
 
-            for i in 0..8 {
-                if let Some(p) = self.bg_fifo.pop() {
-                    let offset = ((self.ly as usize * WIN_SIZE_X) + (self.x + i)) * 3;
-                    self.set_pixel_color(frame, offset, *p.get_color());
-                }
+        for i in 0..WIN_SIZE_X {
+            if let Some(p) = self.bg_fifo.pop() {
+                let offset = ((self.ly as usize * WIN_SIZE_X) + (i)) * 3;
+                self.set_pixel_color(&mut line[..], offset, *p.get_color());
             }
         }
-
-        self.x += 8;
-        if self.x >= WIN_SIZE_X {
-            self.x = 0;
-            self.ly += 1;
-            if self.ly >= WIN_SIZE_Y as u8 && self.ly <= WIN_SIZE_Y as u8 + VBLANK_SIZE as u8 {
-                self.lcd_status.update_ppu_mode(PpuMode::VBlank);
-            } else if self.ly >= WIN_SIZE_Y as u8 + VBLANK_SIZE as u8 {
-                self.ly = 0;
-                self.lcd_status.update_ppu_mode(PpuMode::HBlank);
-            } else {
-                self.lcd_status.update_ppu_mode(PpuMode::PixelTransfer);
-            }
-        }
+        let rendered = ScanlineRender {
+            index: self.ly,
+            line
+        };
+        self.ly += 1;
+        rendered
     }
 
     pub fn update_registers(&mut self) {
