@@ -1,12 +1,11 @@
-
 mod app;
 
 mod cpu;
 mod debugger;
 mod gameboy;
+mod gui;
 mod mmu;
 mod ppu;
-mod gui;
 
 use gui::MyApp;
 

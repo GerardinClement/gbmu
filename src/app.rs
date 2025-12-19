@@ -1,16 +1,17 @@
 #![allow(unreachable_code)]
 
-use crate::ppu;
 use crate::gameboy::GameBoy;
 use crate::gui::{DebugCommandQueries, DebugResponse, WatchedAdresses};
+use crate::ppu;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 use tokio::sync::mpsc::{Receiver, Sender};
-use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
 
 pub struct GameApp {
-    
     is_debug_mode: Arc<AtomicBool>,
     gameboy: GameBoy,
-    framebuffer: Vec<u8>,
     debug_receiver: Receiver<DebugCommandQueries>,
     debug_sender: Sender<DebugResponse>,
     is_step_mode: bool,
@@ -30,7 +31,6 @@ impl GameApp {
         println!("{}", gameboy.cpu);
         Self {
             gameboy,
-            framebuffer: vec![0; 160 * 144 * 4],
             debug_receiver: receiver,
             debug_sender: sender,
             is_step_mode: false,
@@ -151,7 +151,6 @@ impl GameApp {
                 }
             }
         }
-            
 
         let mut last_frame = None;
         if is_debug {

@@ -1,12 +1,17 @@
-
 use crate::gui::common::display_game;
 
-use eframe::egui::{Align, Button, Layout, Color32, Context, DragValue, Grid, RichText, TextEdit, ScrollArea, SidePanel, Ui};
+use eframe::egui::{
+    Align, Button, Color32, Context, DragValue, Grid, Layout, RichText, ScrollArea, SidePanel,
+    TextEdit, Ui,
+};
 
 use super::{DebugingDataIn, DebugingDataOut};
 
-
-pub fn display_interface(ctx: &Context, _frame: &mut eframe::Frame, data: DebugingDataIn) -> DebugingDataOut {
+pub fn display_interface(
+    ctx: &Context,
+    _frame: &mut eframe::Frame,
+    data: DebugingDataIn,
+) -> DebugingDataOut {
     let (
         close_btn_clicked,
         step_mode_btn_clkd,
@@ -16,74 +21,76 @@ pub fn display_interface(ctx: &Context, _frame: &mut eframe::Frame, data: Debugi
         nb_instruction_requested,
         hex_string,
         register_new_addr,
-    ): (
-        bool,
-        bool,
-        bool,
-        bool,
-        bool,
-        u8,
-        String,
-        bool,
-    ) = SidePanel::right("debug_panel")
+    ): (bool, bool, bool, bool, bool, u8, String, bool) = SidePanel::right("debug_panel")
         .resizable(true)
         .default_width(400.0)
         .min_width(300.0)
         .show(ctx, |ui| {
-            ScrollArea::vertical().show(ui, |ui| {
-                let close_button_is_clicked: bool  = ui.horizontal(|inner_ui| {
-                    inner_ui.heading("Debug Panel");
-                    inner_ui.with_layout(
-                        Layout::right_to_left(Align::Center), |rtl_ui| {
-                            rtl_ui.button("✖ Close").clicked()
-                        }).inner
-                }).inner;
-                ui.separator();
+            ScrollArea::vertical()
+                .show(ui, |ui| {
+                    let close_button_is_clicked: bool = ui
+                        .horizontal(|inner_ui| {
+                            inner_ui.heading("Debug Panel");
+                            inner_ui
+                                .with_layout(Layout::right_to_left(Align::Center), |rtl_ui| {
+                                    rtl_ui.button("✖ Close").clicked()
+                                })
+                                .inner
+                        })
+                        .inner;
+                    ui.separator();
 
-                ui.add_space(8.0);
+                    ui.add_space(8.0);
 
-                let (step_mode_button_clicked, step_button_clicked): (bool, bool) = ui.group(|inner_ui| {
-                    inner_ui.label(RichText::new("Step Control").strong());
+                    let (step_mode_button_clicked, step_button_clicked): (bool, bool) = ui
+                        .group(|inner_ui| {
+                            inner_ui.label(RichText::new("Step Control").strong());
 
-                    let mode_clicked = step_mode_button(inner_ui, data.is_step);
-                    let step_clicked = step_button(inner_ui);
-                    (mode_clicked, step_clicked)
-                }).inner;
+                            let mode_clicked = step_mode_button(inner_ui, data.is_step);
+                            let step_clicked = step_button(inner_ui);
+                            (mode_clicked, step_clicked)
+                        })
+                        .inner;
 
-                ui.add_space(8.0);
+                    ui.add_space(8.0);
 
-                let refresh_register_clicked: bool = ui.group(|inner_ui|{
-                    inner_ui.label(RichText::new("Registers").strong());
-                    get_registers(inner_ui, &data)
-                }).inner;
+                    let refresh_register_clicked: bool = ui
+                        .group(|inner_ui| {
+                            inner_ui.label(RichText::new("Registers").strong());
+                            get_registers(inner_ui, &data)
+                        })
+                        .inner;
 
+                    let (nb_instruction_requested, instructions_are_requested): (u8, bool) = ui
+                        .group(|inner_ui| {
+                            inner_ui.label(RichText::new("Next Instructions").strong());
+                            get_next_instructions(inner_ui, &data)
+                        })
+                        .inner;
 
+                    ui.add_space(8.0);
 
-                let (nb_instruction_requested, instructions_are_requested): (u8, bool) = ui.group(|inner_ui| {
-                    inner_ui.label(RichText::new("Next Instructions").strong());
-                    get_next_instructions(inner_ui, &data)
-                }).inner;
+                    let (hex_string, register_new_addr) = ui
+                        .group(|inner_ui| {
+                            inner_ui.label(RichText::new("Memory Watch").strong());
+                            watch_address(inner_ui, &data)
+                        })
+                        .inner;
 
-                ui.add_space(8.0);
-
-                let (hex_string, register_new_addr) = ui.group(|inner_ui| {
-                    inner_ui.label(RichText::new("Memory Watch").strong());
-                    watch_address(inner_ui, &data)
-                }).inner;
-
-
-                (
-                    close_button_is_clicked,
-                    step_mode_button_clicked,
-                    step_button_clicked,
-                    refresh_register_clicked,
-                    instructions_are_requested,
-                    nb_instruction_requested,
-                    hex_string,
-                    register_new_addr,
-                )
-            }).inner
-        }).inner;
+                    (
+                        close_button_is_clicked,
+                        step_mode_button_clicked,
+                        step_button_clicked,
+                        refresh_register_clicked,
+                        instructions_are_requested,
+                        nb_instruction_requested,
+                        hex_string,
+                        register_new_addr,
+                    )
+                })
+                .inner
+        })
+        .inner;
 
     display_game(data.game_texture_handle, ctx);
 
@@ -97,7 +104,6 @@ pub fn display_interface(ctx: &Context, _frame: &mut eframe::Frame, data: Debugi
         hex_string,
         register_new_addr,
     }
-
 }
 
 fn step_mode_button(ui: &mut Ui, is_in_step_mode: bool) -> bool {
@@ -115,9 +121,9 @@ fn step_button(ui: &mut Ui) -> bool {
 
 fn get_registers(ui: &mut Ui, debuging_data: &DebugingDataIn) -> bool {
     // Button to refresh registers
-    let refresh_button_is_clicked = ui.horizontal(|ui| {
-        ui.button("🔄 Refresh Registers").clicked()
-    }).inner;
+    let refresh_button_is_clicked = ui
+        .horizontal(|ui| ui.button("🔄 Refresh Registers").clicked())
+        .inner;
 
     ui.add_space(8.0);
 
@@ -144,9 +150,7 @@ fn get_registers(ui: &mut Ui, debuging_data: &DebugingDataIn) -> bool {
             ];
 
             for (name, value) in registers_8bit.iter() {
-                ui.label(
-                    RichText::new(*name).color(Color32::from_rgb(100, 200, 255)),
-                );
+                ui.label(RichText::new(*name).color(Color32::from_rgb(100, 200, 255)));
 
                 ui.label(RichText::new(format!("0x{:02X}", value)).monospace());
 
@@ -179,9 +183,7 @@ fn get_registers(ui: &mut Ui, debuging_data: &DebugingDataIn) -> bool {
             ];
 
             for (name, value) in registers_16bit.iter() {
-                ui.label(
-                    RichText::new(*name).color(Color32::from_rgb(255, 200, 100)),
-                );
+                ui.label(RichText::new(*name).color(Color32::from_rgb(255, 200, 100)));
 
                 ui.label(RichText::new(format!("0x{:04X}", value)).monospace());
 
@@ -205,25 +207,27 @@ fn get_registers(ui: &mut Ui, debuging_data: &DebugingDataIn) -> bool {
 
 fn get_next_instructions(ui: &mut Ui, data: &DebugingDataIn) -> (u8, bool) {
     // Input section
-    let instruction_requested_tuple = ui.group(|ui| {
-        ui.horizontal(|ui| {
-            let mut nb_instructions = data.nb_instruction;
-            ui.label("Instructions to fetch:");
+    let instruction_requested_tuple = ui
+        .group(|ui| {
+            ui.horizontal(|ui| {
+                let mut nb_instructions = data.nb_instruction;
+                ui.label("Instructions to fetch:");
 
-            // Decimal drag value
-            ui.add(
-                DragValue::new(&mut nb_instructions)
-                    .speed(1.0)
-                    .clamp_range(0..=255)
-                    .prefix("Dec: "),
-            );
+                // Decimal drag value
+                ui.add(
+                    DragValue::new(&mut nb_instructions)
+                        .speed(1.0)
+                        .clamp_range(0..=255)
+                        .prefix("Dec: "),
+                );
 
-            // Fetch button
-            let fetch_btn = ui.add_sized([100.0, 20.0], Button::new("📋 Fetch"));
-            (nb_instructions, fetch_btn.clicked())
-
-        }).inner
-    }).inner;
+                // Fetch button
+                let fetch_btn = ui.add_sized([100.0, 20.0], Button::new("📋 Fetch"));
+                (nb_instructions, fetch_btn.clicked())
+            })
+            .inner
+        })
+        .inner;
 
     ui.add_space(8.0);
 
@@ -312,27 +316,30 @@ fn get_next_instructions(ui: &mut Ui, data: &DebugingDataIn) -> (u8, bool) {
 fn watch_address(ui: &mut Ui, data: &DebugingDataIn) -> (String, bool) {
     let mut hex_string = data.hex_string.clone();
     // Input section with better layout
-    let register_new_addr: bool = ui.group(|inner_ui| {
-        inner_ui.horizontal(|h_ui| {
-            h_ui.label("Address:");
+    let register_new_addr: bool = ui
+        .group(|inner_ui| {
+            inner_ui
+                .horizontal(|h_ui| {
+                    h_ui.label("Address:");
 
-            // Hex input with better formatting
-            h_ui.label("(0x)");
-            let response_changed = h_ui
-                .add(
-                    TextEdit::singleline(&mut hex_string)
-                        .desired_width(60.0)
-                        .hint_text("0000")
-                        .char_limit(4),
-                )
-                .changed();
+                    // Hex input with better formatting
+                    h_ui.label("(0x)");
+                    let response_changed = h_ui
+                        .add(
+                            TextEdit::singleline(&mut hex_string)
+                                .desired_width(60.0)
+                                .hint_text("0000")
+                                .char_limit(4),
+                        )
+                        .changed();
 
-            let watch_btn = h_ui.add_sized([80.0, 20.0], Button::new("📌 Watch"));
+                    let watch_btn = h_ui.add_sized([80.0, 20.0], Button::new("📌 Watch"));
 
-            watch_btn.clicked()
-        }).inner
-    }).inner;
-
+                    watch_btn.clicked()
+                })
+                .inner
+        })
+        .inner;
 
     // Error message display
     if let Some(error_msg) = data.error_message {
@@ -387,7 +394,7 @@ fn watch_address(ui: &mut Ui, data: &DebugingDataIn) -> (String, bool) {
                     ui.separator();
 
                     for (i, (address, value)) in
-                    data.watched_address.addresses_n_values.iter().enumerate()
+                        data.watched_address.addresses_n_values.iter().enumerate()
                     {
                         ui.horizontal(|ui| {
                             // Index
@@ -401,9 +408,7 @@ fn watch_address(ui: &mut Ui, data: &DebugingDataIn) -> (String, bool) {
                             );
 
                             // Value in hex
-                            ui.label(
-                                RichText::new(format!("0x{:02X}", value)).monospace(),
-                            );
+                            ui.label(RichText::new(format!("0x{:02X}", value)).monospace());
 
                             // Value in decimal
                             ui.label(
@@ -420,16 +425,12 @@ fn watch_address(ui: &mut Ui, data: &DebugingDataIn) -> (String, bool) {
                             );
 
                             // Spacer to push remove button to the right
-                            ui.with_layout(
-                                Layout::right_to_left(Align::Center),
-                                |ui| {
-                                    // Remove button
-                                    if ui.small_button("✖").on_hover_text("Remove").clicked()
-                                    {
-                                        address_to_remove = Some(*address);
-                                    }
-                                },
-                            );
+                            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                // Remove button
+                                if ui.small_button("✖").on_hover_text("Remove").clicked() {
+                                    address_to_remove = Some(*address);
+                                }
+                            });
                         });
 
                         // Subtle separator between entries
@@ -440,17 +441,17 @@ fn watch_address(ui: &mut Ui, data: &DebugingDataIn) -> (String, bool) {
                 });
             /*
 
-            if let Some(addr) = address_to_remove
-            && let Some(index) = data
-                .watched_address
-                .addresses_n_values
-                .iter()
-                .position(|(address, _)| *address == addr)
-            {
-                data.watched_address.addresses_n_values.remove(index);
-                data.watch_address(address_to_remove.unwrap());
-            }
-*/
+                        if let Some(addr) = address_to_remove
+                        && let Some(index) = data
+                            .watched_address
+                            .addresses_n_values
+                            .iter()
+                            .position(|(address, _)| *address == addr)
+                        {
+                            data.watched_address.addresses_n_values.remove(index);
+                            data.watch_address(address_to_remove.unwrap());
+                        }
+            */
         });
     }
     ui.add_space(4.0);

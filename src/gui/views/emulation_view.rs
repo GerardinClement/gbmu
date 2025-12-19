@@ -1,32 +1,41 @@
-use crate::{gui::{AppState, CoreGameDevice, DebugingDevice, EmulationDevice, WatchedAdresses}, ppu};
+use crate::{
+    gui::{
+        AppState, CoreGameDevice, DebugingDevice, EmulationDevice, SelectionDevice, WatchedAdresses,
+    },
+    ppu,
+};
 use eframe::egui::{ColorImage, Context, TextureOptions};
 
 use std::sync::atomic::Ordering;
-
 
 impl EmulationDevice {
     pub fn emulation_view(mut self, ctx: &Context, _frame: &mut eframe::Frame) -> AppState {
         let color_image = update_and_get_image(&mut self.core_game);
         let texture_handle = ctx.load_texture("gb_frame", color_image, TextureOptions::default());
 
-        eframe::egui::CentralPanel::default().show(ctx, |ui| {
-            ui.vertical_centered(|ui| {
-                ui.image(&texture_handle);
-                ui.add_space(10.0);
-            });
-            if ui.button("🐛 Open Debug Panel").clicked() {
-                AppState::DebugingHub(self.into())
-            } else {
-                AppState::EmulationHub(self)
-            }
-        }).inner
+        eframe::egui::CentralPanel::default()
+            .show(ctx, |ui| {
+                ui.vertical_centered(|ui| {
+                    ui.image(&texture_handle);
+                    ui.add_space(10.0);
+                });
+                if ui.button("🐛 Open Debug Panel").clicked() {
+                    AppState::DebugingHub(self.into())
+                } else {
+                    AppState::EmulationHub(self)
+                }
+            })
+            .inner
     }
 }
 
 impl From<EmulationDevice> for DebugingDevice {
     fn from(original: EmulationDevice) -> Self {
-        original.core_game.global_is_debug.fetch_xor(true, Ordering::Relaxed);
-        Self{
+        original
+            .core_game
+            .global_is_debug
+            .fetch_xor(true, Ordering::Relaxed);
+        Self {
             core_game: original.core_game,
             next_instructions: Vec::new(),
             watched_adress: WatchedAdresses {
@@ -42,11 +51,22 @@ impl From<EmulationDevice> for DebugingDevice {
     }
 }
 
+impl From<SelectionDevice> for EmulationDevice {
+    fn from(original: SelectionDevice) -> Self {
+        let path = original.path;
+        let core_game = CoreGameDevice::new(path);
+        EmulationDevice { core_game }
+    }
+}
+
 impl From<DebugingDevice> for EmulationDevice {
     fn from(original: DebugingDevice) -> Self {
-        original.core_game.global_is_debug.fetch_xor(true, Ordering::Relaxed);
+        original
+            .core_game
+            .global_is_debug
+            .fetch_xor(true, Ordering::Relaxed);
         Self {
-            core_game: original.core_game
+            core_game: original.core_game,
         }
     }
 }
@@ -59,12 +79,7 @@ pub fn update_and_get_image(game: &mut CoreGameDevice) -> ColorImage {
     if let Ok(new_image) = game.image_receiver.try_recv() {
         game.actual_image = new_image;
     }
-    let resized_image = scale_image(
-        &game.actual_image,
-        initial_width,
-        initial_height,
-        scale,
-    );
+    let resized_image = scale_image(&game.actual_image, initial_width, initial_height, scale);
 
     ColorImage::from_rgba_unmultiplied(
         [initial_width * scale, initial_height * scale],

@@ -2,31 +2,31 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
-mod views;
 mod common;
+mod views;
 
 #[derive(Default)]
 pub struct MyApp {
-    app_state: AppState
+    app_state: AppState,
 }
 
-use tokio::task::JoinHandle;
-use tokio::sync::mpsc::{Receiver, Sender, channel};
-use std::process;
-use std::fs;
 use crate::app::GameApp;
 use eframe::egui;
+use std::fs;
+use std::process;
+use tokio::sync::mpsc::{Receiver, Sender, channel};
+use tokio::task::JoinHandle;
 
 use std::sync::{Arc, atomic::AtomicBool};
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        self.app_state =  match std::mem::replace(&mut self.app_state, AppState::Default) {
-            AppState::StartingHub(device) => {device.starting_view(ctx, _frame)}
-            AppState::SelectionHub(device) => {device.selection_view(ctx, _frame)}
-            AppState::EmulationHub(device) => {device.emulation_view(ctx, _frame)}
-            AppState::DebugingHub(device) => {device.debug_view(ctx, _frame)}
-            AppState::Default => unreachable!()
+        self.app_state = match std::mem::replace(&mut self.app_state, AppState::Default) {
+            AppState::StartingHub(device) => device.starting_view(ctx, _frame),
+            AppState::SelectionHub(device) => device.selection_view(ctx, _frame),
+            AppState::EmulationHub(device) => device.emulation_view(ctx, _frame),
+            AppState::DebugingHub(device) => device.debug_view(ctx, _frame),
+            AppState::Default => unreachable!(),
         };
         ctx.request_repaint();
     }
@@ -42,9 +42,6 @@ pub enum AppState {
     DebugingHub(DebugingDevice),
     Default,
 }
-
-
-
 
 fn read_rom(rom_path: String) -> Vec<u8> {
     if !rom_path.is_empty() {
@@ -70,7 +67,12 @@ async fn launch_game(
     global_is_debug: Arc<AtomicBool>,
 ) {
     let rom_data: Vec<u8> = read_rom(rom_path);
-    let mut app = GameApp::new(rom_data, command_query_receiver, debug_response_sender, global_is_debug);
+    let mut app = GameApp::new(
+        rom_data,
+        command_query_receiver,
+        debug_response_sender,
+        global_is_debug,
+    );
 
     loop {
         let buffer = app.update();
@@ -100,7 +102,6 @@ pub enum DebugResponse {
 
 pub struct WatchedAdresses {
     pub addresses_n_values: Vec<(u16, u16)>,
-
 }
 
 pub struct CoreGameDevice {
@@ -112,8 +113,6 @@ pub struct CoreGameDevice {
     pub actual_image: Vec<u8>,
     pub global_is_debug: Arc<AtomicBool>,
 }
-
-
 
 impl CoreGameDevice {
     fn new(path: String) -> Self {
@@ -141,15 +140,18 @@ impl CoreGameDevice {
     }
 }
 
-#[derive(Default)]
-pub struct SelectionDevice {}
+pub struct SelectionDevice {
+    path: String,
+    files: Vec<String>,
+    selected_file: Option<usize>,
+}
 
-impl Default for EmulationDevice {
+impl Default for SelectionDevice {
     fn default() -> Self {
-        let path = "gb-test-roms/cpu_instrs/individual/09-op r,r.gb".to_string();
-        let core_game = CoreGameDevice::new(path);
-        EmulationDevice {
-            core_game
+        Self {
+            path: String::from("./"),
+            files: Vec::<String>::default(),
+            selected_file: None,
         }
     }
 }

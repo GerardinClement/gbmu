@@ -1,8 +1,6 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
-
-
 pub mod debbuger {
 
     use crate::gui::{DebugCommandQueries, DebugResponse, DebugingDevice};
@@ -12,7 +10,10 @@ pub mod debbuger {
         while let Ok(debug) = game.core_game.debug_response_receiver.try_recv() {
             match debug {
                 DebugResponse::AddressesWatched(wa) => {
-                    println!("DebugResponse::AddressesWatched=> {}", wa.addresses_n_values[0].0);
+                    println!(
+                        "DebugResponse::AddressesWatched=> {}",
+                        wa.addresses_n_values[0].0
+                    );
                     game.watched_adress = wa;
                 }
                 DebugResponse::StepModeSet(value) => {
@@ -35,7 +36,6 @@ pub mod debbuger {
             }
         }
     }
-
 
     impl DebugingDevice {
         pub fn execute_instruction(&self, instr: u8) {
@@ -65,7 +65,6 @@ pub mod debbuger {
                 .command_query_sender
                 .try_send(DebugCommandQueries::SetStepMode);
         }
-
 
         pub fn executed_next_step(&self, nb_instru: usize) {
             let _ = self

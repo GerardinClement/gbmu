@@ -10,13 +10,13 @@ use display::display_interface;
 
 struct DebugingDataIn<'a> {
     game_texture_handle: TextureHandle,
-    is_step: bool, 
+    is_step: bool,
     watched_address: &'a WatchedAdresses,
     registers: &'a (u8, u8, u8, u8, u8, u8, u8, u16, u16),
     nb_instruction: u8,
     next_instructions: &'a Vec<u16>,
     hex_string: &'a String,
-    error_message: Option<&'a String>
+    error_message: Option<&'a String>,
 }
 
 #[derive(Debug)]
@@ -25,19 +25,16 @@ struct DebugingDataOut {
     step_clicked: bool,
     step_mode_clicked: bool,
     refresh_register_clicked: bool,
-    instructions_are_requested: bool, 
+    instructions_are_requested: bool,
     nb_instruction_requested: u8,
     hex_string: String,
     register_new_addr: bool,
 }
 
-
 enum OutState {
     Emulating,
     Debuging,
 }
-
-
 
 impl DebugingDevice {
     fn execute_changes(&mut self, data: DebugingDataOut) -> OutState {
@@ -62,10 +59,8 @@ impl DebugingDevice {
             self.request_registers();
         }
 
-        self.hex_string = data.hex_string; 
-        if let Ok(result) = u16::from_str_radix(self.hex_string.as_ref(), 16) {
-
-        }
+        self.hex_string = data.hex_string;
+        if let Ok(result) = u16::from_str_radix(self.hex_string.as_ref(), 16) {}
         OutState::Debuging
     }
 
@@ -78,14 +73,9 @@ impl DebugingDevice {
     }
 
     fn update_and_get_debuging_data(&mut self, ctx: &Context) -> DebugingDataIn<'_> {
-        let color_image = update_and_get_image(
-            &mut self.core_game,
-        );
-        let game_texture_handle = ctx.load_texture(
-            "gb_frame",
-            color_image,
-            TextureOptions::default(),
-        );
+        let color_image = update_and_get_image(&mut self.core_game);
+        let game_texture_handle =
+            ctx.load_texture("gb_frame", color_image, TextureOptions::default());
         debbuger::update_info_struct(self);
 
         let error_message = if let Some(value) = &self.error_message {
@@ -101,20 +91,14 @@ impl DebugingDevice {
             nb_instruction: self.nb_instruction as u8,
             next_instructions: &self.next_instructions,
             error_message,
-            hex_string : &self.hex_string,
+            hex_string: &self.hex_string,
         }
     }
-
 
     fn switch_state(self, next_state: OutState) -> AppState {
         match next_state {
-            OutState::Debuging => {
-                AppState::DebugingHub(self)
-            }
-            OutState::Emulating => {
-                AppState::EmulationHub(self.into())
-            }
+            OutState::Debuging => AppState::DebugingHub(self),
+            OutState::Emulating => AppState::EmulationHub(self.into()),
         }
     }
 }
-
