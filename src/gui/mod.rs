@@ -135,7 +135,7 @@ impl CoreGameDevice {
                 debug_response_sender,
                 global_is_debug.clone(),
             )),
-            actual_image: vec![0; 160 * 144 * 4], //TODO -> variabilisier les chars
+            actual_image: vec![0; 160 * 144 * 4],
             global_is_debug,
         }
     }
