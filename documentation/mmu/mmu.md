@@ -330,3 +330,6 @@ pub fn interrupts_request(&mut self, interrupt: Interrupt) {
 - ❌ Joypad register (0xFF00)
 - ❌ Sound registers (0xFF10-0xFF26)
 - ❌ Serial transfer registers (0xFF01-0xFF02)
+
+
+last modification: 22/01/2026
