@@ -332,4 +332,4 @@ pub fn interrupts_request(&mut self, interrupt: Interrupt) {
 - ❌ Serial transfer registers (0xFF01-0xFF02)
 
 
-last modification: 22/01/2026
+last modification: 2026/01/22
