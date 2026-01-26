@@ -3,6 +3,8 @@
 
 use std::sync::{Arc, RwLock};
 
+use tokio::sync::Mutex;
+
 use crate::cpu::Cpu;
 use crate::mmu::Mmu;
 use crate::ppu::Ppu;
@@ -17,27 +19,28 @@ pub struct GameBoy {
     pub cpu: Cpu,
     pub ppu: Ppu,
     pub bus: Arc<RwLock<Mmu>>,
+    pub image: Arc<Mutex<Vec<u8>>>,
 }
 
 impl GameBoy {
-    pub fn new(rom: Vec<u8>) -> Self {
+    pub fn new(rom: Vec<u8>, image: Arc<Mutex<Vec<u8>>>) -> Self {
         let bus = Arc::new(RwLock::new(Mmu::new(&rom)));
         let cpu = Cpu::new(bus.clone());
         let ppu = Ppu::new(bus.clone());
 
-        GameBoy { cpu, bus, ppu }
+        GameBoy { cpu, bus, ppu, image }
     }
 
-    pub fn run_frame(&mut self) -> Vec<u8> {
+    pub fn run_frame(&mut self) -> bool {
         let mut cycles_this_frame = 0;
-        let mut frame = vec![0; WIN_SIZE_X * WIN_SIZE_Y * 3];
+        let mut frame = false;
 
         while cycles_this_frame < FRAME_CYCLES {
             self.bus.write().unwrap().tick_timers();
             self.cpu.tick();
             cycles_this_frame += 1;
             self.ppu.update_registers();
-            self.ppu.render_frame(&mut frame)
+            frame = self.ppu.render_frame(self.image);
         }
         frame
     }

@@ -12,6 +12,8 @@ pub struct MyApp {
 
 use crate::app::GameApp;
 use eframe::egui;
+use eframe::egui::mutex;
+use tokio::sync::Mutex;
 use std::fs;
 use std::process;
 use tokio::sync::mpsc::{Receiver, Sender, channel};
@@ -61,10 +63,11 @@ fn read_rom(rom_path: String) -> Vec<u8> {
 async fn launch_game(
     rom_path: String,
     input_receiver: Receiver<Vec<u8>>,
-    image_sender: Sender<Vec<u8>>,
+    image_sender: Sender<bool>,
     command_query_receiver: Receiver<DebugCommandQueries>,
     debug_response_sender: Sender<DebugResponse>,
     global_is_debug: Arc<AtomicBool>,
+    image_to_change: Arc<Mutex<Vec<u8>>>,
 ) {
     let rom_data: Vec<u8> = read_rom(rom_path);
     let mut app = GameApp::new(
@@ -72,12 +75,13 @@ async fn launch_game(
         command_query_receiver,
         debug_response_sender,
         global_is_debug,
+        image_to_change,
     );
 
     loop {
         let buffer = app.update();
-        if let Some(image) = buffer {
-            _ = image_sender.send(image).await;
+        if buffer {
+            _ = image_sender.send(buffer).await;
         }
     }
 }
@@ -107,7 +111,7 @@ pub struct WatchedAdresses {
 pub struct CoreGameDevice {
     pub handler: JoinHandle<()>,
     pub input_sender: Sender<Vec<u8>>,
-    pub image_receiver: Receiver<Vec<u8>>,
+    pub image_receiver: Receiver<bool>,
     pub command_query_sender: Sender<DebugCommandQueries>,
     pub debug_response_receiver: Receiver<DebugResponse>,
     pub actual_image: Vec<u8>,
@@ -117,10 +121,11 @@ pub struct CoreGameDevice {
 impl CoreGameDevice {
     fn new(path: String) -> Self {
         let (input_sender, input_receiver) = channel::<Vec<u8>>(1);
-        let (image_sender, image_receiver) = channel::<Vec<u8>>(1);
+        let (image_sender, image_receiver) = channel::<bool>(1);
         let (command_query_sender, command_query_receiver) = channel::<DebugCommandQueries>(1);
         let (debug_response_sender, debug_response_receiver) = channel::<DebugResponse>(10);
         let global_is_debug = Arc::new(AtomicBool::new(false));
+        let actual_image = Arc::new(Mutex::new(vec![0; 160 * 144 * 4]));
         Self {
             input_sender,
             image_receiver,
@@ -133,6 +138,7 @@ impl CoreGameDevice {
                 command_query_receiver,
                 debug_response_sender,
                 global_is_debug.clone(),
+                actual_image,
             )),
             actual_image: vec![0; 160 * 144 * 4],
             global_is_debug,

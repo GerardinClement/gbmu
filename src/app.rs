@@ -3,6 +3,7 @@
 use crate::gameboy::GameBoy;
 use crate::gui::{DebugCommandQueries, DebugResponse, WatchedAdresses};
 use crate::ppu;
+use tokio::sync::Mutex;
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
@@ -18,6 +19,7 @@ pub struct GameApp {
     nb_next_intruction: u8,
     is_sending_registers: bool,
     watched_adress: WatchedAdresses,
+    image_to_change: Arc<Mutex<Vec<u8>>>,
 }
 
 impl GameApp {
@@ -26,8 +28,9 @@ impl GameApp {
         receiver: Receiver<DebugCommandQueries>,
         sender: Sender<DebugResponse>,
         global_bool: Arc<AtomicBool>,
+        image_to_change: Arc<Mutex<Vec<u8>>>,
     ) -> Self {
-        let gameboy = GameBoy::new(rom);
+        let gameboy = GameBoy::new(rom, image_to_change.clone());
         println!("{}", gameboy.cpu);
         Self {
             gameboy,
@@ -40,6 +43,7 @@ impl GameApp {
             watched_adress: WatchedAdresses {
                 addresses_n_values: Vec::new(),
             },
+            image_to_change,
         }
     }
 
@@ -92,7 +96,7 @@ impl GameApp {
             .try_send(DebugResponse::NextInstructions(v));
     }
 
-    pub fn update(&mut self) -> Option<Vec<u8>> {
+    pub fn update(&mut self) -> bool {
         println!("update");
         let mut instruction_to_execute = !self.is_step_mode as usize;
         let is_debug = self.is_debug_mode.load(Ordering::Relaxed);
@@ -152,19 +156,17 @@ impl GameApp {
             }
         }
 
-        let mut last_frame = None;
+        let mut frame_was_edited = false;
         if is_debug {
             for _ in 0..instruction_to_execute {
-                let rgb_frame = self.gameboy.run_frame();
+                let frame_was_edited = self.gameboy.run_frame();
                 self.send_next_instructions();
                 self.send_watched_address();
                 self.send_registers();
-                last_frame = Some(Self::rgb_to_rgba(&rgb_frame));
             }
-            last_frame
+            frame_was_edited
         } else {
-            let rgb_frame = self.gameboy.run_frame();
-            Some(Self::rgb_to_rgba(&rgb_frame))
+            self.gameboy.run_frame();
         }
     }
 
