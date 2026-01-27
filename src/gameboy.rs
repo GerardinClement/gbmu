@@ -3,7 +3,7 @@
 
 use std::sync::{Arc, RwLock};
 
-use tokio::sync::Mutex;
+use std::sync::Mutex;
 
 use crate::cpu::Cpu;
 use crate::mmu::Mmu;
@@ -40,7 +40,7 @@ impl GameBoy {
             self.cpu.tick();
             cycles_this_frame += 1;
             self.ppu.update_registers();
-            frame = self.ppu.render_frame(self.image);
+            frame = self.ppu.render_frame(&mut self.image);
         }
         frame
     }

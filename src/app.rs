@@ -3,7 +3,7 @@
 use crate::gameboy::GameBoy;
 use crate::gui::{DebugCommandQueries, DebugResponse, WatchedAdresses};
 use crate::ppu;
-use tokio::sync::Mutex;
+use std::sync::Mutex;
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
@@ -97,7 +97,6 @@ impl GameApp {
     }
 
     pub fn update(&mut self) -> bool {
-        println!("update");
         let mut instruction_to_execute = !self.is_step_mode as usize;
         let is_debug = self.is_debug_mode.load(Ordering::Relaxed);
         if is_debug {
@@ -159,14 +158,14 @@ impl GameApp {
         let mut frame_was_edited = false;
         if is_debug {
             for _ in 0..instruction_to_execute {
-                let frame_was_edited = self.gameboy.run_frame();
+                frame_was_edited = self.gameboy.run_frame();
                 self.send_next_instructions();
                 self.send_watched_address();
                 self.send_registers();
             }
             frame_was_edited
         } else {
-            self.gameboy.run_frame();
+            self.gameboy.run_frame()
         }
     }
 

@@ -11,9 +11,9 @@ pub struct MyApp {
 }
 
 use crate::app::GameApp;
+use crate::ppu;
 use eframe::egui;
-use eframe::egui::mutex;
-use tokio::sync::Mutex;
+use std::sync::Mutex;
 use std::fs;
 use std::process;
 use tokio::sync::mpsc::{Receiver, Sender, channel};
@@ -114,9 +114,12 @@ pub struct CoreGameDevice {
     pub image_receiver: Receiver<bool>,
     pub command_query_sender: Sender<DebugCommandQueries>,
     pub debug_response_receiver: Receiver<DebugResponse>,
-    pub actual_image: Vec<u8>,
+    pub actual_image: Arc<Mutex<Vec<u8>>>,
+    pub resized_image: Vec<u8>,
     pub global_is_debug: Arc<AtomicBool>,
 }
+
+use crate::gui::views::emulation_view::scale_image;
 
 impl CoreGameDevice {
     fn new(path: String) -> Self {
@@ -126,6 +129,7 @@ impl CoreGameDevice {
         let (debug_response_sender, debug_response_receiver) = channel::<DebugResponse>(10);
         let global_is_debug = Arc::new(AtomicBool::new(false));
         let actual_image = Arc::new(Mutex::new(vec![0; 160 * 144 * 4]));
+        let resized_image = scale_image(&vec![0; 160 * 144 * 4], ppu::WIN_SIZE_X, ppu::WIN_SIZE_Y, 5);
         Self {
             input_sender,
             image_receiver,
@@ -138,10 +142,11 @@ impl CoreGameDevice {
                 command_query_receiver,
                 debug_response_sender,
                 global_is_debug.clone(),
-                actual_image,
+                actual_image.clone(),
             )),
-            actual_image: vec![0; 160 * 144 * 4],
+            actual_image,
             global_is_debug,
+            resized_image,
         }
     }
 }

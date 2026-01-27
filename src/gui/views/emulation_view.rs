@@ -77,17 +77,20 @@ pub fn update_and_get_image(game: &mut CoreGameDevice) -> ColorImage {
     let scale = 5;
     let white_pxl = [255u8, 255, 255, 255];
     if let Ok(new_image) = game.image_receiver.try_recv() {
-        game.actual_image = new_image;
+        if new_image {
+            let image = game.actual_image.lock().unwrap();
+            game.resized_image = scale_image(&image, initial_width, initial_height, scale);
+        }
     }
-    let resized_image = scale_image(&game.actual_image, initial_width, initial_height, scale);
 
-    ColorImage::from_rgba_unmultiplied(
+    ColorImage::from_rgb(
+
         [initial_width * scale, initial_height * scale],
-        &resized_image,
+        &game.resized_image,
     )
 }
 
-fn scale_image(pixels: &[u8], width: usize, height: usize, scale: usize) -> Vec<u8> {
+pub fn scale_image(pixels: &[u8], width: usize, height: usize, scale: usize) -> Vec<u8> {
     let scale_w = width * scale;
     let scale_h = height * scale;
     let size = scale_h * scale_w;
@@ -98,8 +101,8 @@ fn scale_image(pixels: &[u8], width: usize, height: usize, scale: usize) -> Vec<
             let x = index % scale_w;
             let orig_y = y / scale;
             let orig_x = x / scale;
-            let index_to_copy = (orig_y * width + orig_x) * 4;
-            &pixels[index_to_copy..index_to_copy + 4]
+            let index_to_copy = (orig_y * width + orig_x) * 3;
+            &pixels[index_to_copy..index_to_copy + 3]
         })
         .flat_map(|slice| slice.iter().copied())
         .collect()
