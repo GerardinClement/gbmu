@@ -13,16 +13,18 @@ pub struct MyApp {
 use crate::app::GameApp;
 use crate::ppu;
 use eframe::egui;
+use tokio::time::Instant;
 use std::sync::Mutex;
 use std::fs;
 use std::process;
 use tokio::sync::mpsc::{Receiver, Sender, channel};
 use tokio::task::JoinHandle;
 
-use std::sync::{Arc, atomic::AtomicBool};
+use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        let debut = Instant::now();
         self.app_state = match std::mem::replace(&mut self.app_state, AppState::Default) {
             AppState::StartingHub(device) => device.starting_view(ctx, _frame),
             AppState::SelectionHub(device) => device.selection_view(ctx, _frame),
@@ -30,6 +32,8 @@ impl eframe::App for MyApp {
             AppState::DebugingHub(device) => device.debug_view(ctx, _frame),
             AppState::Default => unreachable!(),
         };
+        let duration = debut.elapsed();
+        println!("egui : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
         ctx.request_repaint();
     }
 }
@@ -63,7 +67,7 @@ fn read_rom(rom_path: String) -> Vec<u8> {
 async fn launch_game(
     rom_path: String,
     input_receiver: Receiver<Vec<u8>>,
-    image_sender: Sender<bool>,
+    updated_image_boolean: Arc<AtomicBool>,
     command_query_receiver: Receiver<DebugCommandQueries>,
     debug_response_sender: Sender<DebugResponse>,
     global_is_debug: Arc<AtomicBool>,
@@ -79,10 +83,16 @@ async fn launch_game(
     );
 
     loop {
-        let buffer = app.update();
-        if buffer {
-            _ = image_sender.send(buffer).await;
+        let debut = Instant::now();
+        let buffer_was_updated = app.update();
+        let duration = debut.elapsed();
+        //println!("update app: Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
+        let debut = Instant::now();
+        if buffer_was_updated {
+            updated_image_boolean.store(true, Ordering::Relaxed);
         }
+        let duration = debut.elapsed();
+        //println!("sending : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
     }
 }
 
@@ -111,7 +121,7 @@ pub struct WatchedAdresses {
 pub struct CoreGameDevice {
     pub handler: JoinHandle<()>,
     pub input_sender: Sender<Vec<u8>>,
-    pub image_receiver: Receiver<bool>,
+    pub updated_image_boolean: Arc<AtomicBool>,
     pub command_query_sender: Sender<DebugCommandQueries>,
     pub debug_response_receiver: Receiver<DebugResponse>,
     pub actual_image: Arc<Mutex<Vec<u8>>>,
@@ -124,7 +134,7 @@ use crate::gui::views::emulation_view::scale_image;
 impl CoreGameDevice {
     fn new(path: String) -> Self {
         let (input_sender, input_receiver) = channel::<Vec<u8>>(1);
-        let (image_sender, image_receiver) = channel::<bool>(1);
+        let updated_image_boolean: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
         let (command_query_sender, command_query_receiver) = channel::<DebugCommandQueries>(1);
         let (debug_response_sender, debug_response_receiver) = channel::<DebugResponse>(10);
         let global_is_debug = Arc::new(AtomicBool::new(false));
@@ -132,18 +142,18 @@ impl CoreGameDevice {
         let resized_image = scale_image(&vec![0; 160 * 144 * 4], ppu::WIN_SIZE_X, ppu::WIN_SIZE_Y, 5);
         Self {
             input_sender,
-            image_receiver,
             command_query_sender,
             debug_response_receiver,
             handler: tokio::spawn(launch_game(
                 path,
                 input_receiver,
-                image_sender,
+                updated_image_boolean.clone(),
                 command_query_receiver,
                 debug_response_sender,
                 global_is_debug.clone(),
                 actual_image.clone(),
             )),
+            updated_image_boolean,
             actual_image,
             global_is_debug,
             resized_image,

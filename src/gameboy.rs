@@ -5,6 +5,8 @@ use std::sync::{Arc, RwLock};
 
 use std::sync::Mutex;
 
+use tokio::time::Instant;
+
 use crate::cpu::Cpu;
 use crate::mmu::Mmu;
 use crate::ppu::Ppu;
@@ -32,16 +34,24 @@ impl GameBoy {
     }
 
     pub fn run_frame(&mut self) -> bool {
-        let mut cycles_this_frame = 0;
         let mut frame = false;
 
-        while cycles_this_frame < FRAME_CYCLES {
-            self.bus.write().unwrap().tick_timers();
-            self.cpu.tick();
-            cycles_this_frame += 1;
-            self.ppu.update_registers();
-            frame = self.ppu.render_frame(&mut self.image);
-        }
+        let debut = Instant::now();
+        self.bus.write().unwrap().tick_timers();
+        let duration = debut.elapsed();
+        //println!("bus tick : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
+        let debut = Instant::now();
+        self.cpu.tick();
+        let duration = debut.elapsed();
+        //println!("cpu tick : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
+        let debut = Instant::now();
+        self.ppu.update_registers();
+        let duration = debut.elapsed();
+        //println!("update_reg : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
+        let debut = Instant::now();
+        frame = self.ppu.render_frame(&mut self.image);
+        let duration = debut.elapsed();
+        //println!("render : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
         frame
     }
 }

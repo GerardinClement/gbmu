@@ -9,6 +9,8 @@ mod pixel_fifo;
 
 use std::sync::Mutex;
 
+use tokio::time::Instant;
+
 use crate::mmu::MemoryRegion;
 use crate::mmu::Mmu;
 use crate::ppu::colors_palette::Color;
@@ -217,19 +219,15 @@ impl Ppu {
     }
 
     pub fn render_frame(&mut self, image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
+
         if self.lcd_status.get_ppu_mode() != PpuMode::VBlank {
             let pixels = self.fetcher();
-            for pixel in &pixels {
-                self.bg_fifo.push(pixel.clone());
-            }
             
             let mut frame = image.lock().unwrap();
 
-            for i in 0..8 {
-                if let Some(p) = self.bg_fifo.pop() {
-                    let offset = ((self.ly as usize * WIN_SIZE_X) + (self.x + i)) * 3;
-                    self.set_pixel_color(&mut frame, offset, *p.get_color());
-                }
+            for (i, p) in pixels.into_iter().enumerate() {
+                let offset = ((self.ly as usize * WIN_SIZE_X) + (self.x + i)) * 3;
+                self.set_pixel_color(&mut frame, offset, *p.get_color());
             }
         }
 
