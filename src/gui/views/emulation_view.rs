@@ -2,9 +2,8 @@ use crate::{
     gui::{
         AppState, CoreGameDevice, DebugingDevice, EmulationDevice, SelectionDevice, WatchedAdresses,
     },
-    ppu,
 };
-use eframe::egui::{ColorImage, Context, TextureOptions};
+use eframe::egui::Context;
 
 use std::sync::atomic::Ordering;
 
@@ -13,15 +12,16 @@ use std::time::Instant;
 impl EmulationDevice {
     pub fn emulation_view(mut self, ctx: &Context, _frame: &mut eframe::Frame) -> AppState {
         let debut = Instant::now();
-        let color_image = update_and_get_image(&mut self.core_game);
+        self.core_game.update_and_size_image(ctx);
         let duration = debut.elapsed();
-        println!("update and get image: Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
-        let texture_handle = ctx.load_texture("gb_frame", color_image, TextureOptions::default());
+        //println!("update and size image: Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
 
         eframe::egui::CentralPanel::default()
             .show(ctx, |ui| {
                 ui.vertical_centered(|ui| {
-                    ui.image(&texture_handle);
+                    if let Some(texture) = self.core_game.sized_image {
+                        ui.image(texture);
+                    }
                     ui.add_space(10.0);
                 });
                 if ui.button("🐛 Open Debug Panel").clicked() {
@@ -76,22 +76,6 @@ impl From<DebugingDevice> for EmulationDevice {
     }
 }
 
-pub fn update_and_get_image(game: &mut CoreGameDevice) -> ColorImage {
-    let initial_width = ppu::WIN_SIZE_X;
-    let initial_height = ppu::WIN_SIZE_Y;
-    let scale = 5;
-    let white_pxl = [255u8, 255, 255, 255];
-    if  game.updated_image_boolean.load(Ordering::Relaxed) {
-        let image = game.actual_image.lock().unwrap();
-        game.resized_image = scale_image(&image, initial_width, initial_height, scale);
-        game.updated_image_boolean.store(false, Ordering::Relaxed);
-    }
-
-    ColorImage::from_rgb(
-        [initial_width * scale, initial_height * scale],
-        &game.resized_image,
-    )
-}
 
 pub fn scale_image(pixels: &[u8], width: usize, height: usize, scale: usize) -> Vec<u8> {
     let scale_w = width * scale;

@@ -187,32 +187,33 @@ impl Ppu {
         let screen_y = self.ly as usize;
         let mut pixels = Vec::new();
 
-        for _ in 0..8 {
-            let use_window = self.lcd_control.is_window_enabled()
-                && (screen_y >= self.wy as usize)
-                && (screen_x + 7 >= self.wx as usize);
+        for y in 0..WIN_SIZE_Y {
+            for x in 0..WIN_SIZE_X {
+                let use_window = self.lcd_control.is_window_enabled()
+                    && (screen_y >= self.wy as usize)
+                    && (screen_x + 7 >= self.wx as usize);
 
-            let (bg_x, bg_y) = if use_window {
-                let win_x = screen_x + 7 - self.wx as usize;
-                let win_y = screen_y - self.wy as usize;
-                (win_x % 256, win_y % 256)
-            } else {
-                (
-                    (screen_x + self.scx as usize) % 256,
-                    (screen_y + self.scy as usize) % 256,
-                )
-            };
+                let (bg_x, bg_y) = if use_window {
+                    let win_x = screen_x + 7 - self.wx as usize;
+                    let win_y = screen_y - self.wy as usize;
+                    (win_x % 256, win_y % 256)
+                } else {
+                    (
+                        (x + self.scx as usize) % 256,
+                        (y + self.scy as usize) % 256,
+                    )
+                };
 
-            let tile_x = bg_x / 8;
-            let tile_y = bg_y / 8;
-            let tile_address = self.get_tile_address(tile_y, tile_x, use_window);
-            let tile = self.read_tile_data(tile_address);
-            let pixel_x = bg_x % 8;
-            let pixel_y = bg_y % 8;
-            let color = self.get_pixel_color(tile, pixel_x, pixel_y);
-            let pixel = Pixel::new(color, 0, 0, 0);
-            pixels.push(pixel);
-            screen_x += 1;
+                let tile_x = bg_x / 8;
+                let tile_y = bg_y / 8;
+                let tile_address = self.get_tile_address(tile_y, tile_x, use_window);
+                let tile = self.read_tile_data(tile_address);
+                let pixel_x = bg_x % 8;
+                let pixel_y = bg_y % 8;
+                let color = self.get_pixel_color(tile, pixel_x, pixel_y);
+                let pixel = Pixel::new(color, 0, 0, 0);
+                pixels.push(pixel);
+            }
         }
 
         pixels
@@ -220,13 +221,13 @@ impl Ppu {
 
     pub fn render_frame(&mut self, image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
 
-        if self.lcd_status.get_ppu_mode() != PpuMode::VBlank {
-            let pixels = self.fetcher();
-            
+        let pixels = self.fetcher();
+        
+        {
             let mut frame = image.lock().unwrap();
 
             for (i, p) in pixels.into_iter().enumerate() {
-                let offset = ((self.ly as usize * WIN_SIZE_X) + (self.x + i)) * 3;
+                let offset = i * 3;
                 self.set_pixel_color(&mut frame, offset, *p.get_color());
             }
         }

@@ -37,21 +37,25 @@ impl GameBoy {
         let mut frame = false;
 
         let debut = Instant::now();
-        self.bus.write().unwrap().tick_timers();
+        for i in 0..17556 {
+            self.bus.write().unwrap().tick_timers();
+            let duration = debut.elapsed();
+            //println!("bus tick : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
+            let debut = Instant::now();
+            self.cpu.tick();
+            let duration = debut.elapsed();
+            //println!("cpu tick : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
+            let debut = Instant::now();
+            self.ppu.update_registers();
+            let duration = debut.elapsed();
+            //println!("update_reg : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
+        }
         let duration = debut.elapsed();
-        //println!("bus tick : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
+        //println!("one cpu render frame : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
         let debut = Instant::now();
-        self.cpu.tick();
-        let duration = debut.elapsed();
-        //println!("cpu tick : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
-        let debut = Instant::now();
-        self.ppu.update_registers();
-        let duration = debut.elapsed();
-        //println!("update_reg : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
-        let debut = Instant::now();
-        frame = self.ppu.render_frame(&mut self.image);
+        self.ppu.render_frame(&mut self.image);
         let duration = debut.elapsed();
         //println!("render : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
-        frame
+        true
     }
 }
