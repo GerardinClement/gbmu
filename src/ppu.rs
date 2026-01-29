@@ -9,10 +9,12 @@ mod pixel_fifo;
 
 use std::sync::Mutex;
 
+use eframe::egui::Memory;
 use tokio::time::Instant;
 
 use crate::mmu::MemoryRegion;
 use crate::mmu::Mmu;
+use crate::mmu::oam::Sprite;
 use crate::ppu::colors_palette::Color;
 use crate::ppu::lcd_control::LcdControl;
 use crate::ppu::lcd_status::LcdStatus;
@@ -25,6 +27,7 @@ pub const WIN_SIZE_X: usize = 160; // Window size in X direction
 pub const WIN_SIZE_Y: usize = 144; // Window size in Y direction
 pub const VBLANK_SIZE: usize = 10; // VBlank size in lines
 const VRAM: MemoryRegion = MemoryRegion::Vram; // Start of VRAM
+const OAM: MemoryRegion = MemoryRegion::Oam; // Start of OAM
 const LY_ADDR: u16 = 0xFF44; // LCDC Y-Coordinate
 const LYC_ADDR: u16 = 0xFF45; // LY Compare
 const STAT_ADDR: u16 = 0xFF41; // LCDC Status
@@ -47,6 +50,7 @@ pub struct Ppu {
     lyc: u8,
     x: usize,
     bg_fifo: PixelFifo, // Background pixel FIFO
+    visible_sprites: [Option<Sprite>; 10],
 }
 
 impl Ppu {
@@ -63,6 +67,7 @@ impl Ppu {
             lyc: 0x00,
             x: 0,
             bg_fifo: PixelFifo::default(),
+            visible_sprites: [None; 10],
         }
     }
 
@@ -180,6 +185,16 @@ impl Ppu {
             lcd_control::TILE_DATA_0 => 0x8800 + ((tile_number as i8 as i16) as u16) * 16,
             _ => unreachable!(),
         }
+    }
+
+    fn oam_search(&self) {
+        let height = if self.lcd_control.is_obj_size_8x16() {
+            16
+        } else {
+            8
+        };
+
+        
     }
 
     fn fetcher(&self) -> Vec<Pixel> {
