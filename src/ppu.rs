@@ -187,14 +187,24 @@ impl Ppu {
         }
     }
 
-    fn oam_search(&self) {
-        let height = if self.lcd_control.is_obj_size_8x16() {
+    fn oam_search(&mut self) {
+        let height:u8 = if self.lcd_control.is_obj_size_8x16() {
             16
         } else {
             8
         };
-
-        
+        let mmu = self.bus.read().unwrap();
+        let oam  = mmu.get_oam();
+        let mut i: usize = 0;
+        for sprite in &oam.sprites {
+            if sprite.is_visible(self.ly, height) {
+                self.visible_sprites[i] = Some(*sprite);
+                i += 1;
+                if i >= 10 {
+                    break;
+                }
+            }
+        }
     }
 
     fn fetcher(&self) -> Vec<Pixel> {
@@ -235,6 +245,12 @@ impl Ppu {
     }
 
     pub fn render_frame(&mut self, image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
+        if self.x == 0 {
+            self.lcd_status.update_ppu_mode(PpuMode::OamSearch);
+            self.visible_sprites = [None; 10];
+            self.oam_search();
+        }
+
 
         let pixels = self.fetcher();
         
