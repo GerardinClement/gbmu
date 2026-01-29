@@ -1,6 +1,6 @@
 const OAM_BEGINNING: u16 = 0xFE00;
 
-#[derive(Default, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct Sprite {
 	pub y: u8, // Y-position of the sprite
 	pub x: u8, // X-position of the sprite
@@ -8,7 +8,16 @@ pub struct Sprite {
 	pub attributes: u8, // bit 7: Priority, bit 6: Y flip, bit 5: X flip, bit 4: Palette, bit 3-0: unused for DMG
 }
 
+impl Default for Sprite {
+    fn default() -> Self {
+        Self { y: 0xFF, x: 0xFF, tile: 0xFF, attributes: 0xFF }
+    }
+}
 impl Sprite {
+    pub fn new() -> Self {
+        Default::default()
+    }
+
     pub fn is_visible(&self, ly: u8, height: u8) -> bool {
         if ly >= 144 { // out of the screen
             return false;
@@ -28,7 +37,7 @@ pub struct Oam {
 
 impl Default for Oam {
 	fn default() -> Self {
-		Self { sprites: [Sprite { y: 0xFF, x: 0xFF, tile: 0xFF, attributes: 0xFF }; 40] }
+		Self { sprites: [Sprite::default(); 40] }
 	}
 }
 
