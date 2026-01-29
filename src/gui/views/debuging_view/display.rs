@@ -92,7 +92,9 @@ pub fn display_interface(
         })
         .inner;
 
-    display_game(data.game_texture_handle, ctx);
+    if let Some(sized_texture) = data.sized_texture {
+        display_game(sized_texture, ctx);
+    }
 
     DebugingDataOut {
         step_clicked: stp_btn_clkd,

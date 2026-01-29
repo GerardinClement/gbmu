@@ -1,15 +1,14 @@
 mod display;
 
 use crate::debugger::debbuger;
-use crate::gui::views::emulation_view::update_and_get_image;
 use crate::gui::{AppState, DebugingDevice, WatchedAdresses};
 
+use eframe::egui::load::SizedTexture;
 use eframe::egui::{Context, TextureHandle, TextureOptions};
 
 use display::display_interface;
 
 struct DebugingDataIn<'a> {
-    game_texture_handle: TextureHandle,
     is_step: bool,
     watched_address: &'a WatchedAdresses,
     registers: &'a (u8, u8, u8, u8, u8, u8, u8, u16, u16),
@@ -17,6 +16,7 @@ struct DebugingDataIn<'a> {
     next_instructions: &'a Vec<u16>,
     hex_string: &'a String,
     error_message: Option<&'a String>,
+    sized_texture: Option<SizedTexture>,
 }
 
 #[derive(Debug)]
@@ -73,9 +73,7 @@ impl DebugingDevice {
     }
 
     fn update_and_get_debuging_data(&mut self, ctx: &Context) -> DebugingDataIn<'_> {
-        let color_image = update_and_get_image(&mut self.core_game);
-        let game_texture_handle =
-            ctx.load_texture("gb_frame", color_image, TextureOptions::default());
+        let color_image = self.core_game.update_and_size_image(ctx);
         debbuger::update_info_struct(self);
 
         let error_message = if let Some(value) = &self.error_message {
@@ -85,7 +83,7 @@ impl DebugingDevice {
         };
         DebugingDataIn {
             is_step: self.is_step,
-            game_texture_handle,
+            sized_texture: self.core_game.sized_image,
             watched_address: &self.watched_adress,
             registers: &self.registers,
             nb_instruction: self.nb_instruction as u8,

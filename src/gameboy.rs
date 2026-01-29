@@ -3,6 +3,10 @@
 
 use std::sync::{Arc, RwLock};
 
+use std::sync::Mutex;
+
+use tokio::time::Instant;
+
 use crate::cpu::Cpu;
 use crate::mmu::Mmu;
 use crate::ppu::Ppu;
@@ -17,28 +21,41 @@ pub struct GameBoy {
     pub cpu: Cpu,
     pub ppu: Ppu,
     pub bus: Arc<RwLock<Mmu>>,
+    pub image: Arc<Mutex<Vec<u8>>>,
 }
 
 impl GameBoy {
-    pub fn new(rom: Vec<u8>) -> Self {
+    pub fn new(rom: Vec<u8>, image: Arc<Mutex<Vec<u8>>>) -> Self {
         let bus = Arc::new(RwLock::new(Mmu::new(&rom)));
         let cpu = Cpu::new(bus.clone());
         let ppu = Ppu::new(bus.clone());
 
-        GameBoy { cpu, bus, ppu }
+        GameBoy { cpu, bus, ppu, image }
     }
 
-    pub fn run_frame(&mut self) -> Vec<u8> {
-        let mut cycles_this_frame = 0;
-        let mut frame = vec![0; WIN_SIZE_X * WIN_SIZE_Y * 3];
+    pub fn run_frame(&mut self) -> bool {
+        let mut frame = false;
 
-        while cycles_this_frame < FRAME_CYCLES {
+        let debut = Instant::now();
+        for i in 0..17556 {
             self.bus.write().unwrap().tick_timers();
+            let duration = debut.elapsed();
+            //println!("bus tick : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
+            let debut = Instant::now();
             self.cpu.tick();
-            cycles_this_frame += 1;
+            let duration = debut.elapsed();
+            //println!("cpu tick : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
+            let debut = Instant::now();
             self.ppu.update_registers();
-            self.ppu.render_frame(&mut frame)
+            let duration = debut.elapsed();
+            //println!("update_reg : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
         }
-        frame
+        let duration = debut.elapsed();
+        //println!("one cpu render frame : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
+        let debut = Instant::now();
+        self.ppu.render_frame(&mut self.image);
+        let duration = debut.elapsed();
+        //println!("render : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
+        true
     }
 }
