@@ -239,13 +239,40 @@ impl Ppu {
         pixels
     }
 
+    fn extract_attributes(attributes: u8) -> (bool, bool, bool, bool) {
+        let priority = ((1 << 0) & attributes) > 0;
+        let y_flip = ((1 << 0) & attributes) > 0;
+        let x_flip = ((1 << 0) & attributes) > 0;
+        let palette = ((1 << 0) & attributes) > 0;
+
+        (priority, y_flip, x_flip, palette)
+    }
+
+    fn render_sprites(&self, mut pixels: Vec<Pixel>) -> Vec<Pixel> {
+        // Pour chaque sprite visible
+        // Pour chaque pixel X du sprite (0-7)
+        // Calculer la position dans le Vec (0-159)
+        // Si pixel sprite non transparent
+        // Remplacer pixels[position]
+        for sprite_option in self.visible_sprites {
+            if let Some(sprite) = sprite_option {
+                let color = self.get_pixel_color(sprite.tile, sprite.x, sprite.y);
+                let pixel = Pixel::new(color, 0, 0, 0);
+
+            }
+        }
+        pixels
+    }
+
     pub fn render_frame(&mut self, image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
         if self.ly < WIN_SIZE_Y as u8 {
             self.lcd_status.update_ppu_mode(PpuMode::OamSearch);
             self.visible_sprites = [None; 10];
             self.oam_search();
             
-            let pixels = self.render_background();
+            let mut pixels = self.render_background();
+            pixels = self.render_sprites(pixels);
+
             {
                 let mut frame = image.lock().unwrap();
                 let ly = self.ly as usize;
