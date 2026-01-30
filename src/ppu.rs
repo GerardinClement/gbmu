@@ -9,9 +9,6 @@ mod pixel_fifo;
 
 use std::sync::Mutex;
 
-use eframe::egui::Memory;
-use tokio::time::Instant;
-
 use crate::mmu::MemoryRegion;
 use crate::mmu::Mmu;
 use crate::mmu::oam::Sprite;
@@ -243,28 +240,26 @@ impl Ppu {
     }
 
     pub fn render_frame(&mut self, image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
-        if self.x == 0 {
+        if self.ly < WIN_SIZE_Y as u8 {
             self.lcd_status.update_ppu_mode(PpuMode::OamSearch);
             self.visible_sprites = [None; 10];
             self.oam_search();
-        }
+            
+            let pixels = self.render_background();
+            {
+                let mut frame = image.lock().unwrap();
+                let ly = self.ly as usize;
 
-
-        let pixels = self.render_background();
-        
-        {
-            let mut frame = image.lock().unwrap();
-            let ly = self.ly as usize;
-
-            for (x, p) in pixels.into_iter().enumerate() {
-                let offset = (ly * WIN_SIZE_X + x) * 3; // * 3 for each pixels (3 bytes (RGB))
-                self.set_pixel_color(&mut frame, offset, *p.get_color());
+                for (x, p) in pixels.into_iter().enumerate() {
+                    let offset = (ly * WIN_SIZE_X + x) * 3; // * 3 for each pixels (3 bytes (RGB))
+                    self.set_pixel_color(&mut frame, offset, *p.get_color());
+                }
             }
         }
-
+        
         self.ly += 1;
 
-        if self.ly >= WIN_SIZE_Y as u8 {
+        if self.ly >= WIN_SIZE_Y as u8 + VBLANK_SIZE as u8 {
             // Reset
             self.ly = 0;
         }
