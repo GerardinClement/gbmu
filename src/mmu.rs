@@ -146,6 +146,10 @@ impl Mmu {
     pub fn interrupts_request(&mut self, interrupt: Interrupt) {
         self.interrupts.request(interrupt);
     }
+
+    pub fn get_oam(&self) -> &Oam {
+        &self.oam
+    }
 }
 
 impl Default for Mmu {

@@ -1,11 +1,34 @@
 const OAM_BEGINNING: u16 = 0xFE00;
 
-#[derive(Default, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct Sprite {
 	pub y: u8, // Y-position of the sprite
 	pub x: u8, // X-position of the sprite
 	pub tile: u8, // Tile index
 	pub attributes: u8, // bit 7: Priority, bit 6: Y flip, bit 5: X flip, bit 4: Palette, bit 3-0: unused for DMG
+}
+
+impl Default for Sprite {
+    fn default() -> Self {
+        Self { y: 0xFF, x: 0xFF, tile: 0xFF, attributes: 0xFF }
+    }
+}
+impl Sprite {
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    pub fn is_visible(&self, ly: u8, height: u8) -> bool {
+        if ly >= 144 { // out of the screen
+            return false;
+        }
+
+        let sprite_top: i16 = self.y as i16 - 16;
+        let sprite_bottom: i16 = sprite_top + height as i16;
+        let ly: i16 = ly as i16;
+
+        ly >= sprite_top && ly < sprite_bottom
+    }
 }
 
 pub struct Oam {
@@ -14,7 +37,7 @@ pub struct Oam {
 
 impl Default for Oam {
 	fn default() -> Self {
-		Self { sprites: [Sprite { y: 0xFF, x: 0xFF, tile: 0xFF, attributes: 0xFF }; 40] }
+		Self { sprites: [Sprite::default(); 40] }
 	}
 }
 
@@ -54,6 +77,7 @@ impl Oam {
 #[cfg(test)]
 mod tests {
     use super::Oam;
+    use super::Sprite;
 
     #[test]
     fn test_write_sprite_0_y_position() {
@@ -182,5 +206,102 @@ mod tests {
         // Verify sprite 1
         assert_eq!(oam.read(0xFE04), 30);
         assert_eq!(oam.read(0xFE05), 40);
-    }
+    } 
+    
+    /*
+        is sprite visible tests
+    */
+
+    #[test]
+        fn test_sprite_visible_middle_of_screen() {
+            let sprite = Sprite { y: 50, x: 80, tile: 0, attributes: 0 };
+            // Position réelle = 50 - 16 = 34
+            // Visible sur lignes 34 à 41 (8 pixels de haut)
+            assert!(sprite.is_visible(34, 8));
+            assert!(sprite.is_visible(37, 8));
+            assert!(sprite.is_visible(41, 8));
+        }
+
+        #[test]
+        fn test_sprite_not_visible_before() {
+            let sprite = Sprite { y: 50, x: 80, tile: 0, attributes: 0 };
+            // Position réelle = 34, donc pas visible sur ligne 33
+            assert!(!sprite.is_visible(33, 8));
+            assert!(!sprite.is_visible(20, 8));
+            assert!(!sprite.is_visible(0, 8));
+        }
+
+        #[test]
+        fn test_sprite_not_visible_after() {
+            let sprite = Sprite { y: 50, x: 80, tile: 0, attributes: 0 };
+            // Position réelle = 34, hauteur 8, donc pas visible après ligne 41
+            assert!(!sprite.is_visible(42, 8));
+            assert!(!sprite.is_visible(100, 8));
+            assert!(!sprite.is_visible(143, 8));
+        }
+
+        #[test]
+        fn test_sprite_at_top_edge() {
+            let sprite = Sprite { y: 16, x: 80, tile: 0, attributes: 0 };
+            // Position réelle = 16 - 16 = 0
+            // Visible sur lignes 0 à 7
+            assert!(sprite.is_visible(0, 8));
+            assert!(sprite.is_visible(7, 8));
+            assert!(!sprite.is_visible(8, 8));
+        }
+
+        #[test]
+        fn test_sprite_partially_offscreen_top() {
+            let sprite = Sprite { y: 10, x: 80, tile: 0, attributes: 0 };
+            // Position réelle = 10 - 16 = -6 (partiellement hors écran en haut)
+            // Visible sur lignes 0 à 1 (les 2 dernières lignes du sprite)
+            assert!(sprite.is_visible(0, 8));
+            assert!(sprite.is_visible(1, 8));
+            assert!(!sprite.is_visible(2, 8));
+        }
+
+        #[test]
+        fn test_sprite_completely_offscreen_top() {
+            let sprite = Sprite { y: 5, x: 80, tile: 0, attributes: 0 };
+            // Position réelle = 5 - 16 = -11 (complètement hors écran)
+            assert!(!sprite.is_visible(0, 8));
+            assert!(!sprite.is_visible(10, 8));
+        }
+
+        #[test]
+        fn test_sprite_at_bottom_edge() {
+            let sprite = Sprite { y: 160, x: 80, tile: 0, attributes: 0 };
+            // Position réelle = 160 - 16 = 144
+            // Ligne 144 et au-delà sont hors de l'écran visible (écran = 0-143)
+            assert!(!sprite.is_visible(143, 8));
+            assert!(!sprite.is_visible(144, 8));
+        }
+
+        #[test]
+        fn test_sprite_8x16_mode() {
+            let sprite = Sprite { y: 50, x: 80, tile: 0, attributes: 0 };
+            // Position réelle = 34
+            // En mode 8x16, visible sur lignes 34 à 49 (16 pixels de haut)
+            assert!(sprite.is_visible(34, 16));
+            assert!(sprite.is_visible(40, 16));
+            assert!(sprite.is_visible(49, 16));
+            assert!(!sprite.is_visible(50, 16));
+            assert!(!sprite.is_visible(33, 16));
+        }
+
+        #[test]
+        fn test_edge_case_y_equals_zero() {
+            let sprite = Sprite { y: 0, x: 80, tile: 0, attributes: 0 };
+            // Position réelle = 0 - 16 = -16 (complètement hors écran)
+            assert!(!sprite.is_visible(0, 8));
+            assert!(!sprite.is_visible(100, 8));
+        }
+
+        #[test]
+        fn test_edge_case_y_equals_255() {
+            let sprite = Sprite { y: 255, x: 80, tile: 0, attributes: 0 };
+            // Position réelle = 255 - 16 = 239 (très en bas, hors écran)
+            assert!(!sprite.is_visible(143, 8));
+            assert!(!sprite.is_visible(0, 8));
+        }
 }

@@ -9,10 +9,12 @@ mod pixel_fifo;
 
 use std::sync::Mutex;
 
+use eframe::egui::Memory;
 use tokio::time::Instant;
 
 use crate::mmu::MemoryRegion;
 use crate::mmu::Mmu;
+use crate::mmu::oam::Sprite;
 use crate::ppu::colors_palette::Color;
 use crate::ppu::lcd_control::LcdControl;
 use crate::ppu::lcd_status::LcdStatus;
@@ -25,6 +27,7 @@ pub const WIN_SIZE_X: usize = 160; // Window size in X direction
 pub const WIN_SIZE_Y: usize = 144; // Window size in Y direction
 pub const VBLANK_SIZE: usize = 10; // VBlank size in lines
 const VRAM: MemoryRegion = MemoryRegion::Vram; // Start of VRAM
+const OAM: MemoryRegion = MemoryRegion::Oam; // Start of OAM
 const LY_ADDR: u16 = 0xFF44; // LCDC Y-Coordinate
 const LYC_ADDR: u16 = 0xFF45; // LY Compare
 const STAT_ADDR: u16 = 0xFF41; // LCDC Status
@@ -47,6 +50,7 @@ pub struct Ppu {
     lyc: u8,
     x: usize,
     bg_fifo: PixelFifo, // Background pixel FIFO
+    visible_sprites: [Option<Sprite>; 10],
 }
 
 impl Ppu {
@@ -63,6 +67,7 @@ impl Ppu {
             lyc: 0x00,
             x: 0,
             bg_fifo: PixelFifo::default(),
+            visible_sprites: [None; 10],
         }
     }
 
@@ -182,6 +187,26 @@ impl Ppu {
         }
     }
 
+    fn oam_search(&mut self) {
+        let height:u8 = if self.lcd_control.is_obj_size_8x16() {
+            16
+        } else {
+            8
+        };
+        let mmu = self.bus.read().unwrap();
+        let oam  = mmu.get_oam();
+        let mut i: usize = 0;
+        for sprite in &oam.sprites {
+            if sprite.is_visible(self.ly, height) {
+                self.visible_sprites[i] = Some(*sprite);
+                i += 1;
+                if i >= 10 {
+                    break;
+                }
+            }
+        }
+    }
+
     fn fetcher(&self) -> Vec<Pixel> {
         let mut screen_x = self.x;
         let screen_y = self.ly as usize;
@@ -220,6 +245,12 @@ impl Ppu {
     }
 
     pub fn render_frame(&mut self, image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
+        if self.x == 0 {
+            self.lcd_status.update_ppu_mode(PpuMode::OamSearch);
+            self.visible_sprites = [None; 10];
+            self.oam_search();
+        }
+
 
         let pixels = self.fetcher();
         
