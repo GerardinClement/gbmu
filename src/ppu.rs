@@ -240,12 +240,12 @@ impl Ppu {
     }
 
     fn extract_attributes(attributes: u8) -> (bool, bool, bool, bool) {
-        let priority = ((1 << 0) & attributes) > 0;
-        let y_flip = ((1 << 0) & attributes) > 0;
-        let x_flip = ((1 << 0) & attributes) > 0;
-        let palette = ((1 << 0) & attributes) > 0;
-
-        (priority, y_flip, x_flip, palette)
+        (
+            ((1 << 0) & attributes) > 0,
+            ((1 << 1) & attributes) > 0,
+            ((1 << 2) & attributes) > 0,
+            ((1 << 3) & attributes) > 0,
+        )
     }
 
     fn render_sprites(&self, mut pixels: Vec<Pixel>) -> Vec<Pixel> {
