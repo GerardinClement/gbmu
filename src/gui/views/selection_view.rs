@@ -22,7 +22,6 @@ impl SelectionDevice {
     fn next_state(&mut self) -> OutState {
         let path = Path::new(&self.path[..&self.path.len() - 1]);
         if path.is_dir() {
-            println!("Selection provided");
             OutState::Selection
         } else {
             self.path.pop(); // pop the / which is append each time 
@@ -83,8 +82,20 @@ impl SelectionDevice {
 
         if let Ok(path) = Path::new(&self.path).read_dir() {
             for entry in path.flatten() {
-                if let Some(file_name) = entry.file_name().to_str() {
-                    self.files.push(file_name.to_string());
+                let entry_as_path = entry.path();
+                let mut enterable = false;
+                if entry_as_path.is_dir() {
+                    enterable = true;
+                }
+                if let Some(extension) = entry_as_path.extension() {
+                    if extension == "gb" {
+                        enterable = true;
+                    }
+                }
+                if enterable {
+                    if let Some(file_name) = entry.file_name().to_str() {
+                        self.files.push(file_name.to_string());
+                    }
                 }
             }
             self.files.sort();
