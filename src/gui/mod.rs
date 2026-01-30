@@ -22,12 +22,13 @@ pub struct MyApp {
 
 use crate::app::GameApp;
 use eframe::egui;
-use tokio::time::Instant as TokioInstant;
+use tokio::time::{self, Duration as TokioDuration, Instant as TokioInstant};
 use std::sync::Mutex;
 use std::fs;
 use std::process;
 use tokio::sync::mpsc::{Receiver, Sender, channel};
 use tokio::task::JoinHandle;
+
 
 use std::sync::{Arc, atomic::AtomicBool};
 
@@ -73,6 +74,7 @@ fn read_rom(rom_path: String) -> Vec<u8> {
     }
 }
 
+
 async fn launch_game(
     rom_path: String,
     input_receiver: Receiver<Vec<u8>>,
@@ -92,6 +94,11 @@ async fn launch_game(
     );
 
     loop {
+        time::sleep(TokioDuration::from_millis(1)).await;
+        // Ceci pourra etre enleve quand on fera
+        // du multitask dans le cpu
+        // Cela permet de checker si la tache n'a pas ete annule
+        println!("this is going.");
         let debut = TokioInstant::now();
         let buffer_was_updated = app.update();
         let duration = debut.elapsed();
@@ -137,6 +144,13 @@ pub struct CoreGameDevice {
     pub sized_image: Option<SizedTexture>,
     pub global_is_debug: Arc<AtomicBool>,
     texture_handler: Option<TextureHandle>,
+}
+
+impl Drop for CoreGameDevice {
+    fn drop(&mut self) {
+        println!("this was droped");
+        self.handler.abort();
+    }
 }
 
 impl CoreGameDevice {
