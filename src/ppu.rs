@@ -241,10 +241,10 @@ impl Ppu {
 
     fn extract_attributes(attributes: u8) -> (bool, bool, bool, bool) {
         (
-            ((1 << 0) & attributes) > 0,
-            ((1 << 1) & attributes) > 0,
-            ((1 << 2) & attributes) > 0,
-            ((1 << 3) & attributes) > 0,
+            ((1 << 0) & attributes) != 0,
+            ((1 << 1) & attributes) != 0,
+            ((1 << 2) & attributes) != 0,
+            ((1 << 3) & attributes) != 0,
         )
     }
 
