@@ -1,13 +1,12 @@
-use crate::{
-    gui::{
-        AppState, CoreGameDevice, DebugingDevice, EmulationDevice, SelectionDevice, WatchedAdresses,
-    },
-};
-use eframe::egui::Context;
+use crate::gui::{
+        AppState, CoreGameDevice, DebugingDevice, EmulationDevice, SelectionDevice, WatchedAdresses
+    };
+use eframe::egui::{Context, ahash::HashSet};
+use std::thread::sleep;
 
 use std::sync::atomic::Ordering;
 
-use std::time::Instant;
+use std::time::{Instant, Duration};
 
 impl EmulationDevice {
     pub fn emulation_view(mut self, ctx: &Context, _frame: &mut eframe::Frame) -> AppState {
@@ -15,6 +14,9 @@ impl EmulationDevice {
         self.core_game.update_and_size_image(ctx);
         let duration = debut.elapsed();
         //println!("update and size image: Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
+        let input = self.core_game.capture_input(ctx);
+
+        self.core_game.input_sender.send(input);
 
         eframe::egui::CentralPanel::default()
             .show(ctx, |ui| {
