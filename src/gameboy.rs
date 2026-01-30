@@ -8,6 +8,7 @@ use std::sync::Mutex;
 use tokio::time::Instant;
 
 use crate::cpu::Cpu;
+use crate::gui::KeyInput;
 use crate::mmu::Mmu;
 use crate::ppu::Ppu;
 
@@ -33,8 +34,10 @@ impl GameBoy {
         GameBoy { cpu, bus, ppu, image }
     }
 
-    pub fn run_frame(&mut self) -> bool {
+    pub fn run_frame(&mut self, key_input: &KeyInput) -> bool {
         let mut frame = false;
+
+        // TODO -> make interuption with key_input 
 
         let debut = Instant::now();
         for i in 0..17556 {

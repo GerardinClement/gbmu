@@ -1,7 +1,7 @@
 #![allow(unreachable_code)]
 
 use crate::gameboy::GameBoy;
-use crate::gui::{DebugCommandQueries, DebugResponse, WatchedAdresses};
+use crate::gui::{DebugCommandQueries, DebugResponse, KeyInput, WatchedAdresses};
 use crate::ppu;
 use std::sync::Mutex;
 use std::sync::{
@@ -96,7 +96,7 @@ impl GameApp {
             .try_send(DebugResponse::NextInstructions(v));
     }
 
-    pub fn update(&mut self) -> bool {
+    pub fn update(&mut self, keys_down: &KeyInput) -> bool {
         let mut instruction_to_execute = !self.is_step_mode as usize;
         let is_debug = self.is_debug_mode.load(Ordering::Relaxed);
         if is_debug {
@@ -158,14 +158,14 @@ impl GameApp {
         let mut frame_was_edited = false;
         if is_debug {
             for _ in 0..instruction_to_execute {
-                frame_was_edited = self.gameboy.run_frame();
+                frame_was_edited = self.gameboy.run_frame(keys_down);
                 self.send_next_instructions();
                 self.send_watched_address();
                 self.send_registers();
             }
             frame_was_edited
         } else {
-            self.gameboy.run_frame()
+            self.gameboy.run_frame(keys_down)
         }
     }
 

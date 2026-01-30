@@ -8,8 +8,9 @@ mod views;
 use crate::{
     ppu,
 };
-use eframe::egui::TextureHandle;
+use eframe::egui::{InputState, Key, TextureHandle};
 use eframe::egui::{load::SizedTexture, vec2, ColorImage, Context, Image, TextureOptions};
+use std::collections::HashSet;
 
 use std::sync::atomic::Ordering;
 
@@ -51,6 +52,46 @@ impl eframe::App for MyApp {
 #[derive(Default)]
 pub struct StartingHubDevice {}
 
+#[derive(Default, Debug)]
+pub struct KeyInput{
+    pub a_pushed: bool,
+    pub b_pushed: bool,
+    pub select_pushed: bool,
+    pub start_pushed: bool,
+    pub up_pushed: bool,
+    pub down_pushed: bool,
+    pub left_pushed: bool,
+    pub right_pushed: bool,
+}
+
+
+pub struct KeyMaping{
+    pub a: Key,
+    pub b: Key,
+    pub select: Key,
+    pub start: Key,
+    pub up: Key,
+    pub down: Key,
+    pub left: Key,
+    pub right: Key,
+}
+
+impl Default for KeyMaping {
+    fn default() -> Self {
+        KeyMaping {
+            a: Key::J,
+            b: Key::K,
+            select: Key::N,
+            start: Key::M,
+            up: Key::W,
+            down: Key::S,
+            left: Key::D,
+            right: Key::A,
+        }
+    }
+}
+
+
 pub enum AppState {
     StartingHub(StartingHubDevice),
     SelectionHub(SelectionDevice),
@@ -77,7 +118,7 @@ fn read_rom(rom_path: String) -> Vec<u8> {
 
 async fn launch_game(
     rom_path: String,
-    input_receiver: Receiver<Vec<u8>>,
+    mut input_receiver: Receiver<KeyInput>,
     updated_image_boolean: Arc<AtomicBool>,
     command_query_receiver: Receiver<DebugCommandQueries>,
     debug_response_sender: Sender<DebugResponse>,
@@ -93,6 +134,8 @@ async fn launch_game(
         image_to_change,
     );
 
+    let input = KeyInput::default();
+
     loop {
         time::sleep(TokioDuration::from_millis(1)).await;
         // Ceci pourra etre enleve quand on fera
@@ -100,7 +143,12 @@ async fn launch_game(
         // Cela permet de checker si la tache n'a pas ete annule
         println!("this is going.");
         let debut = TokioInstant::now();
-        let buffer_was_updated = app.update();
+
+
+        if let Ok(input) = input_receiver.try_recv(){
+            let input = input;
+        }
+        let buffer_was_updated = app.update(&input);
         let duration = debut.elapsed();
         //println!("update app: Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
         let debut = TokioInstant::now();
@@ -136,7 +184,7 @@ pub struct WatchedAdresses {
 
 pub struct CoreGameDevice {
     pub handler: JoinHandle<()>,
-    pub input_sender: Sender<Vec<u8>>,
+    pub input_sender: Sender<KeyInput>,
     pub updated_image_boolean: Arc<AtomicBool>,
     pub command_query_sender: Sender<DebugCommandQueries>,
     pub debug_response_receiver: Receiver<DebugResponse>,
@@ -144,6 +192,22 @@ pub struct CoreGameDevice {
     pub sized_image: Option<SizedTexture>,
     pub global_is_debug: Arc<AtomicBool>,
     texture_handler: Option<TextureHandle>,
+    key_mapping: KeyMaping,
+}
+
+impl KeyMaping {
+    pub fn generate_key_input(&self, keys_down: HashSet<Key>) -> KeyInput {
+        KeyInput {
+            a_pushed: keys_down.contains(&self.a),
+            b_pushed: keys_down.contains(&self.b),
+            select_pushed: keys_down.contains(&self.select),
+            start_pushed: keys_down.contains(&self.start),
+            up_pushed: keys_down.contains(&self.up),
+            down_pushed: keys_down.contains(&self.down),
+            left_pushed: keys_down.contains(&self.left),
+            right_pushed: keys_down.contains(&self.right),
+        }
+    }
 }
 
 impl Drop for CoreGameDevice {
@@ -177,8 +241,17 @@ impl CoreGameDevice {
         }
     }
 
+    pub fn capture_input(&self, ctx: &Context) -> KeyInput {
+        let keys_down= ctx.input(|i| {
+            i.keys_down.clone()
+        });
+        self.key_mapping.generate_key_input(keys_down)
+
+
+    }
+
     fn new(path: String) -> Self {
-        let (input_sender, input_receiver) = channel::<Vec<u8>>(1);
+        let (input_sender, input_receiver) = channel::<KeyInput>(1);
         let updated_image_boolean = Arc::new(AtomicBool::new(false));
         let (command_query_sender, command_query_receiver) = channel::<DebugCommandQueries>(1);
         let (debug_response_sender, debug_response_receiver) = channel::<DebugResponse>(10);
@@ -203,6 +276,7 @@ impl CoreGameDevice {
             actual_image,
             global_is_debug,
             sized_image: None,
+            key_mapping: KeyMaping::default(),
         }
     }
 }
