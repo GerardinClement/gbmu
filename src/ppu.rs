@@ -9,9 +9,6 @@ mod pixel_fifo;
 
 use std::sync::Mutex;
 
-use eframe::egui::Memory;
-use tokio::time::Instant;
-
 use crate::mmu::MemoryRegion;
 use crate::mmu::Mmu;
 use crate::mmu::oam::Sprite;
@@ -207,80 +204,74 @@ impl Ppu {
         }
     }
 
-    fn fetcher(&self) -> Vec<Pixel> {
-        let mut screen_x = self.x;
-        let screen_y = self.ly as usize;
+   fn render_background(&self) -> Vec<Pixel> {
         let mut pixels = Vec::new();
+        let ly = self.ly as usize; // line to render
 
-        for y in 0..WIN_SIZE_Y {
-            for x in 0..WIN_SIZE_X {
-                let use_window = self.lcd_control.is_window_enabled()
-                    && (screen_y >= self.wy as usize)
-                    && (screen_x + 7 >= self.wx as usize);
+        for x in 0..WIN_SIZE_X {
+            let use_window = self.lcd_control.is_window_enabled()
+                && (ly >= self.wy as usize)
+                && (x + 7 >= self.wx as usize);
 
-                let (bg_x, bg_y) = if use_window {
-                    let win_x = screen_x + 7 - self.wx as usize;
-                    let win_y = screen_y - self.wy as usize;
-                    (win_x % 256, win_y % 256)
-                } else {
-                    (
-                        (x + self.scx as usize) % 256,
-                        (y + self.scy as usize) % 256,
-                    )
-                };
+            let (bg_x, bg_y) = if use_window {
+                let win_x = x + 7 - self.wx as usize;
+                let win_y = ly - self.wy as usize;
+                (win_x % 256, win_y % 256)
+            } else {
+                (
+                    (x + self.scx as usize) % 256,
+                    (ly + self.scy as usize) % 256,
+                )
+            };
 
-                let tile_x = bg_x / 8;
-                let tile_y = bg_y / 8;
-                let tile_address = self.get_tile_address(tile_y, tile_x, use_window);
-                let tile = self.read_tile_data(tile_address);
-                let pixel_x = bg_x % 8;
-                let pixel_y = bg_y % 8;
-                let color = self.get_pixel_color(tile, pixel_x, pixel_y);
-                let pixel = Pixel::new(color, 0, 0, 0);
-                pixels.push(pixel);
-            }
+            let tile_x = bg_x / 8;
+            let tile_y = bg_y / 8;
+            let tile_address = self.get_tile_address(tile_y, tile_x, use_window);
+            let tile = self.read_tile_data(tile_address);
+            let pixel_x = bg_x % 8;
+            let pixel_y = bg_y % 8;
+            let color = self.get_pixel_color(tile, pixel_x, pixel_y);
+            let pixel = Pixel::new(color, 0, 0, 0);
+            
+            pixels.push(pixel);
         }
 
         pixels
     }
 
     pub fn render_frame(&mut self, image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
-        if self.x == 0 {
+        if self.ly < WIN_SIZE_Y as u8 {
             self.lcd_status.update_ppu_mode(PpuMode::OamSearch);
             self.visible_sprites = [None; 10];
             self.oam_search();
+            
+            let pixels = self.render_background();
+            {
+                let mut frame = image.lock().unwrap();
+                let ly = self.ly as usize;
+
+                for (x, p) in pixels.into_iter().enumerate() {
+                    let offset = (ly * WIN_SIZE_X + x) * 3; // * 3 for each pixels (3 bytes (RGB))
+                    self.set_pixel_color(&mut frame, offset, *p.get_color());
+                }
+            }
         }
-
-
-        let pixels = self.fetcher();
         
-        {
-            let mut frame = image.lock().unwrap();
+        self.ly += 1;
 
-            for (i, p) in pixels.into_iter().enumerate() {
-                let offset = i * 3;
-                self.set_pixel_color(&mut frame, offset, *p.get_color());
-            }
+        if self.ly >= WIN_SIZE_Y as u8 + VBLANK_SIZE as u8 {
+            // Reset
+            self.ly = 0;
         }
-
-        self.x += 8;
-        if self.x >= WIN_SIZE_X {
-            self.x = 0;
-            self.ly += 1;
-            if self.ly >= WIN_SIZE_Y as u8 && self.ly <= WIN_SIZE_Y as u8 + VBLANK_SIZE as u8 {
-                self.lcd_status.update_ppu_mode(PpuMode::VBlank);
-                false
-            } else if self.ly >= WIN_SIZE_Y as u8 + VBLANK_SIZE as u8 {
-                self.ly = 0;
-                self.lcd_status.update_ppu_mode(PpuMode::HBlank);
-                false
-            } else {
-                self.lcd_status.update_ppu_mode(PpuMode::PixelTransfer);
-                true
-            }
-        } else {
+        if self.ly >= WIN_SIZE_Y as u8 {
+            // Lines 144-153: VBlank
+            self.lcd_status.update_ppu_mode(PpuMode::VBlank);
             false
-        }
+        } else {
+            // Lines 0-143: end line: HBlank
+            self.lcd_status.update_ppu_mode(PpuMode::HBlank);
+            true
+        }    
     }
 
     pub fn update_registers(&mut self) {
