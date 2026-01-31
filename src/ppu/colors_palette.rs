@@ -38,4 +38,15 @@ impl Color {
             _ => unreachable!(),
         }
     }
+
+    pub fn to_index(&self) -> u8 {
+        match self {
+            Color::White => 0,
+            Color::LightGray => 1,
+            Color::DarkGray => 2,
+            Color::Black => 3,
+        }
+    }
+
+
 }
