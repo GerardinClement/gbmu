@@ -248,24 +248,28 @@ impl Ppu {
         )
     }
 
-    fn render_sprites(&self, mut pixels: Vec<Pixel>) -> Vec<Pixel> {
-        let height = if self.lcd_control.is_obj_size_8x16() {
+    fn get_sprite_tile(&self, sprite: Sprite, sprite_line: usize) -> [u8; 16] {
+        let height: u8 = if self.lcd_control.is_obj_size_8x16() {
                             16
                         } else {
                             8
                         };
-        for sprite_option in self.visible_sprites {
+        let tile_always_pair = if height == 16 { sprite.tile & 0xFE } else { sprite.tile };
+        let tile_index = if sprite_line >= 8 { sprite.tile + 1 } else { tile_always_pair }; // offset if 8x16 because of end of tile index
+        let tile_address = VRAM.to_address() + (tile_index as u16 * 16);
+        
+        self.read_tile_data(tile_address)
+    }
+
+    fn render_sprites(&self, mut pixels: Vec<Pixel>) -> Vec<Pixel> {
+       for sprite_option in self.visible_sprites {
             if let Some(sprite) = sprite_option {
                 let (priority, y_flip, x_flip, palette) = self.extract_attributes(sprite.attributes);
 
                 let sprite_top: i16 = sprite.y as i16 - 16;
                 let sprite_line = (self.ly as i16 - sprite_top) as usize;
 
-                let tile_always_pair = if height == 16 { sprite.tile & 0xFE } else { sprite.tile };
-                let tile_index = if sprite_line >= 8 { sprite.tile + 1 } else { tile_always_pair }; // offset if 8x16 because of end of tile index
-
-                let tile_address = VRAM.to_address() + (tile_index as u16 * 16);
-                let tile = self.read_tile_data(tile_address);
+                let tile = self.get_sprite_tile(sprite, sprite_line);
 
                 for pixel_x in 0..8 {
                     let screen_x = (sprite.x - 8 + pixel_x) as i16;
