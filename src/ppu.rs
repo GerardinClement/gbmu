@@ -254,11 +254,6 @@ impl Ppu {
                         } else {
                             8
                         };
-        // Pour chaque sprite visible
-        // Pour chaque pixel X du sprite (0-7)
-        // Calculer la position dans le Vec (0-159)
-        // Si pixel sprite non transparent
-        // Remplacer pixels[position]
         for sprite_option in self.visible_sprites {
             if let Some(sprite) = sprite_option {
                 let (priority, y_flip, x_flip, palette) = self.extract_attributes(sprite.attributes);
@@ -266,7 +261,10 @@ impl Ppu {
                 let sprite_top: i16 = sprite.y as i16 - 16;
                 let sprite_line = (self.ly as i16 - sprite_top) as usize;
 
-                let tile_address = VRAM.to_address() + (sprite.tile as u16 * 16);
+                let tile_always_pair = if height == 16 { sprite.tile & 0xFE } else { sprite.tile };
+                let tile_index = if sprite_line >= 8 { sprite.tile + 1 } else { tile_always_pair }; // offset if 8x16 because of end of tile index
+
+                let tile_address = VRAM.to_address() + (tile_index as u16 * 16);
                 let tile = self.read_tile_data(tile_address);
 
                 for pixel_x in 0..8 {
@@ -276,7 +274,7 @@ impl Ppu {
                         continue;
                     }
 
-                    let color = self.get_pixel_color(tile, sprite.x as usize, sprite_line);
+                    let color = self.get_pixel_color(tile, pixel_x as usize, sprite_line % 8); // % 8 to handle 8x16
 
                     if color != Color::White {
                         pixels[screen_x as usize] = Pixel::new(color, palette as u8, priority as u8, 0);
