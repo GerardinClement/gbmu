@@ -7,16 +7,16 @@ use crate::ppu::colors_palette::Color;
 pub struct Pixel {
     color: Color,
     palette: u8,
-    is_a_sprite: bool,
+    is_sprite: bool,
     color_index: u8,
 }
 
 impl Pixel {
-    pub fn new(color: Color, palette: u8, is_a_sprite: bool, color_index: u8) -> Self {
+    pub fn new(color: Color, palette: u8, is_sprite: bool, color_index: u8) -> Self {
         Pixel {
             color,
             palette,
-            is_a_sprite,
+            is_sprite,
             color_index,
         }
     }
@@ -29,8 +29,8 @@ impl Pixel {
         self.palette
     }
 
-    pub fn get_sprite_priority(&self) -> bool {
-        self.is_a_sprite
+    pub fn get_is_sprite(&self) -> bool {
+        self.is_sprite
     }
 
     pub fn get_color_index(&self) -> u8 {
@@ -43,7 +43,7 @@ impl Default for Pixel {
         Pixel {
             color: Color::White,
             palette: 0,
-            is_a_sprite: false,
+            is_sprite: false,
             color_index: 0,
         }
     }
