@@ -248,20 +248,20 @@ impl Ppu {
         )
     }
 
-    fn get_sprite_tile(&self, sprite: Sprite, sprite_line: usize) -> [u8; 16] {
-        let height: u8 = if self.lcd_control.is_obj_size_8x16() {
-                            16
-                        } else {
-                            8
-                        };
+    fn get_sprite_tile(&self, height: u8, sprite: Sprite, actual_sprite_line: usize) -> [u8; 16] {
         let tile_always_pair = if height == 16 { sprite.tile & 0xFE } else { sprite.tile };
-        let tile_index = if sprite_line >= 8 { sprite.tile + 1 } else { tile_always_pair }; // offset if 8x16 because of end of tile index
+        let tile_index = if height == 16 && actual_sprite_line >= 8 { tile_always_pair + 1 } else { tile_always_pair }; // offset if 8x16 because of end of tile index
         let tile_address = VRAM.to_address() + (tile_index as u16 * 16);
         
         self.read_tile_data(tile_address)
     }
 
     fn render_sprites(&self, mut pixels: Vec<Pixel>) -> Vec<Pixel> {
+        let height: u8 = if self.lcd_control.is_obj_size_8x16() {
+                            16
+                        } else {
+                            8
+                        };
        for sprite_option in self.visible_sprites {
             if let Some(sprite) = sprite_option {
                 let (priority, y_flip, x_flip, palette) = self.extract_attributes(sprite.attributes);
@@ -269,7 +269,8 @@ impl Ppu {
                 let sprite_top: i16 = sprite.y as i16 - 16;
                 let sprite_line = (self.ly as i16 - sprite_top) as usize;
 
-                let tile = self.get_sprite_tile(sprite, sprite_line);
+                let actual_sprite_line = if y_flip { (height as usize - 1) - sprite_line } else { sprite_line };
+                let tile = self.get_sprite_tile(height, sprite, actual_sprite_line);
 
                 for pixel_x in 0..8 {
                     let screen_x = (sprite.x - 8 + pixel_x) as i16;
@@ -278,7 +279,8 @@ impl Ppu {
                         continue;
                     }
 
-                    let color = self.get_pixel_color(tile, pixel_x as usize, sprite_line % 8); // % 8 to handle 8x16
+                    let actual_pixel_x = if x_flip { 7 - pixel_x } else { pixel_x };
+                    let color = self.get_pixel_color(tile, actual_pixel_x as usize, actual_sprite_line % 8); // % 8 to handle 8x16
 
                     if color != Color::White {
                         pixels[screen_x as usize] = Pixel::new(color, palette as u8, priority as u8, 0);
