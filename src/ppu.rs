@@ -239,7 +239,7 @@ impl Ppu {
         pixels
     }
 
-    fn extract_attributes(attributes: u8) -> (bool, bool, bool, bool) {
+    fn extract_attributes(&self, attributes: u8) -> (bool, bool, bool, bool) {
         (
             ((1 << 0) & attributes) != 0,
             ((1 << 1) & attributes) != 0,
@@ -249,6 +249,11 @@ impl Ppu {
     }
 
     fn render_sprites(&self, mut pixels: Vec<Pixel>) -> Vec<Pixel> {
+        let height = if self.lcd_control.is_obj_size_8x16() {
+                            16
+                        } else {
+                            8
+                        };
         // Pour chaque sprite visible
         // Pour chaque pixel X du sprite (0-7)
         // Calculer la position dans le Vec (0-159)
@@ -256,9 +261,27 @@ impl Ppu {
         // Remplacer pixels[position]
         for sprite_option in self.visible_sprites {
             if let Some(sprite) = sprite_option {
-                let color = self.get_pixel_color(sprite.tile, sprite.x, sprite.y);
-                let pixel = Pixel::new(color, 0, 0, 0);
+                let (priority, y_flip, x_flip, palette) = self.extract_attributes(sprite.attributes);
 
+                let sprite_top: i16 = sprite.y as i16 - 16;
+                let sprite_line = (self.ly as i16 - sprite_top) as usize;
+
+                let tile_address = VRAM.to_address() + (sprite.tile as u16 * 16);
+                let tile = self.read_tile_data(tile_address);
+
+                for pixel_x in 0..8 {
+                    let screen_x = (sprite.x - 8 + pixel_x) as i16;
+                    
+                    if screen_x < 0 || screen_x >= 160 {
+                        continue;
+                    }
+
+                    let color = self.get_pixel_color(tile, sprite.x as usize, sprite_line);
+
+                    if color != Color::White {
+                        pixels[screen_x as usize] = Pixel::new(color, palette as u8, priority as u8, 0);
+                    }
+                }
             }
         }
         pixels
