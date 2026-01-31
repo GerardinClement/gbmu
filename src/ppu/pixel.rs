@@ -8,16 +8,16 @@ pub struct Pixel {
     color: Color,
     palette: u8,
     sprite_priority: u8,
-    background_priority: u8,
+    color_index: u8,
 }
 
 impl Pixel {
-    pub fn new(color: Color, palette: u8, sprite_priority: u8, background_priority: u8) -> Self {
+    pub fn new(color: Color, palette: u8, sprite_priority: u8, color_index: u8) -> Self {
         Pixel {
             color,
             palette,
             sprite_priority,
-            background_priority,
+            color_index,
         }
     }
 
@@ -33,8 +33,8 @@ impl Pixel {
         self.sprite_priority
     }
 
-    pub fn get_background_priority(&self) -> u8 {
-        self.background_priority
+    pub fn get_color_index(&self) -> u8 {
+        self.color_index
     }
 }
 
@@ -44,7 +44,7 @@ impl Default for Pixel {
             color: Color::White,
             palette: 0,
             sprite_priority: 0,
-            background_priority: 0,
+            color_index: 0,
         }
     }
 }
