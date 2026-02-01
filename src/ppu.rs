@@ -30,6 +30,7 @@ const LYC_ADDR: u16 = 0xFF45; // LY Compare
 const STAT_ADDR: u16 = 0xFF41; // LCDC Status
 const SCX_ADDR: u16 = 0xFF43; // Scroll X
 const SCY_ADDR: u16 = 0xFF42; // Scroll Y
+const BGP_ADDR: u16 = 0xFF47; // Background Palette
 const OBP0_ADDR: u16 = 0xFF48; // Object Palette 0
 const OBP1_ADDR: u16 = 0xFF49; // Object Palette 1
 const WY_ADDR: u16 = 0xFF4A; // Window Y Position
@@ -206,7 +207,15 @@ impl Ppu {
         }
     }
 
-   fn render_background(&self) -> Vec<Pixel> {
+    fn apply_background_palette(&self, color_index: u8) -> Color {
+        let palette = self.bus.read().unwrap().read_byte(BGP_ADDR);
+
+        let index = (palette >> (color_index * 2)) & 0b11;
+
+        Color::from_index(index)
+    }
+
+    fn render_background(&self) -> Vec<Pixel> {
         let mut pixels = Vec::new();
         let ly = self.ly as usize; // line to render
 
@@ -232,8 +241,9 @@ impl Ppu {
             let tile = self.read_tile_data(tile_address);
             let pixel_x = bg_x % 8;
             let pixel_y = bg_y % 8;
-            let color = Color::from_index(self.get_pixel_color_index(tile, pixel_x, pixel_y));
-            let color_index = color.to_index();
+
+            let color_index = self.get_pixel_color_index(tile, pixel_x, pixel_y);
+            let color = self.apply_background_palette(color_index);
             let pixel = Pixel::new(color, false, color_index);
             
             pixels.push(pixel);
