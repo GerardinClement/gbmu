@@ -234,7 +234,7 @@ impl Ppu {
             let pixel_y = bg_y % 8;
             let color = Color::from_index(self.get_pixel_color_index(tile, pixel_x, pixel_y));
             let color_index = color.to_index();
-            let pixel = Pixel::new(color, 0, false, color_index);
+            let pixel = Pixel::new(color, false, color_index);
             
             pixels.push(pixel);
         }
@@ -259,11 +259,7 @@ impl Ppu {
         self.read_tile_data(tile_address)
     }
 
-    fn get_right_pixel(&self, old_pixel: &Pixel, color: Color, palette: bool, priority: bool) -> Option<Pixel> {
-        if color == Color::White {
-            return None
-        }
-
+    fn get_right_pixel(&self, old_pixel: &Pixel, color: Color, priority: bool) -> Option<Pixel> {
         if old_pixel.get_is_sprite() {
             return None
         }
@@ -274,7 +270,16 @@ impl Ppu {
             return None
         }
 
-        Some(Pixel::new(color, palette as u8, true, color_index))
+        Some(Pixel::new(color, true, color_index))
+    }
+
+    fn apply_sprite_palette(&self, color_index: u8, palette_attribute: bool) -> Color {
+        let palette_addr = if palette_attribute { OBP1_ADDR } else { OBP0_ADDR };
+        let palette = self.bus.read().unwrap().read_byte(palette_addr);
+
+        let index = (palette >> (color_index * 2)) & 0b11;
+
+        Color::from_index(index)
     }
 
     fn render_sprites(&self, mut pixels: Vec<Pixel>) -> Vec<Pixel> {
@@ -282,7 +287,7 @@ impl Ppu {
 
        for sprite_option in self.visible_sprites {
             if let Some(sprite) = sprite_option {
-                let (priority, y_flip, x_flip, palette) = self.extract_attributes(sprite.attributes);
+                let (priority, y_flip, x_flip, palette_attribute) = self.extract_attributes(sprite.attributes);
 
                 let sprite_top: i16 = sprite.y as i16 - 16;
                 let sprite_line = (self.ly as i16 - sprite_top) as usize;
@@ -298,9 +303,13 @@ impl Ppu {
                     }
 
                     let actual_pixel_x = if x_flip { 7 - pixel_x } else { pixel_x };
-                    let color = Color::from_index(self.get_pixel_color_index(tile, actual_pixel_x as usize, actual_sprite_line % 8)); // % 8 to handle 8x16
+                    let color_index = self.get_pixel_color_index(tile, actual_pixel_x as usize, actual_sprite_line % 8); // % 8 to handle 8x16
+                    
+                    if color_index == 0 { continue; }
+                    
+                    let color = self.apply_sprite_palette(color_index, palette_attribute);
 
-                    if let Some(new_pixel) = self.get_right_pixel(&pixels[screen_x as usize], color, palette, priority) {
+                    if let Some(new_pixel) = self.get_right_pixel(&pixels[screen_x as usize], color, priority) {
                         pixels[screen_x as usize] = new_pixel;
                     }
                 }
