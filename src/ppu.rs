@@ -231,7 +231,8 @@ impl Ppu {
             let pixel_x = bg_x % 8;
             let pixel_y = bg_y % 8;
             let color = self.get_pixel_color(tile, pixel_x, pixel_y);
-            let pixel = Pixel::new(color, 0, 0, 0);
+            let color_index = color.to_index();
+            let pixel = Pixel::new(color, 0, false, color_index);
             
             pixels.push(pixel);
         }
@@ -241,10 +242,10 @@ impl Ppu {
 
     fn extract_attributes(&self, attributes: u8) -> (bool, bool, bool, bool) {
         (
-            ((1 << 0) & attributes) != 0,
-            ((1 << 1) & attributes) != 0,
-            ((1 << 2) & attributes) != 0,
-            ((1 << 3) & attributes) != 0,
+            ((attributes >> 7) & 1) != 0,
+            ((attributes >> 6) & 1) != 0,
+            ((attributes >> 5) & 1) != 0,
+            ((attributes >> 4) & 1) != 0,
         )
     }
 
@@ -254,6 +255,24 @@ impl Ppu {
         let tile_address = VRAM.to_address() + (tile_index as u16 * 16);
         
         self.read_tile_data(tile_address)
+    }
+
+    fn get_right_pixel(&self, old_pixel: &Pixel, color: Color, palette: bool, priority: bool) -> Option<Pixel> {
+        if color == Color::White {
+            return None
+        }
+
+        if old_pixel.get_is_sprite() {
+            return None
+        }
+
+        let color_index = old_pixel.get_color_index();
+
+        if priority && color_index != 0 {
+            return None
+        }
+
+        Some(Pixel::new(color, palette as u8, true, color_index))
     }
 
     fn render_sprites(&self, mut pixels: Vec<Pixel>) -> Vec<Pixel> {
@@ -282,8 +301,8 @@ impl Ppu {
                     let actual_pixel_x = if x_flip { 7 - pixel_x } else { pixel_x };
                     let color = self.get_pixel_color(tile, actual_pixel_x as usize, actual_sprite_line % 8); // % 8 to handle 8x16
 
-                    if color != Color::White {
-                        pixels[screen_x as usize] = Pixel::new(color, palette as u8, priority as u8, 0);
+                    if let Some(new_pixel) = self.get_right_pixel(&pixels[screen_x as usize], color, palette, priority) {
+                        pixels[screen_x as usize] = new_pixel;
                     }
                 }
             }
