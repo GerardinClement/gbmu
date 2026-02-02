@@ -376,19 +376,40 @@ impl Ppu {
     // }
 
     fn mode_oam_search(&mut self) -> bool {
+        if self.dots >= OAM_DOTS {
+            self.visible_sprites = [None; 10];
+            self.oam_search();
+
+            self.lcd_status.update_ppu_mode(PpuMode::PixelTransfer);
+        }
         false
     }
 
-    fn mode_pixel_transfer(&mut self) -> bool {
+    fn mode_pixel_transfer(&mut self, image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
+            let mut pixels = self.render_background();
+            pixels = self.render_sprites(pixels);
+
+            {
+                let mut frame = image.lock().unwrap();
+                let ly = self.ly as usize;
+
+                for (x, p) in pixels.into_iter().enumerate() {
+                    let offset = (ly * WIN_SIZE_X + x) * 3; // * 3 for each pixels (3 bytes (RGB))
+                    self.set_pixel_color(&mut frame, offset, *p.get_color());
+                }
+            }
+
+        self.lcd_status.update_ppu_mode(PpuMode::PixelTransfer);
         false
     }
 
     fn mode_hblank(&mut self) -> bool {
+        self.lcd_status.update_ppu_mode(PpuMode::VBlank);
         false
     }
 
     fn mode_vblank(&mut self) -> bool {
-        false
+        true
     }
 
 
@@ -402,10 +423,9 @@ impl Ppu {
 
         match self.lcd_status.get_ppu_mode() {
             PpuMode::OamSearch => self.mode_oam_search(),
-            PpuMode::PixelTransfer => self.mode_pixel_transfer(),
+            PpuMode::PixelTransfer => self.mode_pixel_transfer(image),
             PpuMode::HBlank => self.mode_hblank(),
             PpuMode::VBlank => self.mode_vblank(),
-            _ => false,
         }
     }
 
