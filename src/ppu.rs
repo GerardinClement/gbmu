@@ -386,6 +386,7 @@ impl Ppu {
     }
 
     fn mode_pixel_transfer(&mut self, image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
+        if self.dots >= OAM_DOTS + PIXEL_TRANSFER_DOTS {
             let mut pixels = self.render_background();
             pixels = self.render_sprites(pixels);
 
@@ -399,18 +400,46 @@ impl Ppu {
                 }
             }
 
-        self.lcd_status.update_ppu_mode(PpuMode::PixelTransfer);
+            self.lcd_status.update_ppu_mode(PpuMode::HBlank);
+        }
         false
     }
 
     fn mode_hblank(&mut self) -> bool {
-        self.lcd_status.update_ppu_mode(PpuMode::VBlank);
+        if self.dots >= SCANLINE_DOTS {
+            self.dots -= SCANLINE_DOTS;
+            self.ly += 1;
+            self.check_lyc_equals_ly();
+
+            if self.ly >= WIN_SIZE_Y as u8 {
+                self.lcd_status.update_ppu_mode(PpuMode::VBlank);
+
+                self.bus.write().unwrap().interrupts_request(Interrupt::VBlank);
+
+                return true;
+            } else {
+                self.lcd_status.update_ppu_mode(PpuMode::OamSearch);
+            }
+        }
         false
     }
 
     fn mode_vblank(&mut self) -> bool {
-        true
+        if self.dots >= SCANLINE_DOTS {
+            self.dots -= SCANLINE_DOTS;
+            self.ly += 1;
+            self.check_lyc_equals_ly();
+
+            if self.ly >= WIN_SIZE_Y as u8 + VBLANK_SIZE as u8 {
+                self.ly = 0;
+                self.check_lyc_equals_ly();
+
+                self.lcd_status.update_ppu_mode(PpuMode::OamSearch);
+            }
+        }
+        false
     }
+
 
 
     pub fn tick(&mut self, cycles: u32,  image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
