@@ -42,23 +42,15 @@ impl GameBoy {
         let debut = Instant::now();
         for i in 0..17556 {
             self.bus.write().unwrap().tick_timers();
-            let duration = debut.elapsed();
-            //println!("bus tick : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
-            let debut = Instant::now();
             self.cpu.tick();
-            let duration = debut.elapsed();
-            //println!("cpu tick : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
-            let debut = Instant::now();
-            self.ppu.update_registers();
-            let duration = debut.elapsed();
-            //println!("update_reg : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
+
+            let vblank = self.ppu.tick(4, &mut self.image);
+
+            if vblank {
+                return true;
+            }
         }
-        let duration = debut.elapsed();
-        //println!("one cpu render frame : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
-        let debut = Instant::now();
-        self.ppu.render_frame(&mut self.image);
-        let duration = debut.elapsed();
-        //println!("render : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
-        true
+
+        false
     }
 }
