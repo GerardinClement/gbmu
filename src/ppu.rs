@@ -30,6 +30,9 @@ const LYC_ADDR: u16 = 0xFF45; // LY Compare
 const STAT_ADDR: u16 = 0xFF41; // LCDC Status
 const SCX_ADDR: u16 = 0xFF43; // Scroll X
 const SCY_ADDR: u16 = 0xFF42; // Scroll Y
+const BGP_ADDR: u16 = 0xFF47; // Background Palette
+const OBP0_ADDR: u16 = 0xFF48; // Object Palette 0
+const OBP1_ADDR: u16 = 0xFF49; // Object Palette 1
 const WY_ADDR: u16 = 0xFF4A; // Window Y Position
 const WX_ADDR: u16 = 0xFF4B; // Window X Position
 const LCD_CONTROL_ADDR: u16 = 0xFF40; // LCDC Control
@@ -115,7 +118,7 @@ impl Ppu {
         }
     }
 
-    pub fn get_pixel_color(&self, tile_data: [u8; 16], x: usize, y: usize) -> Color {
+    pub fn get_pixel_color_index(&self, tile_data: [u8; 16], x: usize, y: usize) -> u8 {
         let pixel_x = x % 8;
         let pixel_y = y % 8;
 
@@ -129,7 +132,7 @@ impl Ppu {
 
         let color_index = (msb_bit << 1) | lsb_bit;
 
-        Color::from_index(color_index)
+        color_index
     }
 
     pub fn read_tile_data(&self, tile_address: u16) -> [u8; 16] {
@@ -149,7 +152,7 @@ impl Ppu {
                 let tile_index = (y / 8) * 20 + (x / 8);
                 let base_address = VRAM.to_address() + (tile_index as u16 * 16);
                 let tile_data = self.read_tile_data(base_address);
-                let color = self.get_pixel_color(tile_data, x, y);
+                let color = Color::from_index(self.get_pixel_color_index(tile_data, x, y));
                 let offset = (y * 160 + x) * 3;
                 self.set_pixel_color(&mut frame, offset, color);
             }
@@ -204,7 +207,15 @@ impl Ppu {
         }
     }
 
-   fn render_background(&self) -> Vec<Pixel> {
+    fn apply_background_palette(&self, color_index: u8) -> Color {
+        let palette = self.bus.read().unwrap().read_byte(BGP_ADDR);
+
+        let index = (palette >> (color_index * 2)) & 0b11;
+
+        Color::from_index(index)
+    }
+
+    fn render_background(&self) -> Vec<Pixel> {
         let mut pixels = Vec::new();
         let ly = self.ly as usize; // line to render
 
@@ -230,9 +241,10 @@ impl Ppu {
             let tile = self.read_tile_data(tile_address);
             let pixel_x = bg_x % 8;
             let pixel_y = bg_y % 8;
-            let color = self.get_pixel_color(tile, pixel_x, pixel_y);
-            let color_index = color.to_index();
-            let pixel = Pixel::new(color, 0, false, color_index);
+
+            let color_index = self.get_pixel_color_index(tile, pixel_x, pixel_y);
+            let color = self.apply_background_palette(color_index);
+            let pixel = Pixel::new(color, false, color_index);
             
             pixels.push(pixel);
         }
@@ -257,11 +269,7 @@ impl Ppu {
         self.read_tile_data(tile_address)
     }
 
-    fn get_right_pixel(&self, old_pixel: &Pixel, color: Color, palette: bool, priority: bool) -> Option<Pixel> {
-        if color == Color::White {
-            return None
-        }
-
+    fn get_right_pixel(&self, old_pixel: &Pixel, color: Color, priority: bool) -> Option<Pixel> {
         if old_pixel.get_is_sprite() {
             return None
         }
@@ -272,18 +280,24 @@ impl Ppu {
             return None
         }
 
-        Some(Pixel::new(color, palette as u8, true, color_index))
+        Some(Pixel::new(color, true, color_index))
+    }
+
+    fn apply_sprite_palette(&self, color_index: u8, palette_attribute: bool) -> Color {
+        let palette_addr = if palette_attribute { OBP1_ADDR } else { OBP0_ADDR };
+        let palette = self.bus.read().unwrap().read_byte(palette_addr);
+
+        let index = (palette >> (color_index * 2)) & 0b11;
+
+        Color::from_index(index)
     }
 
     fn render_sprites(&self, mut pixels: Vec<Pixel>) -> Vec<Pixel> {
-        let height: u8 = if self.lcd_control.is_obj_size_8x16() {
-                            16
-                        } else {
-                            8
-                        };
+        let height: u8 = if self.lcd_control.is_obj_size_8x16() { 16 } else { 8 };
+
        for sprite_option in self.visible_sprites {
             if let Some(sprite) = sprite_option {
-                let (priority, y_flip, x_flip, palette) = self.extract_attributes(sprite.attributes);
+                let (priority, y_flip, x_flip, palette_attribute) = self.extract_attributes(sprite.attributes);
 
                 let sprite_top: i16 = sprite.y as i16 - 16;
                 let sprite_line = (self.ly as i16 - sprite_top) as usize;
@@ -299,9 +313,13 @@ impl Ppu {
                     }
 
                     let actual_pixel_x = if x_flip { 7 - pixel_x } else { pixel_x };
-                    let color = self.get_pixel_color(tile, actual_pixel_x as usize, actual_sprite_line % 8); // % 8 to handle 8x16
+                    let color_index = self.get_pixel_color_index(tile, actual_pixel_x as usize, actual_sprite_line % 8); // % 8 to handle 8x16
+                    
+                    if color_index == 0 { continue; }
+                    
+                    let color = self.apply_sprite_palette(color_index, palette_attribute);
 
-                    if let Some(new_pixel) = self.get_right_pixel(&pixels[screen_x as usize], color, palette, priority) {
+                    if let Some(new_pixel) = self.get_right_pixel(&pixels[screen_x as usize], color, priority) {
                         pixels[screen_x as usize] = new_pixel;
                     }
                 }
