@@ -38,6 +38,11 @@ const WY_ADDR: u16 = 0xFF4A; // Window Y Position
 const WX_ADDR: u16 = 0xFF4B; // Window X Position
 const LCD_CONTROL_ADDR: u16 = 0xFF40; // LCDC Control
 
+const OAM_DOTS: u32 = 80; // always 80
+const PIXEL_TRANSFER_DOTS: u32 = 172; // can change between 172 and 289, to handle later
+const HBLANK_DOTS: u32 = 204; // can change between 87 and 204, to handle later
+const SCANLINE_DOTS: u32 = 456; // always 456
+
 #[derive(Default)]
 pub struct Ppu {
     pub bus: Arc<RwLock<Mmu>>,
@@ -52,6 +57,7 @@ pub struct Ppu {
     x: usize,
     bg_fifo: PixelFifo, // Background pixel FIFO
     visible_sprites: [Option<Sprite>; 10],
+    pub dots: u32,
 }
 
 impl Ppu {
@@ -69,6 +75,7 @@ impl Ppu {
             x: 0,
             bg_fifo: PixelFifo::default(),
             visible_sprites: [None; 10],
+            dots: 0,
         }
     }
 
@@ -329,43 +336,77 @@ impl Ppu {
         pixels
     }
 
-    pub fn render_frame(&mut self, image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
-        if self.ly < WIN_SIZE_Y as u8 {
-            self.lcd_status.update_ppu_mode(PpuMode::OamSearch);
-            self.visible_sprites = [None; 10];
-            self.oam_search();
+    // pub fn render_frame(&mut self, image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
+    //     if self.ly < WIN_SIZE_Y as u8 {
+    //         self.lcd_status.update_ppu_mode(PpuMode::OamSearch);
+    //         self.visible_sprites = [None; 10];
+    //         self.oam_search();
             
-            let mut pixels = self.render_background();
-            pixels = self.render_sprites(pixels);
+    //         let mut pixels = self.render_background();
+    //         pixels = self.render_sprites(pixels);
 
-            {
-                let mut frame = image.lock().unwrap();
-                let ly = self.ly as usize;
+    //         {
+    //             let mut frame = image.lock().unwrap();
+    //             let ly = self.ly as usize;
 
-                for (x, p) in pixels.into_iter().enumerate() {
-                    let offset = (ly * WIN_SIZE_X + x) * 3; // * 3 for each pixels (3 bytes (RGB))
-                    self.set_pixel_color(&mut frame, offset, *p.get_color());
-                }
-            }
-        }
+    //             for (x, p) in pixels.into_iter().enumerate() {
+    //                 let offset = (ly * WIN_SIZE_X + x) * 3; // * 3 for each pixels (3 bytes (RGB))
+    //                 self.set_pixel_color(&mut frame, offset, *p.get_color());
+    //             }
+    //         }
+    //     }
         
-        self.ly += 1;
-        self.check_lyc_equals_ly();
+    //     self.ly += 1;
+    //     self.check_lyc_equals_ly();
 
-        if self.ly >= WIN_SIZE_Y as u8 + VBLANK_SIZE as u8 {
-            // Reset
-            self.ly = 0;
-            self.check_lyc_equals_ly();
+    //     if self.ly >= WIN_SIZE_Y as u8 + VBLANK_SIZE as u8 {
+    //         // Reset
+    //         self.ly = 0;
+    //         self.check_lyc_equals_ly();
+    //     }
+    //     if self.ly >= WIN_SIZE_Y as u8 {
+    //         // Lines 144-153: VBlank
+    //         self.lcd_status.update_ppu_mode(PpuMode::VBlank);
+    //         false
+    //     } else {
+    //         // Lines 0-143: end line: HBlank
+    //         self.lcd_status.update_ppu_mode(PpuMode::HBlank);
+    //         true
+    //     }    
+    // }
+
+    fn mode_oam_search(&mut self) -> bool {
+        false
+    }
+
+    fn mode_pixel_transfer(&mut self) -> bool {
+        false
+    }
+
+    fn mode_hblank(&mut self) -> bool {
+        false
+    }
+
+    fn mode_vblank(&mut self) -> bool {
+        false
+    }
+
+
+    pub fn tick(&mut self, cycles: u32,  image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
+        if !self.lcd_control.is_ppu_enabled() {
+            return false;
         }
-        if self.ly >= WIN_SIZE_Y as u8 {
-            // Lines 144-153: VBlank
-            self.lcd_status.update_ppu_mode(PpuMode::VBlank);
-            false
-        } else {
-            // Lines 0-143: end line: HBlank
-            self.lcd_status.update_ppu_mode(PpuMode::HBlank);
-            true
-        }    
+
+        self.update_registers();
+        self.dots += cycles;
+
+        match self.lcd_status.get_ppu_mode() {
+            PpuMode::OamSearch => self.mode_oam_search(),
+            PpuMode::PixelTransfer => self.mode_pixel_transfer(),
+            PpuMode::HBlank => self.mode_hblank(),
+            PpuMode::VBlank => self.mode_vblank(),
+            _ => false,
+        }
     }
 
     fn check_lyc_equals_ly(&mut self) {
