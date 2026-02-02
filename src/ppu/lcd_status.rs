@@ -3,9 +3,9 @@
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
 pub enum PpuMode {
-    #[default]
     HBlank = 0,
     VBlank = 1,
+    #[default]
     OamSearch = 2,
     PixelTransfer = 3,
 }
@@ -28,7 +28,7 @@ impl LcdStatus {
             mode_1_int_select: false,
             mode_0_int_select: false,
             lyc_equals_ly: false,
-            ppu_mode: PpuMode::HBlank,
+            ppu_mode: PpuMode::OamSearch,
         }
     }
 
