@@ -12,6 +12,7 @@ use std::sync::Mutex;
 use crate::mmu::MemoryRegion;
 use crate::mmu::Mmu;
 use crate::mmu::oam::Sprite;
+use crate::mmu::interrupt::Interrupt;
 use crate::ppu::colors_palette::Color;
 use crate::ppu::lcd_control::LcdControl;
 use crate::ppu::lcd_status::LcdStatus;
@@ -349,10 +350,12 @@ impl Ppu {
         }
         
         self.ly += 1;
+        self.check_lyc_equals_ly();
 
         if self.ly >= WIN_SIZE_Y as u8 + VBLANK_SIZE as u8 {
             // Reset
             self.ly = 0;
+            self.check_lyc_equals_ly();
         }
         if self.ly >= WIN_SIZE_Y as u8 {
             // Lines 144-153: VBlank
@@ -365,6 +368,15 @@ impl Ppu {
         }    
     }
 
+    fn check_lyc_equals_ly(&mut self) {
+        let lyc_match = self.ly == self.lyc;
+        self.lcd_status.set_lyc_equals_ly(lyc_match);
+        
+        if lyc_match && self.lcd_status.get_lyc_equals_ly() {
+            self.bus.write().unwrap().interrupts_request(Interrupt::LcdStat);
+        }
+    }
+
     pub fn update_registers(&mut self) {
         self.lyc = self.bus.read().unwrap().read_byte(LYC_ADDR);
         self.scy = self.bus.read().unwrap().read_byte(SCY_ADDR);
@@ -373,5 +385,11 @@ impl Ppu {
         self.wx = self.bus.read().unwrap().read_byte(WX_ADDR);
         self.lcd_control
             .update_from_byte(self.bus.read().unwrap().read_byte(LCD_CONTROL_ADDR));
+
+        let stat_byte = self.lcd_status.struct_to_byte();
+        self.bus.write().unwrap().write_byte(STAT_ADDR, stat_byte);
+
+        let stat_from_mmu = self.bus.read().unwrap().read_byte(STAT_ADDR);
+        self.lcd_status.update_from_byte(stat_from_mmu);
     }
 }
