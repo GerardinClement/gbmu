@@ -74,13 +74,15 @@ pub struct Mmu {
 
 impl Mmu {
     pub fn new(rom_image: &[u8]) -> Self {
-        Mmu {
+        let mmu = Mmu {
             data: [0; 0x10000],
             cart: Mbc::new(rom_image),
             interrupts: InterruptController::new(),
             timers: Timers::default(),
             oam: Oam::default(),
-        }
+        };
+
+       mmu
     }
 
     pub fn tick_timers(&mut self) {
@@ -95,6 +97,7 @@ impl Mmu {
     pub fn read_byte(&self, addr: u16) -> u8 {
         match MemoryRegion::from(addr) {
             MemoryRegion::Mbc => self.cart.read(addr),
+            MemoryRegion::Timers => self.timers.read_byte(addr),
             MemoryRegion::Mram => {
                 let mirror = addr - 0x2000;
 

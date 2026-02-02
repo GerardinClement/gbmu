@@ -190,7 +190,11 @@ impl Ppu {
             .read_byte(tilemap_base.start + offset);
         match self.lcd_control.bg_window_tile_data_area() {
             lcd_control::TILE_DATA_1 => 0x8000 + (tile_number as u16) * 16,
-            lcd_control::TILE_DATA_0 => 0x8800 + ((tile_number as i8 as i16) as u16) * 16,
+            lcd_control::TILE_DATA_0 => {
+                let base = 0x9000u16;
+                let offset = (tile_number as i8) as i16 * 16;
+                base.wrapping_add_signed(offset)
+            },
             _ => unreachable!(),
         }
     }
@@ -336,44 +340,6 @@ impl Ppu {
         pixels
     }
 
-    // pub fn render_frame(&mut self, image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
-    //     if self.ly < WIN_SIZE_Y as u8 {
-    //         self.lcd_status.update_ppu_mode(PpuMode::OamSearch);
-    //         self.visible_sprites = [None; 10];
-    //         self.oam_search();
-            
-    //         let mut pixels = self.render_background();
-    //         pixels = self.render_sprites(pixels);
-
-    //         {
-    //             let mut frame = image.lock().unwrap();
-    //             let ly = self.ly as usize;
-
-    //             for (x, p) in pixels.into_iter().enumerate() {
-    //                 let offset = (ly * WIN_SIZE_X + x) * 3; // * 3 for each pixels (3 bytes (RGB))
-    //                 self.set_pixel_color(&mut frame, offset, *p.get_color());
-    //             }
-    //         }
-    //     }
-        
-    //     self.ly += 1;
-    //     self.check_lyc_equals_ly();
-
-    //     if self.ly >= WIN_SIZE_Y as u8 + VBLANK_SIZE as u8 {
-    //         // Reset
-    //         self.ly = 0;
-    //         self.check_lyc_equals_ly();
-    //     }
-    //     if self.ly >= WIN_SIZE_Y as u8 {
-    //         // Lines 144-153: VBlank
-    //         self.lcd_status.update_ppu_mode(PpuMode::VBlank);
-    //         false
-    //     } else {
-    //         // Lines 0-143: end line: HBlank
-    //         self.lcd_status.update_ppu_mode(PpuMode::HBlank);
-    //         true
-    //     }    
-    // }
 
     fn mode_oam_search(&mut self) -> bool {
         if self.dots >= OAM_DOTS {
@@ -386,7 +352,7 @@ impl Ppu {
     }
 
     fn mode_pixel_transfer(&mut self, image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
-        if self.dots >= OAM_DOTS + PIXEL_TRANSFER_DOTS {
+        if self.ly < WIN_SIZE_Y as u8 {
             let mut pixels = self.render_background();
             pixels = self.render_sprites(pixels);
 
@@ -399,9 +365,9 @@ impl Ppu {
                     self.set_pixel_color(&mut frame, offset, *p.get_color());
                 }
             }
-
-            self.lcd_status.update_ppu_mode(PpuMode::HBlank);
         }
+
+        self.lcd_status.update_ppu_mode(PpuMode::HBlank);
         false
     }
 
@@ -443,10 +409,6 @@ impl Ppu {
 
 
     pub fn tick(&mut self, cycles: u32,  image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
-        if !self.lcd_control.is_ppu_enabled() {
-            return false;
-        }
-
         self.update_registers();
         self.dots += cycles;
 
