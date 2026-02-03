@@ -312,40 +312,53 @@ impl Ppu {
         Color::from_index(index)
     }
 
+    fn sort_sprites_by_x(&self) -> Vec<Sprite> {
+        let mut sprites: Vec<(usize, Sprite)> = self.visible_sprites
+            .iter()
+            .enumerate()
+            .filter_map(| (i, s) | s.map(| sprite | (i, sprite)))
+            .collect();
+
+        sprites.sort_by(| (index_a, sprite_a), (index_b, sprite_b) | {
+            if sprite_a.x != sprite_b.x {
+                sprite_a.x.cmp(&sprite_b.x)
+            } else {
+                index_a.cmp(index_b)
+            }
+        });
+
+        sprites.into_iter().map(| (_, s) | s).collect()
+    }
+
     fn render_sprites(&self, mut pixels: Vec<Pixel>) -> Vec<Pixel> {
         let height: u8 = if self.lcd_control.is_obj_size_8x16() { 16 } else { 8 };
 
-       for sprite_option in self.visible_sprites {
-            if let Some(sprite) = sprite_option {
-                if !self.lcd_control.is_obj_enabled() {
+        let sorted_sprites = self.sort_sprites_by_x();
+       for sprite in sorted_sprites {
+            let (priority, y_flip, x_flip, palette_attribute) = self.extract_attributes(sprite.attributes);
+
+            let sprite_top: i16 = sprite.y as i16 - 16;
+            let sprite_line = (self.ly as i16 - sprite_top) as usize;
+
+            let actual_sprite_line = if y_flip { (height as usize - 1) - sprite_line } else { sprite_line };
+            let tile = self.get_sprite_tile(height, sprite, actual_sprite_line);
+
+            for pixel_x in 0..8 {
+                let screen_x = (sprite.x - 8 + pixel_x) as i16;
+                    
+                if screen_x < 0 || screen_x >= 160 {
                     continue;
                 }
 
-                let (priority, y_flip, x_flip, palette_attribute) = self.extract_attributes(sprite.attributes);
-
-                let sprite_top: i16 = sprite.y as i16 - 16;
-                let sprite_line = (self.ly as i16 - sprite_top) as usize;
-
-                let actual_sprite_line = if y_flip { (height as usize - 1) - sprite_line } else { sprite_line };
-                let tile = self.get_sprite_tile(height, sprite, actual_sprite_line);
-
-                for pixel_x in 0..8 {
-                    let screen_x = (sprite.x - 8 + pixel_x) as i16;
+                let actual_pixel_x = if x_flip { 7 - pixel_x } else { pixel_x };
+                let color_index = self.get_pixel_color_index(tile, actual_pixel_x as usize, actual_sprite_line % 8); // % 8 to handle 8x16
                     
-                    if screen_x < 0 || screen_x >= 160 {
-                        continue;
-                    }
-
-                    let actual_pixel_x = if x_flip { 7 - pixel_x } else { pixel_x };
-                    let color_index = self.get_pixel_color_index(tile, actual_pixel_x as usize, actual_sprite_line % 8); // % 8 to handle 8x16
+                if color_index == 0 { continue; }
                     
-                    if color_index == 0 { continue; }
-                    
-                    let color = self.apply_sprite_palette(color_index, palette_attribute);
+                let color = self.apply_sprite_palette(color_index, palette_attribute);
 
-                    if let Some(new_pixel) = self.get_right_pixel(&pixels[screen_x as usize], color, priority) {
-                        pixels[screen_x as usize] = new_pixel;
-                    }
+                if let Some(new_pixel) = self.get_right_pixel(&pixels[screen_x as usize], color, priority) {
+                    pixels[screen_x as usize] = new_pixel;
                 }
             }
         }
