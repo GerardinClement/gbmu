@@ -406,8 +406,6 @@ impl Ppu {
         false
     }
 
-
-
     pub fn tick(&mut self, cycles: u32,  image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
         self.update_registers();
         self.dots += cycles;
@@ -443,5 +441,7 @@ impl Ppu {
 
         let stat_from_mmu = self.bus.read().unwrap().read_byte(STAT_ADDR);
         self.lcd_status.update_from_byte(stat_from_mmu);
+
+        self.bus.write().unwrap().write_byte(LY_ADDR, self.ly);
     }
 }
