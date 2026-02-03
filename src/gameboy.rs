@@ -35,30 +35,24 @@ impl GameBoy {
     }
 
     pub fn run_frame(&mut self, key_input: &KeyInput) -> bool {
-        let mut frame = false;
+        let mut cycles_elapsed = 0;
 
-        // TODO -> make interuption with key_input 
-
-        let debut = Instant::now();
-        for i in 0..17556 {
+        while cycles_elapsed < FRAME_CYCLES {
+            // 1. Tick Timers
             self.bus.write().unwrap().tick_timers();
-            let duration = debut.elapsed();
-            //println!("bus tick : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
-            let debut = Instant::now();
+
+            // 2. Tick CPU
             self.cpu.tick();
-            let duration = debut.elapsed();
-            //println!("cpu tick : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
-            let debut = Instant::now();
-            self.ppu.update_registers();
-            let duration = debut.elapsed();
-            //println!("update_reg : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
+
+            // 3. Tick PPU
+            let vblank = self.ppu.tick(4, &mut self.image);
+
+            if vblank {
+                return true;
+            }
+
+            cycles_elapsed += 1;
         }
-        let duration = debut.elapsed();
-        //println!("one cpu render frame : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
-        let debut = Instant::now();
-        self.ppu.render_frame(&mut self.image);
-        let duration = debut.elapsed();
-        //println!("render : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
-        true
+        false
     }
 }
