@@ -232,8 +232,14 @@ impl Ppu {
     fn render_background(&self) -> Vec<Pixel> {
         let mut pixels = Vec::new();
         let ly = self.ly as usize; // line to render
+        let default_color = self.apply_background_palette(0);
 
         for x in 0..WIN_SIZE_X {
+            if !self.lcd_control.is_bg_window_enabled() {
+                pixels.push(Pixel::new(default_color, false, 0));
+                continue;
+            }
+
             let use_window = self.lcd_control.is_window_enabled()
                 && (ly >= self.wy as usize)
                 && (x + 7 >= self.wx as usize);
