@@ -52,6 +52,7 @@ pub struct Ppu {
     scy: u8,               // Scroll Y
     wy: u8,                // Window Y position
     wx: u8,                // Window X position
+    wly: u8,               // Window internal line counter
     ly: u8,
     lyc: u8,
     x: usize,
@@ -70,6 +71,7 @@ impl Ppu {
             scy: 0x00,
             wy: 0x00,
             wx: 0x00,
+            wly: 0x00,
             ly: 0x00,
             lyc: 0x00,
             x: 0,
@@ -238,7 +240,7 @@ impl Ppu {
 
             let (bg_x, bg_y) = if use_window {
                 let win_x = x + 7 - self.wx as usize;
-                let win_y = ly - self.wy as usize;
+                let win_y = self.wly as usize;
                 (win_x % 256, win_y % 256)
             } else {
                 (
@@ -374,6 +376,14 @@ impl Ppu {
     fn mode_hblank(&mut self) -> bool {
         if self.dots >= SCANLINE_DOTS {
             self.dots -= SCANLINE_DOTS;
+
+            if self.lcd_control.is_window_enabled()
+                && self.ly >= self.wy
+                && self.wx <= 166 {
+
+                self.wly += 1;
+            }
+            
             self.ly += 1;
             self.check_lyc_equals_ly();
 
@@ -400,13 +410,13 @@ impl Ppu {
                 self.ly = 0;
                 self.check_lyc_equals_ly();
 
+                self.wly = 0;
+
                 self.lcd_status.update_ppu_mode(PpuMode::OamSearch);
             }
         }
         false
     }
-
-
 
     pub fn tick(&mut self, cycles: u32,  image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
         self.update_registers();
@@ -443,5 +453,7 @@ impl Ppu {
 
         let stat_from_mmu = self.bus.read().unwrap().read_byte(STAT_ADDR);
         self.lcd_status.update_from_byte(stat_from_mmu);
+
+        self.bus.write().unwrap().write_byte(LY_ADDR, self.ly);
     }
 }
