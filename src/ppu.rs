@@ -335,6 +335,10 @@ impl Ppu {
 
         let sorted_sprites = self.sort_sprites_by_x();
        for sprite in sorted_sprites {
+            if !self.lcd_control.is_obj_enabled() {
+                continue;
+            }
+
             let (priority, y_flip, x_flip, palette_attribute) = self.extract_attributes(sprite.attributes);
 
             let sprite_top: i16 = sprite.y as i16 - 16;
