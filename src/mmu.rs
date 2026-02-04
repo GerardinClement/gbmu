@@ -70,6 +70,8 @@ pub struct Mmu {
     interrupts: InterruptController,
     timers: Timers,
     oam: Oam,
+    boot_enable: bool,
+    boot_rom: [u8; 0x0100]
 }
 
 impl Mmu {
@@ -80,6 +82,8 @@ impl Mmu {
             interrupts: InterruptController::new(),
             timers: Timers::default(),
             oam: Oam::default(),
+            boot_enable: true,
+            boot_rom: [0; 0x0100],
         };
 
        mmu
@@ -95,6 +99,10 @@ impl Mmu {
     }
 
     pub fn read_byte(&self, addr: u16) -> u8 {
+        if self.boot_enable && addr <= 0xFF50 {
+            return self.boot_rom[addr as usize];
+        }
+
         match MemoryRegion::from(addr) {
             MemoryRegion::Mbc => self.cart.read(addr),
             MemoryRegion::Timers => self.timers.read_byte(addr),
@@ -112,6 +120,13 @@ impl Mmu {
     }
 
     pub fn write_byte(&mut self, addr: u16, val: u8) {
+        if val != 0 && addr == 0xFF50 {
+            self.boot_rom[addr as usize] = val;
+            self.boot_enable = false;
+
+            return;
+        }
+
         match MemoryRegion::from(addr) {
             MemoryRegion::Mbc => self.cart.write(addr, val),
             MemoryRegion::Mram => {
