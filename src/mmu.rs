@@ -129,8 +129,6 @@ impl Mmu {
             self.data[addr as usize] = val;
             self.boot_enable = false;
 
-            println!("FF50 write: {val:02X}");
-
             return;
         }
 
