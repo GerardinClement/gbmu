@@ -89,6 +89,11 @@ impl Mmu {
        mmu
     }
 
+    pub fn load_boot_rom(&mut self, boot_rom: [u8; 0x0100]) {
+        self.boot_rom = boot_rom;
+        self.boot_enable = true;
+    }
+
     pub fn tick_timers(&mut self) {
         if self.timers.tick() {
             let interrupt_flags_addr = MemoryRegion::InterruptFlag.to_address();
@@ -99,7 +104,7 @@ impl Mmu {
     }
 
     pub fn read_byte(&self, addr: u16) -> u8 {
-        if self.boot_enable && addr <= 0xFF50 {
+        if self.boot_enable && addr <= 0x00FF {
             return self.boot_rom[addr as usize];
         }
 
@@ -121,8 +126,10 @@ impl Mmu {
 
     pub fn write_byte(&mut self, addr: u16, val: u8) {
         if val != 0 && addr == 0xFF50 {
-            self.boot_rom[addr as usize] = val;
+            self.data[addr as usize] = val;
             self.boot_enable = false;
+
+            println!("FF50 write: {val:02X}");
 
             return;
         }
