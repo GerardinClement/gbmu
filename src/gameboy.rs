@@ -45,7 +45,7 @@ impl GameBoy {
             self.cpu.tick();
 
             // 3. Tick PPU
-            let vblank = self.ppu.tick(4, &mut self.image);
+            let vblank = self.ppu.tick(1, &mut self.image);
 
             if vblank {
                 return true;
