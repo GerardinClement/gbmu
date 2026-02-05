@@ -10,6 +10,7 @@ pub mod conditions;
 pub mod flags_registers;
 pub mod registers;
 pub mod utils;
+pub mod ops8;
 
 use std::fmt;
 use std::sync::{Arc, RwLock};

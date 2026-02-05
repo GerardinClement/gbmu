@@ -87,43 +87,43 @@ pub fn execute_instruction_block_prefix(cpu: &mut Cpu, instruction: u8) -> u8 {
 
 pub fn rlc_r8(cpu: &mut Cpu, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
-    cpu.registers.rotate_left(r8, false, false);
+    cpu.op_rotate_left(r8, false, false);
     cpu.pc = cpu.pc.wrapping_add(2);
 }
 
 pub fn rrc_r8(cpu: &mut Cpu, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
-    cpu.registers.rotate_right(r8, true, false);
+    cpu.op_rotate_right(r8, true, false);
     cpu.pc = cpu.pc.wrapping_add(2);
 }
 
 pub fn rl(cpu: &mut Cpu, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
-    cpu.registers.rotate_left(r8, true, false);
+    cpu.op_rotate_left(r8, true, false);
     cpu.pc = cpu.pc.wrapping_add(2);
 }
 
 pub fn rr(cpu: &mut Cpu, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
-    cpu.registers.rotate_right(r8, false, false);
+    cpu.op_rotate_right(r8, false, false);
     cpu.pc = cpu.pc.wrapping_add(2);
 }
 
 pub fn sla_r8(cpu: &mut Cpu, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
-    cpu.registers.shift_left(r8);
+    cpu.op_sla(r8);
     cpu.pc = cpu.pc.wrapping_add(2);
 }
 
 pub fn sr_r8(cpu: &mut Cpu, instruction: u8, arithmetic: bool) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
-    cpu.registers.shift_right(r8, arithmetic);
+    cpu.op_sr(r8, arithmetic);
     cpu.pc = cpu.pc.wrapping_add(2);
 }
 
 pub fn swap_r8(cpu: &mut Cpu, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
-    cpu.registers.swap(r8);
+    cpu.op_swap(r8);
     cpu.pc = cpu.pc.wrapping_add(2);
 }
 
