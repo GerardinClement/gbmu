@@ -71,7 +71,7 @@ pub fn execute_instruction_block_prefix(cpu: &mut Cpu, instruction: u8) -> u8 {
         0b01000000 => block_prefix::bit_b3_r8(cpu, instruction),
         0b10000000 => block_prefix::res_b3_r8(cpu, instruction),
         0b11000000 => block_prefix::set_b3_r8(cpu, instruction),
-        _ => cpu.pc = cpu.pc.wrapping_add(1),
+        _ => panic!("Unknown CB opcode: {instruction:#04x}"),
     }
 
     if (0b110 & instruction) == 0b110 {
