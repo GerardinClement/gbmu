@@ -224,13 +224,13 @@ fn ld_r8_imm8(cpu: &mut Cpu, instruction: u8) -> u8 {
 }
 
 fn rotate_left(cpu: &mut Cpu, carry: bool) -> u8 {
-    cpu.registers.rotate_left(R8::A, carry);
+    cpu.registers.rotate_left(R8::A, carry, true);
     cpu.pc = cpu.pc.wrapping_add(1);
     4
 }
 
 fn rotate_right(cpu: &mut Cpu, carry: bool) -> u8 {
-    cpu.registers.rotate_right(R8::A, carry);
+    cpu.registers.rotate_right(R8::A, carry, true);
     cpu.pc = cpu.pc.wrapping_add(1);
     4
 }
