@@ -82,7 +82,7 @@ impl Mmu {
             interrupts: InterruptController::new(),
             timers: Timers::default(),
             oam: Oam::default(),
-            boot_enable: true,
+            boot_enable: false,
             boot_rom: [0; 0x0100],
         };
 
