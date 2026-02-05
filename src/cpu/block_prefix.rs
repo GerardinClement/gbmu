@@ -92,7 +92,7 @@ pub fn rlc_r8(cpu: &mut Cpu, instruction: u8) {
 
 pub fn rrc_r8(cpu: &mut Cpu, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
-    cpu.op_rotate_right(r8, true, false);
+    cpu.op_rotate_right(r8, false, false);
     cpu.pc = cpu.pc.wrapping_add(2);
 }
 
@@ -104,7 +104,7 @@ pub fn rl(cpu: &mut Cpu, instruction: u8) {
 
 pub fn rr(cpu: &mut Cpu, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
-    cpu.op_rotate_right(r8, false, false);
+    cpu.op_rotate_right(r8, true, false);
     cpu.pc = cpu.pc.wrapping_add(2);
 }
 
@@ -181,7 +181,7 @@ mod tests {
         assert_eq!((ins & 0x07) == 0x06, true);
         assert_eq!((ins & 0xC0) == 0x40, true);
     }
-    
+
     #[test]
     fn test_rlc_r8() {
         let mut cpu = Cpu::default();
