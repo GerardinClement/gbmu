@@ -153,7 +153,7 @@ mod tests {
         execute_instruction_block2(&mut cpu, 0x80); // ADD A, B
 
         assert_eq!(cpu.get_r8_value(R8::A), 0x30);
-        assert_eq!(cpu.pc, 0x0100 + 1);
+        assert_eq!(cpu.pc, 0x0000 + 1);
     }
 
     #[test]
@@ -165,7 +165,7 @@ mod tests {
         execute_instruction_block2(&mut cpu, 0x49); // ADC A, C
 
         assert_eq!(cpu.get_r8_value(R8::A), 0x31);
-        assert_eq!(cpu.pc, 0x0100 + 1);
+        assert_eq!(cpu.pc, 0x0000 + 1);
     }
 
     #[test]
@@ -176,7 +176,7 @@ mod tests {
         execute_instruction_block2(&mut cpu, 0x91); // SUB A, C
 
         assert_eq!(cpu.get_r8_value(R8::A), 0x20);
-        assert_eq!(cpu.pc, 0x0100 + 1);
+        assert_eq!(cpu.pc, 0x0000 + 1);
     }
 
     #[test]
@@ -188,7 +188,7 @@ mod tests {
         execute_instruction_block2(&mut cpu, 0x9B); // SBC A, E
 
         assert_eq!(cpu.get_r8_value(R8::A), 0x1F);
-        assert_eq!(cpu.pc, 0x0100 + 1);
+        assert_eq!(cpu.pc, 0x0000 + 1);
     }
 
     #[test]
@@ -199,7 +199,7 @@ mod tests {
         execute_instruction_block2(&mut cpu, 0xA2); // AND A, D
 
         assert_eq!(cpu.get_r8_value(R8::A), 0b1000);
-        assert_eq!(cpu.pc, 0x0100 + 1);
+        assert_eq!(cpu.pc, 0x0000 + 1);
     }
 
     #[test]
@@ -210,7 +210,7 @@ mod tests {
         execute_instruction_block2(&mut cpu, 0xAB); // XOR A, E
 
         assert_eq!(cpu.get_r8_value(R8::A), 0b0110);
-        assert_eq!(cpu.pc, 0x0100 + 1);
+        assert_eq!(cpu.pc, 0x0000 + 1);
     }
 
     #[test]
@@ -221,7 +221,7 @@ mod tests {
         execute_instruction_block2(&mut cpu, 0xB4); // OR A, H
 
         assert_eq!(cpu.get_r8_value(R8::A), 0b1110);
-        assert_eq!(cpu.pc, 0x0100 + 1);
+        assert_eq!(cpu.pc, 0x0000 + 1);
     }
 
     #[test]
@@ -232,6 +232,6 @@ mod tests {
         execute_instruction_block2(&mut cpu, 0xBD); // CP A, L
 
         assert!(cpu.registers.get_zero_flag());
-        assert_eq!(cpu.pc, 0x0100 + 1);
+        assert_eq!(cpu.pc, 0x0000 + 1);
     }
 }
