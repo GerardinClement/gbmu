@@ -81,22 +81,27 @@ impl Cpu {
     }
 
     fn handle_halt_state(&mut self) -> StepStatus {
-        if self.halted {
-            let bus = self.bus.read().unwrap();
-            let iflag = bus.read_interrupt_flag();
-            let ienable = bus.read_interrupt_enable();
+        let bus = self.bus.read().unwrap();
+        let iflag = bus.read_interrupt_flag();
+        let ienable = bus.read_interrupt_enable();
 
+        if self.ime {
             if ienable & iflag == 0 {
                 return StepStatus::Halted;
             }
 
             self.halted = false;
-
-            if !self.ime {
-                self.halt_bug = true;
-            }
+            return StepStatus::Continue;
         }
-        StepStatus::Continue
+
+        if iflag != 0 {
+            self.halted = false;
+            self.halt_bug = true;
+
+            return StepStatus::Continue;
+        }
+
+        StepStatus::Halted
     }
 
     fn handle_ime_state(&mut self) -> StepStatus {
