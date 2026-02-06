@@ -1,12 +1,11 @@
 use crate::gui::{
         AppState, CoreGameDevice, DebugingDevice, EmulationDevice, SelectionDevice, WatchedAdresses
     };
-use eframe::egui::{Context, ahash::HashSet};
-use std::thread::sleep;
+use eframe::egui::{Context};
 
 use std::sync::atomic::Ordering;
 
-use std::time::{Instant, Duration};
+use std::time::{Instant};
 
 impl EmulationDevice {
     pub fn emulation_view(mut self, ctx: &Context, _frame: &mut eframe::Frame) -> AppState {

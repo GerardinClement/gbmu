@@ -20,13 +20,12 @@ impl SelectionDevice {
     }
 
     fn next_state(&mut self) -> OutState {
-        let path = Path::new(&self.path[..&self.path.len() - 1]);
-        if path.is_dir() {
-            OutState::Selection
-        } else {
-            self.path.pop(); // pop the / which is append each time 
-            println!("Emulation launched with {}", self.path);
+        let path = Path::new(&self.path);
+        
+        if path.is_file() {
             OutState::Emulation
+        } else {
+            OutState::Selection
         }
     }
 
@@ -67,8 +66,11 @@ impl SelectionDevice {
                                 .clicked()
                             {
                                 self.selected_file = Some(i);
+                                let candidate = Path::new(&self.path).join(file);
                                 self.path.push_str(file);
-                                self.path.push('/');
+                                if candidate.is_dir() {
+                                    self.path.push('/');
+                                }
                             }
                         }
                     });
