@@ -81,6 +81,8 @@ impl Cpu {
     }
 
     fn handle_halt_state(&mut self) -> StepStatus {
+        if !self.halted { return StepStatus::Continue; }
+
         let bus = self.bus.read().unwrap();
         let iflag = bus.read_interrupt_flag();
         let ienable = bus.read_interrupt_enable();
@@ -94,6 +96,7 @@ impl Cpu {
             return StepStatus::Continue;
         }
 
+        // halt bug: IME=0 but IE!= 0
         if iflag != 0 {
             self.halted = false;
             self.halt_bug = true;
@@ -131,10 +134,12 @@ impl Cpu {
         }
     }
 
-    fn handle_halt_bug(&mut self) {
+    fn handle_halt_bug(&mut self) -> u16 {
         if self.halt_bug {
-            self.pc = self.pc.wrapping_sub(1);
             self.halt_bug = false;
+            self.pc.wrapping_sub(1)
+        } else {
+            self.pc
         }
     }
 
@@ -153,10 +158,11 @@ impl Cpu {
             return 5;
         }
 
-        let instruction_byte = self.bus.read().unwrap().read_byte(self.pc);
+        let pc_for_fetch = self.handle_halt_bug();
+
+        let instruction_byte = self.bus.read().unwrap().read_byte(pc_for_fetch);
         let tick_to_wait = self.execute_instruction(instruction_byte);
 
-        self.handle_halt_bug();
         self.handle_ime_delay();
 
         tick_to_wait
@@ -172,7 +178,6 @@ impl Cpu {
 
         let tick_to_wait = self.execute_instruction(instruction);
 
-        self.handle_halt_bug();
         self.handle_ime_delay();
 
         tick_to_wait
