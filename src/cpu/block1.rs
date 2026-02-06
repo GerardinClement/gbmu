@@ -61,7 +61,7 @@ mod tests {
         execute_instruction_block1(&mut cpu, 0x40); // LD B, B
 
         assert_eq!(cpu.get_r8_value(R8::B), 0x42);
-        assert_eq!(cpu.pc, 0x0100 + 1);
+        assert_eq!(cpu.pc, 0x0000 + 1);
     }
 
     #[test]
@@ -81,6 +81,6 @@ mod tests {
         execute_instruction_block1(&mut cpu, 0x41); // LD B, C
 
         assert_eq!(cpu.get_r8_value(R8::B), 0x55);
-        assert_eq!(cpu.pc, 0x0100 + 1);
+        assert_eq!(cpu.pc, 0x0000 + 1);
     }
 }
