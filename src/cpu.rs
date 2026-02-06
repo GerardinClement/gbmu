@@ -87,24 +87,18 @@ impl Cpu {
         let iflag = bus.read_interrupt_flag();
         let ienable = bus.read_interrupt_enable();
 
-        if self.ime {
-            if ienable & iflag == 0 {
-                return StepStatus::Halted;
-            }
+        let if_valid = iflag & 0x1F;
+        let ie_valid = ienable & 0x1F;
 
-            self.halted = false;
-            return StepStatus::Continue;
+        let pending_and_enabled = (if_valid & ie_valid) != 0;
+        drop(bus);
+
+        if !pending_and_enabled {
+            return StepStatus::Halted;
         }
 
-        // halt bug: IME=0 but IE!= 0
-        if iflag != 0 {
-            self.halted = false;
-            self.halt_bug = true;
-
-            return StepStatus::Continue;
-        }
-
-        StepStatus::Halted
+        self.halted = false;
+        return StepStatus::Continue;
     }
 
     fn handle_ime_state(&mut self) -> StepStatus {
@@ -134,15 +128,6 @@ impl Cpu {
         }
     }
 
-    fn handle_halt_bug(&mut self) -> u16 {
-        if self.halt_bug {
-            self.halt_bug = false;
-            self.pc.wrapping_sub(1)
-        } else {
-            self.pc
-        }
-    }
-
     fn handle_ime_delay(&mut self) {
         if self.ime_delay {
             self.ime = true;
@@ -157,11 +142,19 @@ impl Cpu {
         if self.handle_ime_state() == StepStatus::Halted {
             return 5;
         }
+        
+        let opcode = self.bus.read().unwrap().read_byte(self.pc);
 
-        let pc_for_fetch = self.handle_halt_bug();
+        let halt_bug_active = self.halt_bug;
+        if halt_bug_active {
+            self.halt_bug = false;
+        }
 
-        let instruction_byte = self.bus.read().unwrap().read_byte(pc_for_fetch);
-        let tick_to_wait = self.execute_instruction(instruction_byte);
+        let tick_to_wait = self.execute_instruction(opcode);
+
+        if halt_bug_active {
+            self.pc = self.pc.wrapping_sub(1);
+        }
 
         self.handle_ime_delay();
 

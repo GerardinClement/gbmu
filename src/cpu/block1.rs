@@ -44,8 +44,19 @@ fn load_r8_r8(cpu: &mut Cpu, instruction: u8) -> u8 {
 }
 
 fn halt(cpu: &mut Cpu) -> u8 {
-    cpu.halted = true;
-    cpu.pc = cpu.pc.wrapping_add(1);
+    let bus = cpu.bus.read().unwrap();
+    let ie = bus.read_interrupt_enable();
+    let iflag = bus.read_interrupt_flag();
+    let pending = (ie & iflag & 0x1F) != 0;
+    drop(bus);
+
+    if !cpu.ime && pending {
+        cpu.halt_bug = true;
+        cpu.pc = cpu.pc.wrapping_add(1);
+    } else {
+        cpu.halted = true;
+        cpu.pc = cpu.pc.wrapping_add(1);
+    }
     4
 }
 

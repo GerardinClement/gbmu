@@ -436,6 +436,7 @@ fn ld_sp_hl(cpu: &mut Cpu) -> u8 {
 
 fn di(cpu: &mut Cpu) -> u8 {
     cpu.ime = false;
+    cpu.ime_delay = false;
     cpu.pc = cpu.pc.wrapping_add(1);
     4
 }

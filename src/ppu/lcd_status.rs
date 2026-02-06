@@ -44,6 +44,10 @@ impl LcdStatus {
         self.lyc_equals_ly = equals;
     }
 
+    pub fn get_lyc_int_select(&self) -> bool {
+        self.lyc_int_select
+    }
+
     pub fn get_lyc_equals_ly(&self) -> bool {
         self.lyc_equals_ly
     }

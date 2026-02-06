@@ -1,0 +1,58 @@
+cpu instrs
+07 - jr, jp, call, ret, rst
+weird bug
+
+09 - op r,r
+CB 07 CB 0F CB 17 CB 1F
+Failed
+
+11 -  op a, (hl)
+CB 06 CB 0E CB 16 CB
+1E CB 26 CB 2E CB 36
+CB 3E
+Failed
+
+“On a découvert que (HL) n’est pas un registre mais un mode d’adressage.
+Si on continue à traiter HLIndirect comme un registre, on va multiplier les
+ patchs locaux et les oublis. Un module ops8 centralise la logique 
+ read/modify/write via Cpu::get/set_r8_value, ce qui corrige CB (HL) et évite 
+ la même classe de bugs sur toutes les instructions futures, tout en réduisant 
+la duplication et en améliorant les tests.”
+
+
+halt bug
+IE IF IF DE
+01 10 F3 0C04
+01 00 E3 0C04
+01 01 E3 0C04
+11 00 E3 0C04
+11 10 F3 0C04
+11 11 F3 0C04
+E1 00 E3 0C04
+E1 E0 E3 0C04
+E1 E1 E3 0C04
+E1 E1 E3 0C04
+C31AF6D6
+Failed
+
+instrs_timing
+Failed with way too much lignes
+
+interrupt time
+Failed
+
+mem_timing
+01 - read_timing
+Failed (too much lines)
+
+02 - read
+Failed
+
+03 - modify timing
+Failed
+
+mem_timing2
+Failed everywhere
+
+oam_bug
+Failed and test bug

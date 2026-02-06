@@ -461,26 +461,26 @@ impl Ppu {
         let lyc_match = self.ly == self.lyc;
         self.lcd_status.set_lyc_equals_ly(lyc_match);
         
-        if lyc_match && self.lcd_status.get_lyc_equals_ly() {
+        if lyc_match && self.lcd_status.get_lyc_int_select() {
             self.bus.write().unwrap().interrupts_request(Interrupt::LcdStat);
         }
     }
 
-    pub fn update_registers(&mut self) {
-        self.lyc = self.bus.read().unwrap().read_byte(LYC_ADDR);
-        self.scy = self.bus.read().unwrap().read_byte(SCY_ADDR);
-        self.scx = self.bus.read().unwrap().read_byte(SCX_ADDR);
-        self.wy = self.bus.read().unwrap().read_byte(WY_ADDR);
-        self.wx = self.bus.read().unwrap().read_byte(WX_ADDR);
-        self.lcd_control
-            .update_from_byte(self.bus.read().unwrap().read_byte(LCD_CONTROL_ADDR));
+   pub fn update_registers(&mut self) {
+    self.lyc = self.bus.read().unwrap().read_byte(LYC_ADDR);
+    self.scy = self.bus.read().unwrap().read_byte(SCY_ADDR);
+    self.scx = self.bus.read().unwrap().read_byte(SCX_ADDR);
+    self.wy = self.bus.read().unwrap().read_byte(WY_ADDR);
+    self.wx = self.bus.read().unwrap().read_byte(WX_ADDR);
+    self.lcd_control
+        .update_from_byte(self.bus.read().unwrap().read_byte(LCD_CONTROL_ADDR));
 
-        let stat_byte = self.lcd_status.struct_to_byte();
-        self.bus.write().unwrap().write_byte(STAT_ADDR, stat_byte);
+    let stat_from_mmu = self.bus.read().unwrap().read_byte(STAT_ADDR);
+    self.lcd_status.update_from_byte(stat_from_mmu);
 
-        let stat_from_mmu = self.bus.read().unwrap().read_byte(STAT_ADDR);
-        self.lcd_status.update_from_byte(stat_from_mmu);
+    let stat_byte = self.lcd_status.struct_to_byte();
+    self.bus.write().unwrap().write_byte(STAT_ADDR, stat_byte);
 
-        self.bus.write().unwrap().write_byte(LY_ADDR, self.ly);
-    }
+    self.bus.write().unwrap().write_byte(LY_ADDR, self.ly);
+} 
 }
