@@ -10,6 +10,7 @@ pub mod conditions;
 pub mod flags_registers;
 pub mod registers;
 pub mod utils;
+pub mod ops8;
 
 use std::fmt;
 use std::sync::{Arc, RwLock};
@@ -41,7 +42,7 @@ impl Default for Cpu {
         Cpu {
             registers: Registers::default(),
             bus: Arc::new(RwLock::new(Mmu::default())),
-            pc: 0x0100,
+            pc: 0x0000,
             ime: false,
             ime_delay: false,
             halted: false,
@@ -54,7 +55,7 @@ impl Default for Cpu {
 impl Cpu {
     pub fn new(bus: Arc<RwLock<Mmu>>) -> Self {
         Cpu {
-            pc: 0x0100,
+            pc: 0x0000,
             bus,
             ..Default::default()
         }

@@ -297,14 +297,10 @@ fn call_imm16(cpu: &mut Cpu, instruction: u8, with_cond: bool) -> u8 {
 
 fn rst_tgt3(cpu: &mut Cpu, instruction: u8) -> u8 {
     let tgt3_index = (instruction & TGT3_MASK) >> 3;
+    let tgt3_address = RST_VEC[tgt3_index as usize] as u16;
 
-    if (tgt3_index as usize) < RST_VEC.len() {
-        let tgt3_address = RST_VEC[tgt3_index as usize];
-        cpu.pc = cpu.registers.pop_sp(&cpu.bus.write().unwrap());
-        cpu.pc = tgt3_address as u16;
-    } else {
-        panic!("Invalid tgt3_index: {tgt3_index}");
-    }
+    cpu.registers.push_sp(&mut cpu.bus.write().unwrap(), cpu.pc.wrapping_add(1));
+    cpu.pc = tgt3_address;
     16
 }
 
