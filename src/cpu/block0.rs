@@ -224,13 +224,13 @@ fn ld_r8_imm8(cpu: &mut Cpu, instruction: u8) -> u8 {
 }
 
 fn rotate_left(cpu: &mut Cpu, carry: bool) -> u8 {
-    cpu.registers.rotate_left(R8::A, carry);
+    cpu.registers.rotate_left(R8::A, carry, true);
     cpu.pc = cpu.pc.wrapping_add(1);
     4
 }
 
 fn rotate_right(cpu: &mut Cpu, carry: bool) -> u8 {
-    cpu.registers.rotate_right(R8::A, carry);
+    cpu.registers.rotate_right(R8::A, carry, true);
     cpu.pc = cpu.pc.wrapping_add(1);
     4
 }
@@ -319,7 +319,7 @@ mod tests {
     fn test_nop() {
         let mut cpu = Cpu::default();
         execute_instruction_block0(&mut cpu, 0x00); // NOP
-        assert_eq!(cpu.pc, 0x0100 + 1);
+        assert_eq!(cpu.pc, 0x0000 + 1);
     }
 
     #[test]
@@ -426,7 +426,7 @@ mod tests {
         assert_eq!(cpu.registers.get_a(), 0b0010_0011); // rotation gauche
         assert!(cpu.registers.get_carry_flag()); // bit 7 = 1
         assert!(!cpu.registers.get_zero_flag()); // toujours false
-        assert_eq!(cpu.pc, 0x0100 + 1);
+        assert_eq!(cpu.pc, 0x0000 + 1);
     }
 
     #[test]
@@ -440,7 +440,7 @@ mod tests {
         assert_eq!(cpu.registers.get_a(), 0b1000_0000); // rotation droite
         assert!(cpu.registers.get_carry_flag()); // bit 7 = 1
         assert!(!cpu.registers.get_zero_flag()); // toujours false
-        assert_eq!(cpu.pc, 0x0100 + 1);
+        assert_eq!(cpu.pc, 0x0000 + 1);
     }
 
     #[test]
@@ -454,7 +454,7 @@ mod tests {
         assert_eq!(cpu.registers.get_a(), 0b1010_1011);
         assert!(!cpu.registers.get_carry_flag()); // bit 7 = 0
         assert!(!cpu.registers.get_zero_flag());
-        assert_eq!(cpu.pc, 0x0100 + 1);
+        assert_eq!(cpu.pc, 0x0000 + 1);
     }
 
     #[test]
@@ -468,7 +468,7 @@ mod tests {
         assert_eq!(cpu.registers.get_a(), 0b1000_0000); // carry passé en bit 7
         assert!(!cpu.registers.get_carry_flag()); // bit 0 = 0
         assert!(!cpu.registers.get_zero_flag());
-        assert_eq!(cpu.pc, 0x0100 + 1);
+        assert_eq!(cpu.pc, 0x0000 + 1);
     }
 
     #[test]
@@ -485,7 +485,7 @@ mod tests {
         assert!(!cpu.registers.get_zero_flag());
         assert!(!cpu.registers.get_half_carry_flag()); // cleared
         assert!(!cpu.registers.get_carry_flag());
-        assert_eq!(cpu.pc, 0x0100 + 1);
+        assert_eq!(cpu.pc, 0x0000 + 1);
     }
 
     #[test]

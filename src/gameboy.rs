@@ -26,8 +26,14 @@ pub struct GameBoy {
 }
 
 impl GameBoy {
-    pub fn new(rom: Vec<u8>, image: Arc<Mutex<Vec<u8>>>) -> Self {
+    pub fn new(rom: Vec<u8>, boot_rom: [u8; 0x0100], image: Arc<Mutex<Vec<u8>>>) -> Self {
         let bus = Arc::new(RwLock::new(Mmu::new(&rom)));
+
+        {
+            let mut mmu = bus.write().unwrap();
+            mmu.load_boot_rom(boot_rom);
+        }
+
         let cpu = Cpu::new(bus.clone());
         let ppu = Ppu::new(bus.clone());
 

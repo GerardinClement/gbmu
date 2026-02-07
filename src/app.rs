@@ -30,7 +30,13 @@ impl GameApp {
         global_bool: Arc<AtomicBool>,
         image_to_change: Arc<Mutex<Vec<u8>>>,
     ) -> Self {
-        let gameboy = GameBoy::new(rom, image_to_change.clone());
+        let boot_bytes = std::fs::read("boot-roms/dmg.bin").expect("cannot read boot rom");
+        assert!(boot_bytes.len() == 0x100, "boot rom must be 256 bytes");
+
+        let mut boot_rom = [0u8; 0x0100];
+        boot_rom.copy_from_slice(&boot_bytes);
+
+        let gameboy = GameBoy::new(rom, boot_rom, image_to_change.clone());
         println!("{}", gameboy.cpu);
         Self {
             gameboy,

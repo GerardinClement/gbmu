@@ -71,15 +71,14 @@ pub fn execute_instruction_block_prefix(cpu: &mut Cpu, instruction: u8) -> u8 {
         0b01000000 => block_prefix::bit_b3_r8(cpu, instruction),
         0b10000000 => block_prefix::res_b3_r8(cpu, instruction),
         0b11000000 => block_prefix::set_b3_r8(cpu, instruction),
-        _ => cpu.pc = cpu.pc.wrapping_add(1),
+        _ => panic!("Unknown CB opcode: {instruction:#04x}"),
     }
 
-    if (0b110 & instruction) == 0b110 {
-        if (0b01000000 & instruction) == 0b01000000 {
-            12
-        } else {
-            16
-        }
+    let is_hl = (instruction & 0x07) == 0x06; // xxx110 => (HL)
+    let is_bit = (instruction & 0xC0) == 0x40; // 01xxxxxx => BIT b, r
+
+    if is_hl {
+        if is_bit { 12 } else { 16 }
     } else {
         8
     }
@@ -87,43 +86,43 @@ pub fn execute_instruction_block_prefix(cpu: &mut Cpu, instruction: u8) -> u8 {
 
 pub fn rlc_r8(cpu: &mut Cpu, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
-    cpu.registers.rotate_left(r8, false);
+    cpu.op_rotate_left(r8, false, false);
     cpu.pc = cpu.pc.wrapping_add(2);
 }
 
 pub fn rrc_r8(cpu: &mut Cpu, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
-    cpu.registers.rotate_right(r8, true);
+    cpu.op_rotate_right(r8, false, false);
     cpu.pc = cpu.pc.wrapping_add(2);
 }
 
 pub fn rl(cpu: &mut Cpu, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
-    cpu.registers.rotate_left(r8, true);
+    cpu.op_rotate_left(r8, true, false);
     cpu.pc = cpu.pc.wrapping_add(2);
 }
 
 pub fn rr(cpu: &mut Cpu, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
-    cpu.registers.rotate_right(r8, false);
+    cpu.op_rotate_right(r8, true, false);
     cpu.pc = cpu.pc.wrapping_add(2);
 }
 
 pub fn sla_r8(cpu: &mut Cpu, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
-    cpu.registers.shift_left(r8);
+    cpu.op_sla(r8);
     cpu.pc = cpu.pc.wrapping_add(2);
 }
 
 pub fn sr_r8(cpu: &mut Cpu, instruction: u8, arithmetic: bool) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
-    cpu.registers.shift_right(r8, arithmetic);
+    cpu.op_sr(r8, arithmetic);
     cpu.pc = cpu.pc.wrapping_add(2);
 }
 
 pub fn swap_r8(cpu: &mut Cpu, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
-    cpu.registers.swap(r8);
+    cpu.op_swap(r8);
     cpu.pc = cpu.pc.wrapping_add(2);
 }
 
@@ -166,6 +165,22 @@ pub fn set_b3_r8(cpu: &mut Cpu, instruction: u8) {
 mod tests {
     use super::*;
     use crate::cpu::Cpu;
+
+    #[test]
+    fn cb_cycles_detection_is_correct() {
+        // CB 07 = RLC A (register) => 8 cycles
+        let ins = 0x07;
+        assert_eq!((ins & 0x07) == 0x06, false);
+
+        // CB 06 = RLC (HL) => 16 cycles
+        let ins = 0x06;
+        assert_eq!((ins & 0x07) == 0x06, true);
+
+        // CB 46 = BIT 0,(HL) => 12 cycles
+        let ins = 0x46;
+        assert_eq!((ins & 0x07) == 0x06, true);
+        assert_eq!((ins & 0xC0) == 0x40, true);
+    }
 
     #[test]
     fn test_rlc_r8() {
