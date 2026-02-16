@@ -4,7 +4,7 @@ use crate::debugger::debbuger;
 use crate::gui::{AppState, DebugingDevice, WatchedAdresses};
 
 use eframe::egui::load::SizedTexture;
-use eframe::egui::{Context, TextureHandle, TextureOptions};
+use eframe::egui::Context;
 
 use display::display_interface;
 

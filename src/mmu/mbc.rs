@@ -2,14 +2,20 @@ use std::cmp::min;
 
 const ROM_BANK_SIZE: usize = 0x4000;
 
+pub trait Mbc {
+    fn new(rom_image: &[u8]) -> Self where Self: Sized;
+    fn read(&self, addr: u16) -> u8;
+    fn write(&mut self, addr: u16, val: u8);
+}
+
 #[derive(Clone)]
-pub struct Mbc {
+pub struct RomOnly {
     banks: Vec<[u8; 0x4000]>,
     current: usize,
 }
 
-impl Mbc {
-    pub fn new(rom_image: &[u8]) -> Self {
+impl Mbc for RomOnly{
+    fn new(rom_image: &[u8]) -> Self {
         let mut banks = Vec::new();
         let mut offset = 0;
 
@@ -27,10 +33,10 @@ impl Mbc {
             banks.resize(2, [0u8; ROM_BANK_SIZE]);
         }
 
-        Mbc { banks, current: 1 }
+        RomOnly { banks, current: 1 }
     }
 
-    pub fn read(&self, addr: u16) -> u8 {
+    fn read(&self, addr: u16) -> u8 {
         let i = addr as usize;
 
         if i < ROM_BANK_SIZE {
@@ -42,21 +48,23 @@ impl Mbc {
         }
     }
 
-    pub fn write(&mut self, addr: u16, val: u8) {}
+    fn write(&mut self, addr: u16, val: u8) {}
+}
 
-    pub fn bank_count(&self) -> usize {
+impl RomOnly {
+    fn bank_count(&self) -> usize {
         self.banks.len()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::Mbc;
+    use super::RomOnly;
 
     #[test]
     fn small_rom_creates_two_banks() {
         let data = vec![0xAA; 100]; // 100 bytes
-        let mbc = Mbc::new(&data);
+        let mbc = RomOnly::new(&data);
 
         // Should have at least two banks
         assert_eq!(mbc.banks.len(), 2);
@@ -76,7 +84,7 @@ mod tests {
     fn multi_bank_rom_splits_correctly() {
         // Create 20 KiB of incrementing bytes: 0,1,2,…,19999
         let data: Vec<u8> = (0..20_480).map(|i| (i % 256) as u8).collect();
-        let mbc = Mbc::new(&data);
+        let mbc = RomOnly::new(&data);
 
         assert_eq!(mbc.banks.len(), 2);
         // First bank matches bytes 0..16384

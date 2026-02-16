@@ -9,7 +9,7 @@ pub mod oam;
 use self::timers::Timers;
 use crate::mmu::interrupt::Interrupt;
 use crate::mmu::interrupt::InterruptController;
-use crate::mmu::mbc::Mbc;
+use crate::mmu::mbc::{Mbc, RomOnly};
 use crate::mmu::oam::Oam;
 
 #[derive(PartialEq, Eq, Debug)]

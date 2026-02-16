@@ -5,8 +5,6 @@ use std::sync::{Arc, RwLock};
 
 use std::sync::Mutex;
 
-use tokio::time::Instant;
-
 use crate::cpu::Cpu;
 use crate::gui::KeyInput;
 use crate::mmu::Mmu;
