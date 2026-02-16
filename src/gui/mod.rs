@@ -8,8 +8,8 @@ mod views;
 use crate::{
     ppu,
 };
-use eframe::egui::{InputState, Key, TextureHandle};
-use eframe::egui::{load::SizedTexture, vec2, ColorImage, Context, Image, TextureOptions};
+use eframe::egui::{Key, TextureHandle};
+use eframe::egui::{load::SizedTexture, vec2, ColorImage, Context, TextureOptions};
 use std::collections::HashSet;
 
 use std::sync::atomic::Ordering;
@@ -17,7 +17,7 @@ use std::sync::atomic::Ordering;
 use std::time::Instant;
 
 #[derive(Default)]
-pub struct MyApp {
+pub struct GraphicalApp {
     app_state: AppState,
 }
 
@@ -26,14 +26,13 @@ use eframe::egui;
 use tokio::time::{self, Duration as TokioDuration, Instant as TokioInstant};
 use std::sync::Mutex;
 use std::fs;
-use std::process;
-use tokio::sync::mpsc::{Receiver, Sender, channel};
+use std::process; use tokio::sync::mpsc::{Receiver, Sender, channel};
 use tokio::task::JoinHandle;
 
 
 use std::sync::{Arc, atomic::AtomicBool};
 
-impl eframe::App for MyApp {
+impl eframe::App for GraphicalApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let debut = Instant::now();
         self.app_state = match std::mem::replace(&mut self.app_state, AppState::Default) {
@@ -141,7 +140,6 @@ async fn launch_game(
         // Ceci pourra etre enleve quand on fera
         // du multitask dans le cpu
         // Cela permet de checker si la tache n'a pas ete annule
-        println!("this is going.");
         let debut = TokioInstant::now();
 
 
