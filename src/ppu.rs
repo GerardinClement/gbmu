@@ -9,6 +9,7 @@ mod pixel_fifo;
 
 use std::sync::Mutex;
 
+use crate::mmu::mbc::Mbc;
 use crate::mmu::MemoryRegion;
 use crate::mmu::Mmu;
 use crate::mmu::oam::Sprite;
@@ -44,8 +45,8 @@ const HBLANK_DOTS: u32 = 204; // can change between 87 and 204, to handle later
 const SCANLINE_DOTS: u32 = 456; // always 456
 
 #[derive(Default)]
-pub struct Ppu {
-    pub bus: Arc<RwLock<Mmu>>,
+pub struct Ppu<T: Mbc> {
+    pub bus: Arc<RwLock<Mmu<T>>>,
     lcd_control: LcdControl,
     lcd_status: LcdStatus, // LCD Status register
     scx: u8,               // Scroll X
@@ -61,8 +62,8 @@ pub struct Ppu {
     pub dots: u32,
 }
 
-impl Ppu {
-    pub fn new(bus: Arc<RwLock<Mmu>>) -> Self {
+impl<T: Mbc> Ppu<T> {
+    pub fn new(bus: Arc<RwLock<Mmu<T>>>) -> Self {
         Ppu {
             bus,
             lcd_control: LcdControl::default(),
@@ -140,9 +141,9 @@ impl Ppu {
         let lsb_bit = (lsb_byte >> bit_index) & 1;
         let msb_bit = (msb_byte >> bit_index) & 1;
 
-        let color_index = (msb_bit << 1) | lsb_bit;
+        
 
-        color_index
+        (msb_bit << 1) | lsb_bit
     }
 
     pub fn read_tile_data(&self, tile_address: u16) -> [u8; 16] {
@@ -350,7 +351,7 @@ impl Ppu {
             for pixel_x in 0..8 {
                 let screen_x = (sprite.x - 8 + pixel_x) as i16;
                     
-                if screen_x < 0 || screen_x >= 160 {
+                if !(0..160).contains(&screen_x) {
                     continue;
                 }
 
