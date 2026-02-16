@@ -2,6 +2,7 @@
 
 use crate::gameboy::GameBoy;
 use crate::gui::{DebugCommandQueries, DebugResponse, KeyInput, WatchedAdresses};
+use crate::mmu::mbc::Mbc;
 use crate::ppu;
 use std::sync::Mutex;
 use std::sync::{
@@ -10,9 +11,9 @@ use std::sync::{
 };
 use tokio::sync::mpsc::{Receiver, Sender};
 
-pub struct GameApp {
+pub struct GameApp<T: Mbc> {
     is_debug_mode: Arc<AtomicBool>,
-    gameboy: GameBoy,
+    gameboy: GameBoy<T>,
     debug_receiver: Receiver<DebugCommandQueries>,
     debug_sender: Sender<DebugResponse>,
     is_step_mode: bool,
@@ -22,23 +23,24 @@ pub struct GameApp {
     image_to_change: Arc<Mutex<Vec<u8>>>,
 }
 
-impl GameApp {
+impl<T: Mbc> GameApp<T> {
     pub fn new(
         rom: Vec<u8>,
         receiver: Receiver<DebugCommandQueries>,
         sender: Sender<DebugResponse>,
         global_bool: Arc<AtomicBool>,
         image_to_change: Arc<Mutex<Vec<u8>>>,
-    ) -> Self {
+    ) -> Result<Self, String> {
         let boot_bytes = std::fs::read("boot-roms/dmg.bin").expect("cannot read boot rom");
         assert!(boot_bytes.len() == 0x100, "boot rom must be 256 bytes");
 
         let mut boot_rom = [0u8; 0x0100];
         boot_rom.copy_from_slice(&boot_bytes);
 
-        let gameboy = GameBoy::new(rom, boot_rom, image_to_change.clone());
+
+        let gameboy = GameBoy::<T>::new(rom, boot_rom, image_to_change.clone())?;
         println!("{}", gameboy.cpu);
-        Self {
+        Ok(Self {
             gameboy,
             debug_receiver: receiver,
             debug_sender: sender,
@@ -50,7 +52,7 @@ impl GameApp {
                 addresses_n_values: Vec::new(),
             },
             image_to_change,
-        }
+        })
     }
 
     fn send_watched_address(&mut self) {
