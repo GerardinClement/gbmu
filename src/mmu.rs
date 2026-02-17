@@ -9,7 +9,7 @@ pub mod oam;
 use self::timers::Timers;
 use crate::mmu::interrupt::Interrupt;
 use crate::mmu::interrupt::InterruptController;
-use crate::mmu::mbc::{Mbc, RomOnly};
+use crate::mmu::mbc::Mbc;
 use crate::mmu::oam::Oam;
 
 #[derive(PartialEq, Eq, Debug)]
@@ -76,7 +76,8 @@ pub struct Mmu<T: Mbc> {
 
 impl<T: Mbc> Mmu<T> {
     pub fn new(rom_image: &[u8]) -> Self {
-        let mmu = Mmu {
+        
+       Mmu {
             data: [0; 0x10000],
             cart: T::new(rom_image),
             interrupts: InterruptController::new(),
@@ -84,8 +85,7 @@ impl<T: Mbc> Mmu<T> {
             oam: Oam::default(),
             boot_enable: false,
             boot_rom: [0; 0x0100],
-        };
-       mmu
+        }
     }
 
     pub fn load_boot_rom(&mut self, boot_rom: [u8; 0x0100]) {

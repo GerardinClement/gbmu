@@ -73,7 +73,7 @@ impl DebugingDevice {
     }
 
     fn update_and_get_debuging_data(&mut self, ctx: &Context) -> DebugingDataIn<'_> {
-        let color_image = self.core_game.update_and_size_image(ctx);
+        self.core_game.update_and_size_image(ctx);
         debbuger::update_info_struct(self);
 
         let error_message = if let Some(value) = &self.error_message {

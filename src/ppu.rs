@@ -141,9 +141,9 @@ impl<T: Mbc> Ppu<T> {
         let lsb_bit = (lsb_byte >> bit_index) & 1;
         let msb_bit = (msb_byte >> bit_index) & 1;
 
-        let color_index = (msb_bit << 1) | lsb_bit;
+        
 
-        color_index
+        (msb_bit << 1) | lsb_bit
     }
 
     pub fn read_tile_data(&self, tile_address: u16) -> [u8; 16] {
@@ -351,7 +351,7 @@ impl<T: Mbc> Ppu<T> {
             for pixel_x in 0..8 {
                 let screen_x = (sprite.x - 8 + pixel_x) as i16;
                     
-                if screen_x < 0 || screen_x >= 160 {
+                if !(0..160).contains(&screen_x) {
                     continue;
                 }
 

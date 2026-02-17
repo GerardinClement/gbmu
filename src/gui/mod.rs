@@ -24,7 +24,7 @@ pub struct GraphicalApp {
 
 use crate::app::GameApp;
 use eframe::egui;
-use tokio::time::{self, Duration as TokioDuration, Instant as TokioInstant};
+use tokio::time::{self, Duration as TokioDuration};
 use std::sync::Mutex;
 use std::fs;
 use std::process; use tokio::sync::mpsc::{Receiver, Sender, channel};

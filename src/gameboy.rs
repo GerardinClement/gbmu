@@ -7,7 +7,7 @@ use std::sync::Mutex;
 
 use crate::cpu::Cpu;
 use crate::gui::KeyInput;
-use crate::mmu::mbc::{Mbc, RomOnly};
+use crate::mmu::mbc::Mbc;
 use crate::mmu::Mmu;
 use crate::ppu::Ppu;
 

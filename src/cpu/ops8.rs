@@ -78,7 +78,7 @@ impl<T: Mbc> Cpu<T> {
 
     pub fn op_swap(&mut self, target: R8) {
         let value = self.get_r8_value(target);
-        let result = (value >> 4) | (value << 4);
+        let result = value.rotate_left(4);
 
         self.set_r8_value(target, result);
         self.registers.set_zero_flag(result == 0);
