@@ -166,21 +166,15 @@ async fn launch_game(
         // Ceci pourra etre enleve quand on fera
         // du multitask dans le cpu
         // Cela permet de checker si la tache n'a pas ete annule
-        let debut = TokioInstant::now();
 
 
         if let Ok(input) = input_receiver.try_recv(){
             let input = input;
         }
         let buffer_was_updated = app.update(&input);
-        let duration = debut.elapsed();
-        //println!("update app: Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
-        let debut = TokioInstant::now();
         if buffer_was_updated {
             updated_image_boolean.store(true, Ordering::Relaxed);
         }
-        let duration = debut.elapsed();
-        //println!("sending : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
     }
 }
 
