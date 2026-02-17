@@ -64,9 +64,9 @@ impl MemoryRegion {
     }
 }
 
-pub struct Mmu {
+pub struct Mmu<T: Mbc> {
     data: [u8; 0x10000], // 0xFFFF (65535) + 1 = 0x10000 (65536)
-    cart: Mbc,
+    cart: T,
     interrupts: InterruptController,
     timers: Timers,
     oam: Oam,
@@ -74,18 +74,17 @@ pub struct Mmu {
     boot_rom: [u8; 0x0100]
 }
 
-impl Mmu {
+impl<T: Mbc> Mmu<T> {
     pub fn new(rom_image: &[u8]) -> Self {
         let mmu = Mmu {
             data: [0; 0x10000],
-            cart: Mbc::new(rom_image),
+            cart: T::new(rom_image),
             interrupts: InterruptController::new(),
             timers: Timers::default(),
             oam: Oam::default(),
             boot_enable: false,
             boot_rom: [0; 0x0100],
         };
-
        mmu
     }
 
@@ -175,21 +174,23 @@ impl Mmu {
     }
 }
 
-impl Default for Mmu {
+impl<T: Mbc> Default for Mmu<T> {
     fn default() -> Self {
-        Mmu::new(&[])
+        Mmu::<T>::new(&[])
     }
 }
 
 // In mmu.rs
 #[cfg(test)]
 mod tests {
+    use crate::mmu::mbc::RomOnly;
+
     use super::{MemoryRegion, Mmu};
 
     #[test]
     fn mmu_routes_reads_and_writes() {
         let rom = vec![0x12, 0x34, 0x56, 0x78];
-        let mut mmu = Mmu::new(&rom);
+        let mut mmu = Mmu::<RomOnly>::new(&rom);
 
         // Reading from ROM region gives you the first bank data
         assert_eq!(mmu.read_byte(0x0000), 0x12);
@@ -218,7 +219,7 @@ mod tests {
     // MRAM ECHO RAM
     #[test]
     fn echo_ram_mirror() {
-        let mut mmu = Mmu::new(&[]);
+        let mut mmu = Mmu::<RomOnly>::new(&[]);
 
         // Write to Work RAM (0xC000) and read from Echo RAM (0xE000)
         mmu.write_byte(0xC000, 0xAA);
@@ -232,7 +233,7 @@ mod tests {
     // UNUSABLE REGION
     #[test]
     fn unusable_region_behavior() {
-        let mut mmu = Mmu::new(&[]);
+        let mut mmu = Mmu::<RomOnly>::new(&[]);
 
         // Unusable region reads back as 0xFF
         let base = 0xFEA0;

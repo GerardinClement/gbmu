@@ -1,7 +1,8 @@
 use crate::cpu::registers::R8;
 use crate::cpu::Cpu;
+use crate::mmu::mbc::Mbc;
 
-impl Cpu {
+impl<T: Mbc> Cpu<T> {
     pub fn op_rotate_left(&mut self, target: R8, through_carry: bool, z_always_zero: bool) {
         let value = self.get_r8_value(target);
 
@@ -92,12 +93,13 @@ impl Cpu {
 mod tests {
     use crate::cpu::registers::{R8, R16};
     use crate::cpu::Cpu;
+    use crate::mmu::mbc::RomOnly;
     use crate::mmu::Mmu;
     use std::sync::{Arc, RwLock};
 
-    fn cpu_with_mem_at_hl(initial: u8) -> Cpu {
+    fn cpu_with_mem_at_hl(initial: u8) -> Cpu<RomOnly> {
         let bus = Arc::new(RwLock::new(Mmu::default()));
-        let mut cpu = Cpu::new(bus.clone());
+        let mut cpu = Cpu::<RomOnly>::new(bus.clone());
 
         // Place HL somewhere in WRAM so boot ROM mapping can't interfere
         cpu.registers.set_r16_value(R16::HL, 0xC000);
@@ -108,7 +110,7 @@ mod tests {
         cpu
     }
 
-    fn mem_at_hl(cpu: &Cpu) -> u8 {
+    fn mem_at_hl(cpu: &Cpu<RomOnly>) -> u8 {
         let addr = cpu.registers.get_r16_value(R16::HL);
         cpu.bus.read().unwrap().read_byte(addr)
     }
@@ -118,7 +120,7 @@ mod tests {
     #[test]
     fn rlc_on_register_sets_carry_and_result_and_flags() {
         let bus = Arc::new(RwLock::new(Mmu::default()));
-        let mut cpu = Cpu::new(bus);
+        let mut cpu = Cpu::<RomOnly>::new(bus);
 
         cpu.set_r8_value(R8::B, 0b1000_0001);
 
@@ -147,7 +149,7 @@ mod tests {
     #[test]
     fn rlc_sets_zero_when_result_is_zero_unless_forced() {
         let bus = Arc::new(RwLock::new(Mmu::default()));
-        let mut cpu = Cpu::new(bus);
+        let mut cpu = Cpu::<RomOnly>::new(bus);
 
         cpu.set_r8_value(R8::C, 0x00);
 
@@ -165,7 +167,7 @@ mod tests {
     #[test]
     fn rl_through_carry_uses_old_carry_as_bit0() {
         let bus = Arc::new(RwLock::new(Mmu::default()));
-        let mut cpu = Cpu::new(bus);
+        let mut cpu = Cpu::<RomOnly>::new(bus);
 
         cpu.set_r8_value(R8::D, 0b1000_0000);
         cpu.registers.set_carry_flag(true);
@@ -212,7 +214,7 @@ mod tests {
     #[test]
     fn srl_shifts_in_zero_and_sets_carry_from_bit0() {
         let bus = Arc::new(RwLock::new(Mmu::default()));
-        let mut cpu = Cpu::new(bus);
+        let mut cpu = Cpu::<RomOnly>::new(bus);
 
         cpu.set_r8_value(R8::E, 0b0000_0001);
 
@@ -228,7 +230,7 @@ mod tests {
     #[test]
     fn sra_preserves_sign_bit() {
         let bus = Arc::new(RwLock::new(Mmu::default()));
-        let mut cpu = Cpu::new(bus);
+        let mut cpu = Cpu::<RomOnly>::new(bus);
 
         cpu.set_r8_value(R8::H, 0b1000_0001);
 
@@ -260,7 +262,7 @@ mod tests {
     #[test]
     fn swap_sets_zero_when_result_is_zero() {
         let bus = Arc::new(RwLock::new(Mmu::default()));
-        let mut cpu = Cpu::new(bus);
+        let mut cpu = Cpu::<RomOnly>::new(bus);
 
         cpu.set_r8_value(R8::A, 0x00);
         cpu.op_swap(R8::A);

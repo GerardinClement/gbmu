@@ -1,7 +1,7 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
-use crate::cpu::registers::Registers;
+use crate::{cpu::registers::Registers, mmu::mbc::Mbc};
 
 #[derive(Debug)]
 pub enum Cond {

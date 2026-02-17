@@ -2,13 +2,13 @@ use std::cmp::min;
 
 const ROM_BANK_SIZE: usize = 0x4000;
 
-pub trait Mbc {
+pub trait Mbc: Default{
     fn new(rom_image: &[u8]) -> Self where Self: Sized;
     fn read(&self, addr: u16) -> u8;
     fn write(&mut self, addr: u16, val: u8);
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct RomOnly {
     banks: Vec<[u8; 0x4000]>,
     current: usize,
@@ -60,6 +60,7 @@ impl RomOnly {
 #[cfg(test)]
 mod tests {
     use super::RomOnly;
+    use super::Mbc;
 
     #[test]
     fn small_rom_creates_two_banks() {

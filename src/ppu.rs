@@ -9,6 +9,7 @@ mod pixel_fifo;
 
 use std::sync::Mutex;
 
+use crate::mmu::mbc::Mbc;
 use crate::mmu::MemoryRegion;
 use crate::mmu::Mmu;
 use crate::mmu::oam::Sprite;
@@ -44,8 +45,8 @@ const HBLANK_DOTS: u32 = 204; // can change between 87 and 204, to handle later
 const SCANLINE_DOTS: u32 = 456; // always 456
 
 #[derive(Default)]
-pub struct Ppu {
-    pub bus: Arc<RwLock<Mmu>>,
+pub struct Ppu<T: Mbc> {
+    pub bus: Arc<RwLock<Mmu<T>>>,
     lcd_control: LcdControl,
     lcd_status: LcdStatus, // LCD Status register
     scx: u8,               // Scroll X
@@ -61,8 +62,8 @@ pub struct Ppu {
     pub dots: u32,
 }
 
-impl Ppu {
-    pub fn new(bus: Arc<RwLock<Mmu>>) -> Self {
+impl<T: Mbc> Ppu<T> {
+    pub fn new(bus: Arc<RwLock<Mmu<T>>>) -> Self {
         Ppu {
             bus,
             lcd_control: LcdControl::default(),

@@ -5,6 +5,7 @@
 mod common;
 mod views;
 
+use crate::mmu::mbc::RomOnly;
 use crate::{
     ppu,
 };
@@ -125,7 +126,7 @@ async fn launch_game(
     image_to_change: Arc<Mutex<Vec<u8>>>,
 ) {
     let rom_data: Vec<u8> = read_rom(rom_path);
-    let mut app = GameApp::new(
+    let mut app = GameApp::<RomOnly>::new(
         rom_data,
         command_query_receiver,
         debug_response_sender,

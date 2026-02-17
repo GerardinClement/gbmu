@@ -7,6 +7,7 @@ use std::sync::Mutex;
 
 use crate::cpu::Cpu;
 use crate::gui::KeyInput;
+use crate::mmu::mbc::{Mbc, RomOnly};
 use crate::mmu::Mmu;
 use crate::ppu::Ppu;
 
@@ -16,24 +17,24 @@ const WIN_SIZE_Y: usize = 144; // Window size in Y direction
 const VBLANK_SIZE: usize = 10; // VBlank size in lines
 
 #[derive(Default)]
-pub struct GameBoy {
-    pub cpu: Cpu,
-    pub ppu: Ppu,
-    pub bus: Arc<RwLock<Mmu>>,
+pub struct GameBoy<T: Mbc> {
+    pub cpu: Cpu<T>,
+    pub ppu: Ppu<T>,
+    pub bus: Arc<RwLock<Mmu<T>>>,
     pub image: Arc<Mutex<Vec<u8>>>,
 }
 
-impl GameBoy {
-    pub fn new(rom: Vec<u8>, boot_rom: [u8; 0x0100], image: Arc<Mutex<Vec<u8>>>) -> Self {
-        let bus = Arc::new(RwLock::new(Mmu::new(&rom)));
+impl<T: Mbc>  GameBoy<T> {
+    pub fn new(rom: Vec<u8>, boot_rom: [u8; 0x0100], image: Arc<Mutex<Vec<u8>>>) -> GameBoy<T> {
+        let bus = Arc::new(RwLock::new(Mmu::<T>::new(&rom)));
 
         {
             let mut mmu = bus.write().unwrap();
             mmu.load_boot_rom(boot_rom);
         }
 
-        let cpu = Cpu::new(bus.clone());
-        let ppu = Ppu::new(bus.clone());
+        let cpu = Cpu::<T>::new(bus.clone());
+        let ppu = Ppu::<T>::new(bus.clone());
 
         GameBoy { cpu, bus, ppu, image }
     }

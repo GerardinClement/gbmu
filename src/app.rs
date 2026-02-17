@@ -2,6 +2,7 @@
 
 use crate::gameboy::GameBoy;
 use crate::gui::{DebugCommandQueries, DebugResponse, KeyInput, WatchedAdresses};
+use crate::mmu::mbc::Mbc;
 use crate::ppu;
 use std::sync::Mutex;
 use std::sync::{
@@ -10,9 +11,9 @@ use std::sync::{
 };
 use tokio::sync::mpsc::{Receiver, Sender};
 
-pub struct GameApp {
+pub struct GameApp<T: Mbc> {
     is_debug_mode: Arc<AtomicBool>,
-    gameboy: GameBoy,
+    gameboy: GameBoy<T>,
     debug_receiver: Receiver<DebugCommandQueries>,
     debug_sender: Sender<DebugResponse>,
     is_step_mode: bool,
@@ -22,7 +23,7 @@ pub struct GameApp {
     image_to_change: Arc<Mutex<Vec<u8>>>,
 }
 
-impl GameApp {
+impl<T: Mbc> GameApp<T> {
     pub fn new(
         rom: Vec<u8>,
         receiver: Receiver<DebugCommandQueries>,
@@ -36,7 +37,8 @@ impl GameApp {
         let mut boot_rom = [0u8; 0x0100];
         boot_rom.copy_from_slice(&boot_bytes);
 
-        let gameboy = GameBoy::new(rom, boot_rom, image_to_change.clone());
+
+        let gameboy = GameBoy::<T>::new(rom, boot_rom, image_to_change.clone());
         println!("{}", gameboy.cpu);
         Self {
             gameboy,
