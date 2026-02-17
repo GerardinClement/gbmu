@@ -1,5 +1,6 @@
 use std::cmp::min;
 
+const ONLY_ROM_SIZE: usize = 0x8000;
 const ROM_BANK_SIZE: usize = 0x4000;
 
 pub trait Mbc: Default{
@@ -23,54 +24,36 @@ impl Mbc for Mbc1 {
     fn write(&mut self, addr: u16, val: u8) { }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct RomOnly {
-    banks: Vec<[u8; 0x4000]>,
-    current: usize,
+    bank: [u8; 0x8000],
+}
+
+impl Default for RomOnly {
+    fn default() -> Self {
+        RomOnly {
+            bank: [0; 0x8000] 
+        }
+    }
 }
 
 impl Mbc for RomOnly{
     fn new(rom_image: &[u8]) -> Self {
-        let mut banks = Vec::new();
-        let mut offset = 0;
-
-        while offset < rom_image.len() {
-            let mut bank = [0u8; ROM_BANK_SIZE];
-
-            let end = min(offset + ROM_BANK_SIZE, rom_image.len());
-            let len = end - offset;
-
-            bank[..len].copy_from_slice(&rom_image[offset..end]);
-            banks.push(bank);
-            offset += ROM_BANK_SIZE;
+        let mut bank = [0u8; ONLY_ROM_SIZE];
+        let end = min(ONLY_ROM_SIZE, rom_image.len());
+        bank[..end].copy_from_slice(&rom_image[..end]);
+        RomOnly {
+            bank
         }
-        if banks.len() < 2 {
-            banks.resize(2, [0u8; ROM_BANK_SIZE]);
-        }
-
-        RomOnly { banks, current: 1 }
     }
 
     fn read(&self, addr: u16) -> u8 {
-        let i = addr as usize;
-
-        if i < ROM_BANK_SIZE {
-            self.banks[0][i]
-        } else {
-            let off = i - ROM_BANK_SIZE;
-
-            self.banks[self.current][off]
-        }
+        self.bank[addr as usize]
     }
 
     fn write(&mut self, addr: u16, val: u8) {}
 }
 
-impl RomOnly {
-    fn bank_count(&self) -> usize {
-        self.banks.len()
-    }
-}
 
 #[cfg(test)]
 mod tests {
