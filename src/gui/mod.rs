@@ -5,7 +5,7 @@
 mod common;
 mod views;
 
-use crate::mmu::mbc::RomOnly;
+use crate::mmu::mbc::{Mbc1, RomOnly};
 use crate::{
     ppu,
 };
@@ -115,6 +115,21 @@ fn read_rom(rom_path: String) -> Vec<u8> {
     }
 }
 
+pub enum AnyGameApp {
+    OnlyRom(GameApp<RomOnly>),
+    Mbc1(GameApp<Mbc1>),
+}
+
+impl AnyGameApp {
+    pub fn update(&mut self, keys_down: &KeyInput) ->  bool {
+        match self {
+            AnyGameApp::OnlyRom(g) => g.update(keys_down),
+            AnyGameApp::Mbc1(g)=> g.update(keys_down),
+
+        }
+    }
+}
+
 
 async fn launch_game(
     rom_path: String,
@@ -124,15 +139,25 @@ async fn launch_game(
     debug_response_sender: Sender<DebugResponse>,
     global_is_debug: Arc<AtomicBool>,
     image_to_change: Arc<Mutex<Vec<u8>>>,
-) {
+) -> Result<(), String> {
     let rom_data: Vec<u8> = read_rom(rom_path);
-    let mut app = GameApp::<RomOnly>::new(
-        rom_data,
-        command_query_receiver,
-        debug_response_sender,
-        global_is_debug,
-        image_to_change,
-    );
+    let mut app = match rom_data[0x0147] {
+            0 => Ok(AnyGameApp::OnlyRom(GameApp::<RomOnly>::new(
+                rom_data,
+                command_query_receiver,
+                debug_response_sender,
+                global_is_debug,
+                image_to_change,
+            ))),
+            1 => Ok(AnyGameApp::Mbc1(GameApp::<Mbc1>::new(
+                rom_data,
+                command_query_receiver,
+                debug_response_sender,
+                global_is_debug,
+                image_to_change,
+            ))),
+            _ => Err("Unmanaged cartridge type")
+    }?;
 
     let input = KeyInput::default();
 
@@ -182,7 +207,7 @@ pub struct WatchedAdresses {
 }
 
 pub struct CoreGameDevice {
-    pub handler: JoinHandle<()>,
+    pub handler: JoinHandle<Result<(), String>>,
     pub input_sender: Sender<KeyInput>,
     pub updated_image_boolean: Arc<AtomicBool>,
     pub command_query_sender: Sender<DebugCommandQueries>,

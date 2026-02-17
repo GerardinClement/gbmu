@@ -9,6 +9,21 @@ pub trait Mbc: Default{
 }
 
 #[derive(Clone, Default)]
+pub  struct Mbc1 {
+
+}
+
+impl Mbc for Mbc1 {
+    fn new(rom_image: &[u8]) -> Self {
+        Mbc1 {}
+    }
+
+    fn read(&self, addr: u16) -> u8 { 0 }
+
+    fn write(&mut self, addr: u16, val: u8) { }
+}
+
+#[derive(Clone, Default)]
 pub struct RomOnly {
     banks: Vec<[u8; 0x4000]>,
     current: usize,
