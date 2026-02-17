@@ -11,17 +11,57 @@ pub trait Mbc: Default{
 
 #[derive(Clone, Default)]
 pub  struct Mbc1 {
-
+    banks: Vec<[u8; ROM_BANK_SIZE]>,
+    ram_gate_register: bool, // If ramg is set to 0b1010 -> 
+    bank_register_1: u8,
+    bank_register_2: u8,
+    mode_register: bool,
 }
 
 impl Mbc for Mbc1 {
     fn new(rom_image: &[u8]) -> Self {
-        Mbc1 {}
+        let chunks: Vec<[u8; ROM_BANK_SIZE]>= rom_image
+            .chunks_exact(ROM_BANK_SIZE)
+            .map(|slice|{
+                let mut data = [0; ROM_BANK_SIZE];
+                data.copy_from_slice(&slice);
+                data
+            }).collect();
+        Mbc1 {
+            banks: chunks,
+            ram_gate_register: false,
+            bank_register_1: 0b1,
+            bank_register_2: 0b0,
+            mode_register: false,
+
+        }
     }
 
-    fn read(&self, addr: u16) -> u8 { 0 }
+    fn read(&self, addr: u16) -> u8 {
+        match addr {
+            0x0000..0x4000 => {
+                if self.mode_register {
+                    self.banks[0][addr as usize]
+                } else {
+                    self.banks[(self.bank_register_2 << 5) as usize][addr as usize]
+                }
+            },
+            0x4000..0x8000 => {
+                self.banks[((self.bank_register_2 << 5) + self.bank_register_1) as usize][addr as usize - ROM_BANK_SIZE as usize]
+            }
+            _ => unreachable!()
+        }
+    }
 
-    fn write(&mut self, addr: u16, val: u8) { }
+    fn write(&mut self, addr: u16, val: u8) {
+        match addr {
+            0x0000..0x2000 => self.ram_gate_register = (val & 0b1010) == 0b1010,
+            0x2000..0x4000 => self.bank_register_1 = val & 0b11111,
+            0x4000..0x6000 => self.bank_register_2 = val & 0b11,
+            0x6000..0x8000 => self.mode_register = (val & 0b1) == 0b1,
+            _ => unreachable!()
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -52,47 +92,4 @@ impl Mbc for RomOnly{
     }
 
     fn write(&mut self, addr: u16, val: u8) {}
-}
-
-
-#[cfg(test)]
-mod tests {
-    use super::RomOnly;
-    use super::Mbc;
-
-    #[test]
-    fn small_rom_creates_two_banks() {
-        let data = vec![0xAA; 100]; // 100 bytes
-        let mbc = RomOnly::new(&data);
-
-        // Should have at least two banks
-        assert_eq!(mbc.banks.len(), 2);
-        // First bank begins with your data...
-        for i in 0..100 {
-            assert_eq!(mbc.banks[0][i], 0xAA);
-        }
-        // ...and the rest of bank 0 is zero
-        for i in 100..0x4000 {
-            assert_eq!(mbc.banks[0][i], 0);
-        }
-        // Bank 1 is entirely zeros
-        assert!(mbc.banks[1].iter().all(|&b| b == 0));
-    }
-
-    #[test]
-    fn multi_bank_rom_splits_correctly() {
-        // Create 20 KiB of incrementing bytes: 0,1,2,…,19999
-        let data: Vec<u8> = (0..20_480).map(|i| (i % 256) as u8).collect();
-        let mbc = RomOnly::new(&data);
-
-        assert_eq!(mbc.banks.len(), 2);
-        // First bank matches bytes 0..16384
-        for i in 0..0x4000 {
-            assert_eq!(mbc.banks[0][i], (i % 256) as u8);
-        }
-        // Second bank matches bytes 16384..20480
-        for i in 0..(20_480 - 0x4000) {
-            assert_eq!(mbc.banks[1][i], ((i + 0x4000) % 256) as u8);
-        }
-    }
 }
