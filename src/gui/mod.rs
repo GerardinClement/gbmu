@@ -5,7 +5,7 @@
 mod common;
 mod views;
 
-use crate::mmu::mbc::{Mbc1, RomOnly};
+use crate::mmu::mbc::{Mbc1, Mbc2, RomOnly};
 use crate::{
     ppu,
 };
@@ -118,6 +118,7 @@ fn read_rom(rom_path: String) -> Vec<u8> {
 pub enum AnyGameApp {
     OnlyRom(GameApp<RomOnly>),
     Mbc1(GameApp<Mbc1>),
+    Mbc2(GameApp<Mbc2>),
 }
 
 impl AnyGameApp {
@@ -125,6 +126,7 @@ impl AnyGameApp {
         match self {
             AnyGameApp::OnlyRom(g) => g.update(keys_down),
             AnyGameApp::Mbc1(g)=> g.update(keys_down),
+            AnyGameApp::Mbc2(g)=> g.update(keys_down),
 
         }
     }
@@ -141,22 +143,20 @@ async fn launch_game(
     image_to_change: Arc<Mutex<Vec<u8>>>,
 ) -> Result<(), String> {
     let rom_data: Vec<u8> = read_rom(rom_path);
-    let mut app = match rom_data[0x0147] {
-            0 => Ok(AnyGameApp::OnlyRom(GameApp::<RomOnly>::new(
-                rom_data,
-                command_query_receiver,
-                debug_response_sender,
-                global_is_debug,
-                image_to_change,
-            )?)),
-            1 => Ok(AnyGameApp::Mbc1(GameApp::<Mbc1>::new(
-                rom_data,
-                command_query_receiver,
-                debug_response_sender,
-                global_is_debug,
-                image_to_change,
-            )?)),
+    let code = rom_data[0x0147];
+    let mut app = match code {
+            0x00 | 0x08 | 0x09 => Ok(AnyGameApp::OnlyRom(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change,)?)),
+            0x01 | 0x02 | 0x03 => Ok(AnyGameApp::Mbc1(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change,)?)),
+            0x05 | 0x06 => Ok(AnyGameApp::Mbc2(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change)?)),
+        /*
+            0x0B | 0x0C | 0x0D => Ok(todo!()), // MMM01 pas dans le sujet
+            0x0F | 0x10 | 0x11 | 0x12 | 0x13 => Ok(todo!()), // Mbc3
+            0x19 | 0x1A | 0x1B | 0x1C | 0x1D | 0x1E => Ok(todo!()), // Mbc5
+            0x20 => Ok(todo!()), // Mbc6
+            0x22 => Ok(todo!()),// MBC7+SENSOR+RUMBLE+RAM+BATTERY
+        */
             _ => Err("Unmanaged cartridge type")
+
     }?;
 
     let input = KeyInput::default();
