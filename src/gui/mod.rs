@@ -5,7 +5,7 @@
 mod common;
 mod views;
 
-use crate::mmu::mbc::{Mbc1, Mbc2, RomOnly};
+use crate::mmu::mbc::{Mbc1, Mbc2, Mbc3, RomOnly};
 use crate::{
     ppu,
 };
@@ -119,6 +119,7 @@ pub enum AnyGameApp {
     OnlyRom(GameApp<RomOnly>),
     Mbc1(GameApp<Mbc1>),
     Mbc2(GameApp<Mbc2>),
+    Mbc3(GameApp<Mbc3>),
 }
 
 impl AnyGameApp {
@@ -148,9 +149,9 @@ async fn launch_game(
             0x00 | 0x08 | 0x09 => Ok(AnyGameApp::OnlyRom(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change,)?)),
             0x01 | 0x02 | 0x03 => Ok(AnyGameApp::Mbc1(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change,)?)),
             0x05 | 0x06 => Ok(AnyGameApp::Mbc2(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change)?)),
+            0x0F | 0x10 | 0x11 | 0x12 | 0x13 => Ok(AnyGameApp::Mbc3(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change)?)),
         /*
             0x0B | 0x0C | 0x0D => Ok(todo!()), // MMM01 pas dans le sujet
-            0x0F | 0x10 | 0x11 | 0x12 | 0x13 => Ok(todo!()), // Mbc3
             0x19 | 0x1A | 0x1B | 0x1C | 0x1D | 0x1E => Ok(todo!()), // Mbc5
             0x20 => Ok(todo!()), // Mbc6
             0x22 => Ok(todo!()),// MBC7+SENSOR+RUMBLE+RAM+BATTERY

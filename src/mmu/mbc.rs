@@ -232,11 +232,11 @@ impl Mbc for RomOnly{
     }
 }
 
-pub struct Mbc5 {
+pub struct Mbc3 {
 
 }
 
-impl Mbc for Mbc5 {
+impl Mbc for Mbc3 {
     fn read(&self, addr: u16) -> u8 {
         0
     }
