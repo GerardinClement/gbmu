@@ -20,6 +20,33 @@ pub  struct Mbc1 {
     ram_banks: Vec<[u8; RAM_BANK_SIZE]>,
 }
 
+fn get_rom_bank_size(code: u8) -> Result<usize, String>{
+    match code {
+        0 => Ok(2),
+        1 => Ok(4),
+        2 => Ok(8),
+        3 => Ok(16),
+        4 => Ok(32),
+        5 => Ok(64),
+        6 => Ok(128),
+        7 => Ok(256),
+        8 => Ok(512),
+        _ => Err(format!("Rom size code can't be {}", code))
+    }
+}
+
+fn get_ram_bank_size(code: u8) -> Result<usize, String>{
+    match code {
+        0 => Ok(0),
+        1 => Ok(0),
+        2 => Ok(1),
+        3 => Ok(4),
+        4 => Ok(16),
+        5 => Ok(8),
+        _ => Err(format!("Ram size code can't be {}", code)),
+    }
+}
+
 impl Mbc for Mbc1 {
     fn new(rom_image: &[u8]) -> Result<Self, String> {
         let banks: Vec<[u8; ROM_BANK_SIZE]>= rom_image
@@ -29,7 +56,12 @@ impl Mbc for Mbc1 {
                 data.copy_from_slice(&slice);
                 data
             }).collect();
-        let ram_banks = (0..rom_image[0x149]).map(|_|{
+        if banks.iter().count() != get_rom_bank_size(rom_image[0x148])? {
+            return Err(
+                format!("Inconsistent Rom Header : size must be : {}", rom_image[0x148])
+            );
+        }
+        let ram_banks = (0..get_ram_bank_size(rom_image[0x149])?).map(|_|{
             [0; RAM_BANK_SIZE]
         }).collect();
 
@@ -77,9 +109,7 @@ pub struct Mbc2 {
 
 }
 
-impl Mbc for Mbc2 {
-
-}
+//impl Mbc for Mbc2 { }
 
 #[derive(Clone)]
 pub struct RomOnly {
@@ -108,5 +138,10 @@ impl Mbc for RomOnly{
         self.bank[addr as usize]
     }
 
-    fn write(&mut self, addr: u16, val: u8) {}
+    fn write(&mut self, addr: u16, val: u8) {
+        if (0xA000..0xC000).contains(&addr) {
+            self.bank[addr as usize] = val
+        }
+
+    }
 }

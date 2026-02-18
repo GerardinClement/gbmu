@@ -176,7 +176,7 @@ impl<T: Mbc> Mmu<T> {
 
 impl<T: Mbc> Default for Mmu<T> {
     fn default() -> Self {
-        Mmu::<T>::new(&[])
+        Mmu::<T>::new(&[]).expect("This is not suppose to happen")
     }
 }
 
@@ -190,7 +190,7 @@ mod tests {
     #[test]
     fn mmu_routes_reads_and_writes() {
         let rom = vec![0x12, 0x34, 0x56, 0x78];
-        let mut mmu = Mmu::<RomOnly>::new(&rom);
+        let mut mmu = Mmu::<RomOnly>::new(&rom).unwrap();
 
         // Reading from ROM region gives you the first bank data
         assert_eq!(mmu.read_byte(0x0000), 0x12);
@@ -219,7 +219,7 @@ mod tests {
     // MRAM ECHO RAM
     #[test]
     fn echo_ram_mirror() {
-        let mut mmu = Mmu::<RomOnly>::new(&[]);
+        let mut mmu = Mmu::<RomOnly>::new(&[]).unwrap();
 
         // Write to Work RAM (0xC000) and read from Echo RAM (0xE000)
         mmu.write_byte(0xC000, 0xAA);
@@ -233,7 +233,7 @@ mod tests {
     // UNUSABLE REGION
     #[test]
     fn unusable_region_behavior() {
-        let mut mmu = Mmu::<RomOnly>::new(&[]);
+        let mut mmu = Mmu::<RomOnly>::new(&[]).unwrap();
 
         // Unusable region reads back as 0xFF
         let base = 0xFEA0;

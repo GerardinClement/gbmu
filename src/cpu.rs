@@ -232,7 +232,7 @@ mod tests {
     #[test]
     fn test_cpu_services_timer_interrupt() {
         // 1) Set up MMU and manually enable/request the Timer interrupt
-        let mut mmu = Mmu::<RomOnly>::new(&[]);
+        let mut mmu: Mmu<RomOnly> = Mmu::default();
         // Enable only Timer (bit 2) in IE
         mmu.write_byte(0xFFFF, Interrupt::Timer as u8);
         // Request Timer by writing to IF
@@ -240,7 +240,7 @@ mod tests {
 
         // 2) Create CPU with that MMU
         let bus = Arc::new(RwLock::new(mmu));
-        let mut cpu = Cpu::<RomOnly>::new(bus.clone());
+        let mut cpu: Cpu<RomOnly> = Cpu::new(bus.clone());
 
         // 3) Initialize PC and SP
         cpu.pc = 0x1234;
@@ -275,7 +275,7 @@ mod tests {
     #[test]
     fn test_halt_opcode_sets_halted_and_advances_pc() {
         // Setup: place a HALT (0x76) at address 0x200
-        let mut mmu = Mmu::<RomOnly>::new(&[]);
+        let mut mmu = Mmu::<RomOnly>::new(&[]).unwrap();
         mmu.write_byte(0x8000, 0x76);
         let bus = Arc::new(RwLock::new(mmu));
 
@@ -293,7 +293,7 @@ mod tests {
     #[test]
     fn test_step_halt_stays_halted_without_interrupt() {
         // If halted==true and no pending interrupt, step() must do nothing
-        let mmu = Mmu::<RomOnly>::new(&[]);
+        let mmu = Mmu::<RomOnly>::default();
         let bus = Arc::new(RwLock::new(mmu));
         let mut cpu = Cpu::<RomOnly>::new(bus);
 
@@ -310,7 +310,7 @@ mod tests {
     fn test_step_halt_wakes_without_servicing_when_ime_false() {
         // If halted==true and an interrupt is pending but IME==false,
         // CPU should wake (halted→false) but *not* service the interrupt.
-        let mut mmu = Mmu::<RomOnly>::new(&[]);
+        let mut mmu = Mmu::<RomOnly>::new(&[]).unwrap();
         // Make a pending interrupt: Timer bit in IF and IE
         mmu.write_byte(0xFF0F, Interrupt::Timer as u8);
         mmu.write_byte(0xFFFF, Interrupt::Timer as u8);
@@ -344,7 +344,7 @@ mod tests {
     #[test]
     fn test_step_halt_wake_and_service_when_ime_true() {
         // Combination of HALT wake-up + interrupt dispatch in one step:
-        let mut mmu = Mmu::<RomOnly>::new(&[]);
+        let mut mmu = Mmu::<RomOnly>::default();
         mmu.write_byte(0xFF0F, Interrupt::Timer as u8);
         mmu.write_byte(0xFFFF, Interrupt::Timer as u8);
         let bus = Arc::new(RwLock::new(mmu));
@@ -379,7 +379,7 @@ mod tests {
         // 1) Lay out a tiny program in WRAM (0xC000..):
         //      0xC000: 0x76       ; HALT
         //      0xC001: 0x04       ; INC B
-        let mut mmu = Mmu::<RomOnly>::new(&[]);
+        let mut mmu = Mmu::<RomOnly>::default();
         mmu.write_byte(0xC000, 0x76);
         mmu.write_byte(0xC001, 0x04);
 
@@ -421,7 +421,7 @@ mod tests {
         }
 
         let rom_data = fs::read(rom_path).expect("Failed to read ROM file");
-        let bus = Arc::new(RwLock::new(Mmu::<RomOnly>::new(&rom_data)));
+        let bus = Arc::new(RwLock::new(Mmu::<RomOnly>::new(&rom_data).unwrap()));
         let mut cpu = Cpu::<RomOnly>::new(bus.clone());
         let mut logfile = fs::File::create(format!("logfiles/{}", logfile_name))
             .expect("Failed to create logfile");
