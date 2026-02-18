@@ -128,6 +128,7 @@ impl AnyGameApp {
             AnyGameApp::OnlyRom(g) => g.update(keys_down),
             AnyGameApp::Mbc1(g)=> g.update(keys_down),
             AnyGameApp::Mbc2(g)=> g.update(keys_down),
+            AnyGameApp::Mbc3(g)=> g.update(keys_down),
 
         }
     }

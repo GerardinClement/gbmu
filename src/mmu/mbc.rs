@@ -232,7 +232,14 @@ impl Mbc for RomOnly{
     }
 }
 
+#[derive(Default)]
 pub struct Mbc3 {
+    rtc_register: u8,
+    ram_timer_enable: bool,
+    rom_bank_nb: u8,
+    ram_bank_nb: u8,
+    latched_time_value: u8,
+    ram_banks: Vec<[u8; RAM_BANK_SIZE]>
 
 }
 
@@ -241,11 +248,22 @@ impl Mbc for Mbc3 {
         0
     }
     fn write(&mut self, addr: u16, val: u8) {
+        match addr {
+            0x0000..0x2000 => self.ram_timer_enable = val == 0x1010,
+            0x2000..0x4000 => self.rom_bank_nb = (val != 0) as u8 * val + (val == 0) as u8,
+            0x4000..0x6000 => self.ram_bank_nb = val,
+            0x6000..0x8000 => self.latched_time_value = todo!(),
+            0xA000..0xC000 => self.ram_banks[self.rom_bank_nb as usize][(addr - 0xA000) as usize] = val,
+        }
         
     }
     fn new(rom_image: &[u8]) -> Result<Self, String> where Self: Sized {
         Ok(
-            Mbc5 {
+            Mbc3 {
+                rtc_register: 0,
+                ram_timer_enable: false,
+                rom_bank_nb: 0,
+                ram_bank_nb: 0,
 
             }
         )
