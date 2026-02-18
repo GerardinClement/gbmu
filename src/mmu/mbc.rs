@@ -20,7 +20,8 @@ pub  struct Mbc1 {
     ram_banks: Vec<[u8; RAM_BANK_SIZE]>,
 }
 
-fn get_rom_bank_size(code: u8) -> Result<usize, String>{
+fn get_rom_bank_size(rom: &[u8]) -> Result<usize, String>{
+    let code = rom[0x149];
     match code {
         0 => Ok(2),
         1 => Ok(4),
@@ -35,7 +36,8 @@ fn get_rom_bank_size(code: u8) -> Result<usize, String>{
     }
 }
 
-fn get_ram_bank_size(code: u8) -> Result<usize, String>{
+fn get_ram_bank_size(rom: &[u8]) -> Result<usize, String>{
+    let code = rom[0x148];
     match code {
         0 => Ok(0),
         1 => Ok(0),
@@ -56,14 +58,19 @@ impl Mbc for Mbc1 {
                 data.copy_from_slice(&slice);
                 data
             }).collect();
-        if banks.iter().count() != get_rom_bank_size(rom_image[0x148])? {
+        let supposed_rom_bank_size = get_rom_bank_size(rom_image)?;
+        if banks.iter().count() != supposed_rom_bank_size {
             return Err(
-                format!("Inconsistent Rom Header : size must be : {}", rom_image[0x148])
+                format!("Inconsistent Rom Header : size must be : {}", supposed_rom_bank_size)
             );
         }
-        let ram_banks = (0..get_ram_bank_size(rom_image[0x149])?).map(|_|{
-            [0; RAM_BANK_SIZE]
-        }).collect();
+        let supposed_ram_bank_size = get_ram_bank_size(rom_image)?;
+        if supposed_ram_bank_size > 4 {
+            return Err(
+                format!("Supposed ram bank size can't be more than 4 in mbc1 cartridge.")
+            )
+        }
+        let ram_banks = vec![ [0; RAM_BANK_SIZE]; supposed_ram_bank_size ];
 
         Ok(Mbc1 {
             banks,
@@ -85,11 +92,21 @@ impl Mbc for Mbc1 {
                 }
             },
             0x4000..0x8000 => {
-                self.banks[((self.bank_register_2 << 5) + self.bank_register_1) as usize][addr as usize - ROM_BANK_SIZE as usize]
-            }
+                self.banks[
+                    ((self.bank_register_2 << 5) + self.bank_register_1) as usize
+                ][
+                    addr as usize - ROM_BANK_SIZE as usize
+                ]
+            },
             0xA000..0xC000 => {
-                todo!()
-            }
+                if self.ram_gate_register {
+                    self.ram_banks[
+                        self.mode_register as usize * self.bank_register_2 as usize
+                    ][addr as usize - 0xA000]
+                } else {
+                    0
+                }
+            },
             _ => unreachable!()
         }
     }
@@ -100,6 +117,13 @@ impl Mbc for Mbc1 {
             0x2000..0x4000 => self.bank_register_1 = val & 0b11111,
             0x4000..0x6000 => self.bank_register_2 = val & 0b11,
             0x6000..0x8000 => self.mode_register = (val & 0b1) == 0b1,
+            0xA000..0xC000 => {
+                if self.ram_gate_register {
+                self.ram_banks[
+                        self.mode_register * self.bank_register_2
+                    ][addr as usize - 0xA000] = val,
+                }
+            },
             _ => unreachable!()
         }
     }
