@@ -148,14 +148,14 @@ async fn launch_game(
                 debug_response_sender,
                 global_is_debug,
                 image_to_change,
-            ))),
+            )?)),
             1 => Ok(AnyGameApp::Mbc1(GameApp::<Mbc1>::new(
                 rom_data,
                 command_query_receiver,
                 debug_response_sender,
                 global_is_debug,
                 image_to_change,
-            ))),
+            )?)),
             _ => Err("Unmanaged cartridge type")
     }?;
 

@@ -1,10 +1,11 @@
 use std::cmp::min;
 
-const ONLY_ROM_SIZE: usize = 0x8000;
+const ONLY_ROM_SIZE: usize = 0xC000;
 const ROM_BANK_SIZE: usize = 0x4000;
+const RAM_BANK_SIZE: usize = 0x2000;
 
 pub trait Mbc: Default{
-    fn new(rom_image: &[u8]) -> Self where Self: Sized;
+    fn new(rom_image: &[u8]) -> Result<Self, String> where Self: Sized;
     fn read(&self, addr: u16) -> u8;
     fn write(&mut self, addr: u16, val: u8);
 }
@@ -16,25 +17,30 @@ pub  struct Mbc1 {
     bank_register_1: u8,
     bank_register_2: u8,
     mode_register: bool,
+    ram_banks: Vec<[u8; RAM_BANK_SIZE]>,
 }
 
 impl Mbc for Mbc1 {
-    fn new(rom_image: &[u8]) -> Self {
-        let chunks: Vec<[u8; ROM_BANK_SIZE]>= rom_image
+    fn new(rom_image: &[u8]) -> Result<Self, String> {
+        let banks: Vec<[u8; ROM_BANK_SIZE]>= rom_image
             .chunks_exact(ROM_BANK_SIZE)
             .map(|slice|{
                 let mut data = [0; ROM_BANK_SIZE];
                 data.copy_from_slice(&slice);
                 data
             }).collect();
-        Mbc1 {
-            banks: chunks,
+        let ram_banks = (0..rom_image[0x149]).map(|_|{
+            [0; RAM_BANK_SIZE]
+        }).collect();
+
+        Ok(Mbc1 {
+            banks,
             ram_gate_register: false,
             bank_register_1: 0b1,
             bank_register_2: 0b0,
             mode_register: false,
-
-        }
+            ram_banks,
+        })
     }
 
     fn read(&self, addr: u16) -> u8 {
@@ -48,6 +54,9 @@ impl Mbc for Mbc1 {
             },
             0x4000..0x8000 => {
                 self.banks[((self.bank_register_2 << 5) + self.bank_register_1) as usize][addr as usize - ROM_BANK_SIZE as usize]
+            }
+            0xA000..0xC000 => {
+                todo!()
             }
             _ => unreachable!()
         }
@@ -64,27 +73,35 @@ impl Mbc for Mbc1 {
     }
 }
 
+pub struct Mbc2 {
+
+}
+
+impl Mbc for Mbc2 {
+
+}
+
 #[derive(Clone)]
 pub struct RomOnly {
-    bank: [u8; 0x8000],
+    bank: [u8; ONLY_ROM_SIZE],
 }
 
 impl Default for RomOnly {
     fn default() -> Self {
         RomOnly {
-            bank: [0; 0x8000] 
+            bank: [0; ONLY_ROM_SIZE] 
         }
     }
 }
 
 impl Mbc for RomOnly{
-    fn new(rom_image: &[u8]) -> Self {
-        let mut bank = [0u8; ONLY_ROM_SIZE];
+    fn new(rom_image: &[u8]) -> Result<Self, String> {
+        let mut bank = [0; ONLY_ROM_SIZE];
         let end = min(ONLY_ROM_SIZE, rom_image.len());
         bank[..end].copy_from_slice(&rom_image[..end]);
-        RomOnly {
+        Ok(RomOnly {
             bank
-        }
+        })
     }
 
     fn read(&self, addr: u16) -> u8 {

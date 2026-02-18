@@ -25,8 +25,8 @@ pub struct GameBoy<T: Mbc> {
 }
 
 impl<T: Mbc>  GameBoy<T> {
-    pub fn new(rom: Vec<u8>, boot_rom: [u8; 0x0100], image: Arc<Mutex<Vec<u8>>>) -> GameBoy<T> {
-        let bus = Arc::new(RwLock::new(Mmu::<T>::new(&rom)));
+    pub fn new(rom: Vec<u8>, boot_rom: [u8; 0x0100], image: Arc<Mutex<Vec<u8>>>) -> Result<GameBoy<T>, String> {
+        let bus = Arc::new(RwLock::new(Mmu::<T>::new(&rom)?));
 
         {
             let mut mmu = bus.write().unwrap();
@@ -36,7 +36,7 @@ impl<T: Mbc>  GameBoy<T> {
         let cpu = Cpu::<T>::new(bus.clone());
         let ppu = Ppu::<T>::new(bus.clone());
 
-        GameBoy { cpu, bus, ppu, image }
+        Ok(GameBoy { cpu, bus, ppu, image })
     }
 
     pub fn run_frame(&mut self, key_input: &KeyInput) -> bool {

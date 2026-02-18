@@ -30,7 +30,7 @@ impl<T: Mbc> GameApp<T> {
         sender: Sender<DebugResponse>,
         global_bool: Arc<AtomicBool>,
         image_to_change: Arc<Mutex<Vec<u8>>>,
-    ) -> Self {
+    ) -> Result<Self, String> {
         let boot_bytes = std::fs::read("boot-roms/dmg.bin").expect("cannot read boot rom");
         assert!(boot_bytes.len() == 0x100, "boot rom must be 256 bytes");
 
@@ -38,9 +38,9 @@ impl<T: Mbc> GameApp<T> {
         boot_rom.copy_from_slice(&boot_bytes);
 
 
-        let gameboy = GameBoy::<T>::new(rom, boot_rom, image_to_change.clone());
+        let gameboy = GameBoy::<T>::new(rom, boot_rom, image_to_change.clone())?;
         println!("{}", gameboy.cpu);
-        Self {
+        Ok(Self {
             gameboy,
             debug_receiver: receiver,
             debug_sender: sender,
@@ -52,7 +52,7 @@ impl<T: Mbc> GameApp<T> {
                 addresses_n_values: Vec::new(),
             },
             image_to_change,
-        }
+        })
     }
 
     fn send_watched_address(&mut self) {

@@ -75,17 +75,17 @@ pub struct Mmu<T: Mbc> {
 }
 
 impl<T: Mbc> Mmu<T> {
-    pub fn new(rom_image: &[u8]) -> Self {
+    pub fn new(rom_image: &[u8]) -> Result<Self, String> {
         
-       Mmu {
+       Ok(Mmu {
             data: [0; 0x10000],
-            cart: T::new(rom_image),
+            cart: T::new(rom_image)?,
             interrupts: InterruptController::new(),
             timers: Timers::default(),
             oam: Oam::default(),
             boot_enable: false,
             boot_rom: [0; 0x0100],
-        }
+        })
     }
 
     pub fn load_boot_rom(&mut self, boot_rom: [u8; 0x0100]) {
@@ -108,7 +108,7 @@ impl<T: Mbc> Mmu<T> {
         }
 
         match MemoryRegion::from(addr) {
-            MemoryRegion::Mbc => self.cart.read(addr),
+            MemoryRegion::Mbc | MemoryRegion::ERam => self.cart.read(addr),
             MemoryRegion::Timers => self.timers.read_byte(addr),
             MemoryRegion::Mram => {
                 let mirror = addr - 0x2000;
@@ -132,7 +132,7 @@ impl<T: Mbc> Mmu<T> {
         }
 
         match MemoryRegion::from(addr) {
-            MemoryRegion::Mbc => self.cart.write(addr, val),
+            MemoryRegion::Mbc | MemoryRegion::ERam => self.cart.write(addr, val),
             MemoryRegion::Mram => {
                 let mirror = addr - 0x2000;
 
