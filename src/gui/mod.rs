@@ -5,11 +5,12 @@
 mod common;
 mod views;
 
+use crate::mmu::mbc::{Mbc1, Mbc2, Mbc3, RomOnly};
 use crate::{
     ppu,
 };
-use eframe::egui::{InputState, Key, TextureHandle};
-use eframe::egui::{load::SizedTexture, vec2, ColorImage, Context, Image, TextureOptions};
+use eframe::egui::{Key, TextureHandle};
+use eframe::egui::{load::SizedTexture, vec2, ColorImage, Context, TextureOptions};
 use std::collections::HashSet;
 
 use std::sync::atomic::Ordering;
@@ -17,23 +18,22 @@ use std::sync::atomic::Ordering;
 use std::time::Instant;
 
 #[derive(Default)]
-pub struct MyApp {
+pub struct GraphicalApp {
     app_state: AppState,
 }
 
 use crate::app::GameApp;
 use eframe::egui;
-use tokio::time::{self, Duration as TokioDuration, Instant as TokioInstant};
+use tokio::time::{self, Duration as TokioDuration};
 use std::sync::Mutex;
 use std::fs;
-use std::process;
-use tokio::sync::mpsc::{Receiver, Sender, channel};
+use std::process; use tokio::sync::mpsc::{Receiver, Sender, channel};
 use tokio::task::JoinHandle;
 
 
 use std::sync::{Arc, atomic::AtomicBool};
 
-impl eframe::App for MyApp {
+impl eframe::App for GraphicalApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let debut = Instant::now();
         self.app_state = match std::mem::replace(&mut self.app_state, AppState::Default) {
@@ -115,6 +115,25 @@ fn read_rom(rom_path: String) -> Vec<u8> {
     }
 }
 
+pub enum AnyGameApp {
+    OnlyRom(GameApp<RomOnly>),
+    Mbc1(GameApp<Mbc1>),
+    Mbc2(GameApp<Mbc2>),
+    Mbc3(GameApp<Mbc3>),
+}
+
+impl AnyGameApp {
+    pub fn update(&mut self, keys_down: &KeyInput) ->  bool {
+        match self {
+            AnyGameApp::OnlyRom(g) => g.update(keys_down),
+            AnyGameApp::Mbc1(g)=> g.update(keys_down),
+            AnyGameApp::Mbc2(g)=> g.update(keys_down),
+            AnyGameApp::Mbc3(g)=> g.update(keys_down),
+
+        }
+    }
+}
+
 
 async fn launch_game(
     rom_path: String,
@@ -124,15 +143,23 @@ async fn launch_game(
     debug_response_sender: Sender<DebugResponse>,
     global_is_debug: Arc<AtomicBool>,
     image_to_change: Arc<Mutex<Vec<u8>>>,
-) {
+) -> Result<(), String> {
     let rom_data: Vec<u8> = read_rom(rom_path);
-    let mut app = GameApp::new(
-        rom_data,
-        command_query_receiver,
-        debug_response_sender,
-        global_is_debug,
-        image_to_change,
-    );
+    let code = rom_data[0x0147];
+    let mut app = match code {
+            0x00 | 0x08 | 0x09 => Ok(AnyGameApp::OnlyRom(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change,)?)),
+            0x01 | 0x02 | 0x03 => Ok(AnyGameApp::Mbc1(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change,)?)),
+            0x05 | 0x06 => Ok(AnyGameApp::Mbc2(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change)?)),
+            0x0F | 0x10 | 0x11 | 0x12 | 0x13 => Ok(AnyGameApp::Mbc3(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change)?)),
+        /*
+            0x0B | 0x0C | 0x0D => Ok(todo!()), // MMM01 pas dans le sujet
+            0x19 | 0x1A | 0x1B | 0x1C | 0x1D | 0x1E => Ok(todo!()), // Mbc5
+            0x20 => Ok(todo!()), // Mbc6
+            0x22 => Ok(todo!()),// MBC7+SENSOR+RUMBLE+RAM+BATTERY
+        */
+            _ => Err("Unmanaged cartridge type")
+
+    }?;
 
     let input = KeyInput::default();
 
@@ -141,22 +168,15 @@ async fn launch_game(
         // Ceci pourra etre enleve quand on fera
         // du multitask dans le cpu
         // Cela permet de checker si la tache n'a pas ete annule
-        println!("this is going.");
-        let debut = TokioInstant::now();
 
 
         if let Ok(input) = input_receiver.try_recv(){
             let input = input;
         }
         let buffer_was_updated = app.update(&input);
-        let duration = debut.elapsed();
-        //println!("update app: Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
-        let debut = TokioInstant::now();
         if buffer_was_updated {
             updated_image_boolean.store(true, Ordering::Relaxed);
         }
-        let duration = debut.elapsed();
-        //println!("sending : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
     }
 }
 
@@ -183,7 +203,7 @@ pub struct WatchedAdresses {
 }
 
 pub struct CoreGameDevice {
-    pub handler: JoinHandle<()>,
+    pub handler: JoinHandle<Result<(), String>>,
     pub input_sender: Sender<KeyInput>,
     pub updated_image_boolean: Arc<AtomicBool>,
     pub command_query_sender: Sender<DebugCommandQueries>,

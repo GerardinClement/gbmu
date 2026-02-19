@@ -89,16 +89,14 @@ impl SelectionDevice {
                 if entry_as_path.is_dir() {
                     enterable = true;
                 }
-                if let Some(extension) = entry_as_path.extension() {
-                    if extension == "gb" {
+                if let Some(extension) = entry_as_path.extension()
+                    && extension == "gb" {
                         enterable = true;
                     }
-                }
-                if enterable {
-                    if let Some(file_name) = entry.file_name().to_str() {
+                if enterable
+                    && let Some(file_name) = entry.file_name().to_str() {
                         self.files.push(file_name.to_string());
                     }
-                }
             }
             self.files.sort();
         }

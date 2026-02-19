@@ -4,6 +4,7 @@
 use crate::cpu::Cpu;
 use crate::cpu::registers::R8;
 use crate::cpu::utils;
+use crate::mmu::mbc::Mbc;
 
 const R16_MASK: u8 = 0b00110000;
 const R8_MASK: u8 = 0b00111000;
@@ -35,7 +36,7 @@ fn get_instruction_block2(instruction: u8) -> u8 {
     }
 }
 
-pub fn execute_instruction_block2(cpu: &mut Cpu, instruction: u8) -> u8 {
+pub fn execute_instruction_block2<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) -> u8 {
     let opcode = get_instruction_block2(instruction);
 
     match opcode {
@@ -56,7 +57,7 @@ pub fn execute_instruction_block2(cpu: &mut Cpu, instruction: u8) -> u8 {
     }
 }
 
-fn add_a_r8(cpu: &mut Cpu, instruction: u8, with_carry: bool) {
+fn add_a_r8<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8, with_carry: bool) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
 
     let r8_value = cpu.get_r8_value(r8);
@@ -64,7 +65,7 @@ fn add_a_r8(cpu: &mut Cpu, instruction: u8, with_carry: bool) {
     cpu.pc = cpu.pc.wrapping_add(1)
 }
 
-fn sub_a_r8(cpu: &mut Cpu, instruction: u8, with_carry: bool) {
+fn sub_a_r8<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8, with_carry: bool) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
 
     let r8_value = cpu.get_r8_value(r8);
@@ -72,7 +73,7 @@ fn sub_a_r8(cpu: &mut Cpu, instruction: u8, with_carry: bool) {
     cpu.pc = cpu.pc.wrapping_add(1)
 }
 
-fn and_a_r8(cpu: &mut Cpu, instruction: u8) {
+fn and_a_r8<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
 
     let r8_value = cpu.get_r8_value(r8);
@@ -89,7 +90,7 @@ fn and_a_r8(cpu: &mut Cpu, instruction: u8) {
     cpu.pc = cpu.pc.wrapping_add(1)
 }
 
-fn xor_a_r8(cpu: &mut Cpu, instruction: u8) {
+fn xor_a_r8<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
 
     let r8_value = cpu.get_r8_value(r8);
@@ -106,7 +107,7 @@ fn xor_a_r8(cpu: &mut Cpu, instruction: u8) {
     cpu.pc = cpu.pc.wrapping_add(1)
 }
 
-fn or_a_r8(cpu: &mut Cpu, instruction: u8) {
+fn or_a_r8<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
 
     let r8_value = cpu.get_r8_value(r8);
@@ -123,7 +124,7 @@ fn or_a_r8(cpu: &mut Cpu, instruction: u8) {
     cpu.pc = cpu.pc.wrapping_add(1)
 }
 
-fn cp_a_r8(cpu: &mut Cpu, instruction: u8) {
+fn cp_a_r8<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
 
     let r8_value = cpu.get_r8_value(r8);
@@ -143,11 +144,11 @@ fn cp_a_r8(cpu: &mut Cpu, instruction: u8) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cpu::Cpu;
+    use crate::{cpu::Cpu, mmu::mbc::RomOnly};
 
     #[test]
     fn test_add_a_r8() {
-        let mut cpu = Cpu::default();
+        let mut cpu = Cpu::<RomOnly>::default();
         cpu.set_r8_value(R8::A, 0x10);
         cpu.set_r8_value(R8::B, 0x20);
         execute_instruction_block2(&mut cpu, 0x80); // ADD A, B
@@ -158,7 +159,7 @@ mod tests {
 
     #[test]
     fn test_adc_a_r8() {
-        let mut cpu = Cpu::default();
+        let mut cpu = Cpu::<RomOnly>::default();
         cpu.set_r8_value(R8::A, 0x10);
         cpu.set_r8_value(R8::C, 0x20);
         cpu.registers.set_carry_flag(true);
@@ -170,7 +171,7 @@ mod tests {
 
     #[test]
     fn test_sub_a_r8() {
-        let mut cpu = Cpu::default();
+        let mut cpu = Cpu::<RomOnly>::default();
         cpu.set_r8_value(R8::A, 0x30);
         cpu.set_r8_value(R8::C, 0x10);
         execute_instruction_block2(&mut cpu, 0x91); // SUB A, C
@@ -181,7 +182,7 @@ mod tests {
 
     #[test]
     fn test_sbc_a_r8() {
-        let mut cpu = Cpu::default();
+        let mut cpu = Cpu::<RomOnly>::default();
         cpu.set_r8_value(R8::A, 0x30);
         cpu.set_r8_value(R8::E, 0x10);
         cpu.registers.set_carry_flag(true);
@@ -193,7 +194,7 @@ mod tests {
 
     #[test]
     fn test_and_a_r8() {
-        let mut cpu = Cpu::default();
+        let mut cpu = Cpu::<RomOnly>::default();
         cpu.set_r8_value(R8::A, 0b1100);
         cpu.set_r8_value(R8::D, 0b1010);
         execute_instruction_block2(&mut cpu, 0xA2); // AND A, D
@@ -204,7 +205,7 @@ mod tests {
 
     #[test]
     fn test_xor_a_r8() {
-        let mut cpu = Cpu::default();
+        let mut cpu = Cpu::<RomOnly>::default();
         cpu.set_r8_value(R8::A, 0b1100);
         cpu.set_r8_value(R8::E, 0b1010);
         execute_instruction_block2(&mut cpu, 0xAB); // XOR A, E
@@ -215,7 +216,7 @@ mod tests {
 
     #[test]
     fn test_or_a_r8() {
-        let mut cpu = Cpu::default();
+        let mut cpu = Cpu::<RomOnly>::default();
         cpu.set_r8_value(R8::A, 0b1100);
         cpu.set_r8_value(R8::H, 0b1010);
         execute_instruction_block2(&mut cpu, 0xB4); // OR A, H
@@ -226,7 +227,7 @@ mod tests {
 
     #[test]
     fn test_cp_a_r8() {
-        let mut cpu = Cpu::default();
+        let mut cpu = Cpu::<RomOnly>::default();
         cpu.set_r8_value(R8::A, 0x20);
         cpu.set_r8_value(R8::L, 0x20);
         execute_instruction_block2(&mut cpu, 0xBD); // CP A, L

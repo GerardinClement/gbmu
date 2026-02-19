@@ -5,6 +5,7 @@ use crate::cpu::Cpu;
 use crate::cpu::block_prefix;
 use crate::cpu::registers::R8;
 use crate::cpu::utils;
+use crate::mmu::mbc::Mbc;
 
 const R8_MASK: u8 = 0b00000111;
 const B3_MASK: u8 = 0b00111000;
@@ -56,7 +57,7 @@ fn get_instruction_block_prefix(instruction: u8) -> u8 {
     panic!("No unique instruction found for opcode: {instruction:#04x}");
 }
 
-pub fn execute_instruction_block_prefix(cpu: &mut Cpu, instruction: u8) -> u8 {
+pub fn execute_instruction_block_prefix<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) -> u8 {
     let opcode = get_instruction_block_prefix(instruction);
 
     match opcode {
@@ -84,49 +85,49 @@ pub fn execute_instruction_block_prefix(cpu: &mut Cpu, instruction: u8) -> u8 {
     }
 }
 
-pub fn rlc_r8(cpu: &mut Cpu, instruction: u8) {
+pub fn rlc_r8<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
     cpu.op_rotate_left(r8, false, false);
     cpu.pc = cpu.pc.wrapping_add(2);
 }
 
-pub fn rrc_r8(cpu: &mut Cpu, instruction: u8) {
+pub fn rrc_r8<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
     cpu.op_rotate_right(r8, false, false);
     cpu.pc = cpu.pc.wrapping_add(2);
 }
 
-pub fn rl(cpu: &mut Cpu, instruction: u8) {
+pub fn rl<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
     cpu.op_rotate_left(r8, true, false);
     cpu.pc = cpu.pc.wrapping_add(2);
 }
 
-pub fn rr(cpu: &mut Cpu, instruction: u8) {
+pub fn rr<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
     cpu.op_rotate_right(r8, true, false);
     cpu.pc = cpu.pc.wrapping_add(2);
 }
 
-pub fn sla_r8(cpu: &mut Cpu, instruction: u8) {
+pub fn sla_r8<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
     cpu.op_sla(r8);
     cpu.pc = cpu.pc.wrapping_add(2);
 }
 
-pub fn sr_r8(cpu: &mut Cpu, instruction: u8, arithmetic: bool) {
+pub fn sr_r8<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8, arithmetic: bool) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
     cpu.op_sr(r8, arithmetic);
     cpu.pc = cpu.pc.wrapping_add(2);
 }
 
-pub fn swap_r8(cpu: &mut Cpu, instruction: u8) {
+pub fn swap_r8<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
     cpu.op_swap(r8);
     cpu.pc = cpu.pc.wrapping_add(2);
 }
 
-pub fn bit_b3_r8(cpu: &mut Cpu, instruction: u8) {
+pub fn bit_b3_r8<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
     let b3 = (instruction & B3_MASK) >> 3;
     let r8_value = cpu.get_r8_value(r8);
@@ -138,7 +139,7 @@ pub fn bit_b3_r8(cpu: &mut Cpu, instruction: u8) {
     cpu.pc = cpu.pc.wrapping_add(2);
 }
 
-pub fn res_b3_r8(cpu: &mut Cpu, instruction: u8) {
+pub fn res_b3_r8<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
     let b3 = (instruction & B3_MASK) >> 3;
     let r8_value = cpu.get_r8_value(r8);
@@ -150,7 +151,7 @@ pub fn res_b3_r8(cpu: &mut Cpu, instruction: u8) {
     cpu.pc = cpu.pc.wrapping_add(2);
 }
 
-pub fn set_b3_r8(cpu: &mut Cpu, instruction: u8) {
+pub fn set_b3_r8<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
     let b3 = (instruction & B3_MASK) >> 3;
     let mut r8_value = cpu.get_r8_value(r8);
@@ -164,7 +165,7 @@ pub fn set_b3_r8(cpu: &mut Cpu, instruction: u8) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cpu::Cpu;
+    use crate::{cpu::Cpu, mmu::mbc::RomOnly};
 
     #[test]
     fn cb_cycles_detection_is_correct() {
@@ -184,7 +185,7 @@ mod tests {
 
     #[test]
     fn test_rlc_r8() {
-        let mut cpu = Cpu::default();
+        let mut cpu = Cpu::<RomOnly>::default();
         cpu.set_r8_value(R8::B, 0b1000_0001);
         execute_instruction_block_prefix(&mut cpu, 0x00); // RLC B
 
@@ -194,7 +195,7 @@ mod tests {
 
     #[test]
     fn test_rrc_r8() {
-        let mut cpu = Cpu::default();
+        let mut cpu = Cpu::<RomOnly>::default();
         cpu.set_r8_value(R8::B, 0b00000001);
         execute_instruction_block_prefix(&mut cpu, 0x08); // RRC C
 
@@ -204,7 +205,7 @@ mod tests {
 
     #[test]
     fn test_rl_r8() {
-        let mut cpu = Cpu::default();
+        let mut cpu = Cpu::<RomOnly>::default();
         cpu.set_r8_value(R8::D, 0b01010101);
         cpu.registers.set_carry_flag(true);
         execute_instruction_block_prefix(&mut cpu, 0x12); // RL D
@@ -215,7 +216,7 @@ mod tests {
 
     #[test]
     fn test_rr_r8() {
-        let mut cpu = Cpu::default();
+        let mut cpu = Cpu::<RomOnly>::default();
         cpu.set_r8_value(R8::E, 0b0000_0001);
         cpu.registers.set_carry_flag(true);
         execute_instruction_block_prefix(&mut cpu, 0x1B); // RR E
@@ -226,7 +227,7 @@ mod tests {
 
     #[test]
     fn test_sla_r8() {
-        let mut cpu = Cpu::default();
+        let mut cpu = Cpu::<RomOnly>::default();
         cpu.set_r8_value(R8::H, 0b1000_0000);
         execute_instruction_block_prefix(&mut cpu, 0x24); // SLA H
 
@@ -236,7 +237,7 @@ mod tests {
 
     #[test]
     fn test_sra_r8() {
-        let mut cpu = Cpu::default();
+        let mut cpu = Cpu::<RomOnly>::default();
         cpu.set_r8_value(R8::L, 0b1000_0001);
         execute_instruction_block_prefix(&mut cpu, 0x2D); // SRA L
 
@@ -246,7 +247,7 @@ mod tests {
 
     #[test]
     fn test_swap_r8() {
-        let mut cpu = Cpu::default();
+        let mut cpu = Cpu::<RomOnly>::default();
         cpu.set_r8_value(R8::A, 0xF0);
         execute_instruction_block_prefix(&mut cpu, 0x37); // SWAP A
 
@@ -255,7 +256,7 @@ mod tests {
 
     #[test]
     fn test_srl_r8() {
-        let mut cpu = Cpu::default();
+        let mut cpu = Cpu::<RomOnly>::default();
         cpu.set_r8_value(R8::B, 0b0000_0010);
         execute_instruction_block_prefix(&mut cpu, 0x38); // SRL B
 
@@ -265,7 +266,7 @@ mod tests {
 
     #[test]
     fn test_bit_b3_r8() {
-        let mut cpu = Cpu::default();
+        let mut cpu = Cpu::<RomOnly>::default();
         cpu.set_r8_value(R8::D, 0b0000_1000);
         execute_instruction_block_prefix(&mut cpu, 0x5A); // BIT 3, D
 
@@ -274,7 +275,7 @@ mod tests {
 
     #[test]
     fn test_res_b3_r8() {
-        let mut cpu = Cpu::default();
+        let mut cpu = Cpu::<RomOnly>::default();
         cpu.set_r8_value(R8::E, 0b0000_1010); // Valeur initiale : bit 3 est à 1
         execute_instruction_block_prefix(&mut cpu, 0x9B); // RES 3, E
 
@@ -283,7 +284,7 @@ mod tests {
 
     #[test]
     fn test_res_b3_r8_6_c() {
-        let mut cpu = Cpu::default();
+        let mut cpu = Cpu::<RomOnly>::default();
         cpu.set_r8_value(R8::C, 0b0100_0000); // Valeur initiale : bit 6 est à 1
         execute_instruction_block_prefix(&mut cpu, 0xB1); // RES 6, C
 
@@ -292,7 +293,7 @@ mod tests {
 
     #[test]
     fn test_set_b3_r8() {
-        let mut cpu = Cpu::default();
+        let mut cpu = Cpu::<RomOnly>::default();
         cpu.set_r8_value(R8::H, 0b0000_0000);
         execute_instruction_block_prefix(&mut cpu, 0xDC); // SET 3, H
 
@@ -301,7 +302,7 @@ mod tests {
 
     #[test]
     fn test_set_b3_r8_7_d() {
-        let mut cpu = Cpu::default();
+        let mut cpu = Cpu::<RomOnly>::default();
         cpu.set_r8_value(R8::H, 0b0000_0000);
         execute_instruction_block_prefix(&mut cpu, 0xDC); // SET 3, H
 

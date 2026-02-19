@@ -68,7 +68,7 @@ impl Oam {
 			1 => self.sprites[sprite].x = val,
 			2 => self.sprites[sprite].tile = val,
 			3 => self.sprites[sprite].attributes = val,
-			_ => return,
+			_ => (),
 		}
 	}
 }

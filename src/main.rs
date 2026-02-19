@@ -7,7 +7,7 @@ mod gui;
 mod mmu;
 mod ppu;
 
-use gui::MyApp;
+use gui::GraphicalApp;
 
 #[tokio::main]
 async fn main() {
@@ -21,6 +21,6 @@ async fn main() {
     let _ = eframe::run_native(
         "egui Demo",
         options,
-        Box::new(|_cc| Box::new(MyApp::default())),
+        Box::new(|_cc| Box::new(GraphicalApp::default())),
     );
 }
