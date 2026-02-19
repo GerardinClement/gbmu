@@ -1,5 +1,8 @@
 use std::cmp::min;
 
+use std::time::SystemTime;
+
+use chrono::Local;
 const ONLY_ROM_SIZE: usize = 0xC000;
 const ROM_BANK_SIZE: usize = 0x4000;
 const RAM_BANK_SIZE: usize = 0x2000;
@@ -140,7 +143,7 @@ impl Mbc for Mbc1 {
 
 #[derive(Default)]
 pub struct Mbc2 {
-    rom_banks: Vec<[u8; ROM_BANK_SIZE]>
+    rom_banks: Vec<[u8; ROM_BANK_SIZE]>,
     ram_gate_register: bool,
     rom_bank_register: u8,
     ram_banks: Vec<[u8; RAM_BANK_SIZE]>,
@@ -237,33 +240,82 @@ pub struct Mbc3 {
     rtc_register: u8,
     ram_timer_enable: bool,
     rom_bank_nb: u8,
-    ram_bank_nb: u8,
-    latched_time_value: u8,
-    ram_banks: Vec<[u8; RAM_BANK_SIZE]>
+    ram_rtc_select: u8,
+    latch_clock_data: u8,
+    latched_time_value: Option<Datetime<Local>>,
+    rom_banks: Vec<[u8; ROM_BANK_SIZE]>,
+    ram_banks: Vec<[u8; RAM_BANK_SIZE]>,
+}
 
+impl Mbc3 {
+    fn get_time_value(&self, rtc_select: &u8) -> u8 {
+        let time = if let Some(latched_time) = &self.latched_time_value {
+            latched_time.clone()
+        } else {
+            self.get_actual_time()
+        };
+
+        match rtc_select {
+            0x08 => time.second(),
+            0x09 => time.minute(),
+            0x0A => time.hours(),
+            0x0B => todo!(),
+            0x0C => todo!(),
+            _ => 0, // In case the rtc_select data is trash
+        }
+    }
+
+    fn get_actual_time(&self) -> Datetime<Local> {
+        Local::now()
+    }
 }
 
 impl Mbc for Mbc3 {
     fn read(&self, addr: u16) -> u8 {
-        0
+        match addr {
+            0x0000..0x4000 => self.rom_banks[0][addr as usize],
+            0x4000..0x8000 => self.rom_banks[self.rom_bank_nb as usize][(addr - 0x4000) as usize],
+            0xA000..0xC000 => {
+                if (0x00..0x07).contains(&self.ram_rtc_select) {
+                    self.ram_banks[self.ram_rtc_select as usize][(addr - 0xA000) as usize]
+                } else {
+                    self.get_time_value(&self.ram_rtc_select)
+                }
+            },
+            _ => unreachable!(),
+        }
     }
     fn write(&mut self, addr: u16, val: u8) {
         match addr {
-            0x0000..0x2000 => self.ram_timer_enable = val == 0x1010,
+            0x0000..0x2000 => self.ram_timer_enable = val == 0b1010,
             0x2000..0x4000 => self.rom_bank_nb = (val != 0) as u8 * val + (val == 0) as u8,
-            0x4000..0x6000 => self.ram_bank_nb = val,
-            0x6000..0x8000 => self.latched_time_value = todo!(),
+            0x4000..0x6000 => self.ram_rtc_select = val,
+            0x6000..0x8000 => {
+                if self.latch_clock_data == 0b00 && val == 0b01 {
+                    self.latched_time_value = Some(self.get_actual_time());
+                } else {
+                    self.latched_time_value = None;
+                }
+            },
             0xA000..0xC000 => self.ram_banks[self.rom_bank_nb as usize][(addr - 0xA000) as usize] = val,
+            _ => unreachable!(),
         }
         
     }
     fn new(rom_image: &[u8]) -> Result<Self, String> where Self: Sized {
+        let rom_banks = map_rom_into_bank(rom_image)?;
+        let ram_banks = map_ram_banks(rom_image)?;
+
         Ok(
             Mbc3 {
+                rom_banks,
+                ram_banks,
                 rtc_register: 0,
                 ram_timer_enable: false,
                 rom_bank_nb: 0,
-                ram_bank_nb: 0,
+                ram_rtc_select: 0,
+                latched_time_value: None,
+                latch_clock_data: 0,
 
             }
         )
