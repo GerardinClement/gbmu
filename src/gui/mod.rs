@@ -22,6 +22,7 @@ pub struct MyApp {
 }
 
 use crate::app::GameApp;
+pub mod themes;
 use eframe::egui;
 use tokio::time::{self, Duration as TokioDuration, Instant as TokioInstant};
 use std::sync::Mutex;
