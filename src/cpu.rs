@@ -56,9 +56,14 @@ impl<T: Mbc> Default for Cpu<T> {
 impl<T: Mbc> Cpu<T> {
     pub fn new(bus: Arc<RwLock<Mmu<T>>>) -> Self {
         Cpu {
-            pc: 0x0000,
+            registers: Registers::default(),
             bus,
-            ..Default::default()
+            pc: 0x0000,
+            ime: false,
+            ime_delay: false,
+            halted: false,
+            halt_bug: false,
+            tick_to_wait: 0,
         }
     }
 

@@ -22,7 +22,9 @@ pub  struct Mbc1 {
 }
 
 fn get_rom_bank_size(rom: &[u8]) -> Result<usize, String>{
+    println!("getting rom_bank_size");
     let code = rom[0x149];
+    println!("code={code}");
     match code {
         0 => Ok(2),
         1 => Ok(4),
@@ -51,19 +53,33 @@ fn get_ram_bank_size(rom: &[u8]) -> Result<usize, String>{
 }
 
 fn map_rom_into_bank(rom_image: &[u8]) -> Result<Vec<[u8; ROM_BANK_SIZE]>, String> {
+    println!("maping rom into bank");
+    println!("{:?}",rom_image.len());
     let banks: Vec<[u8; ROM_BANK_SIZE]> = rom_image .chunks_exact(ROM_BANK_SIZE)
         .map(|slice|{
             let mut data = [0; ROM_BANK_SIZE];
             data.copy_from_slice(&slice);
             data
         }).collect();
-    let supposed_rom_bank_size = get_rom_bank_size(rom_image)?;
-    if banks.iter().count() != supposed_rom_bank_size {
-        return Err(
-            format!("Inconsistent Rom Header : size must be : {}", supposed_rom_bank_size)
-        );
+    println!("this is fine");
+    match get_rom_bank_size(rom_image) {
+        Ok(supposed_rom_bank_size) =>{
+            println!("supposed_rom_bank_size={supposed_rom_bank_size}");
+            let bank_count = banks.iter().count();
+            if bank_count != supposed_rom_bank_size {
+                println!("warning inconsistent bank_count={bank_count}, supposed_rom_bank_size={supposed_rom_bank_size}");
+
+            }
+
+            Ok(banks)
+
+        }
+        Err(error) => {
+            println!("{}", error);
+            Err(error)
+        }
     }
-    Ok(banks)
+
 }
 
 fn map_ram_banks(rom_image: &[u8]) -> Result<Vec<[u8; RAM_BANK_SIZE]>, String> {
@@ -73,8 +89,11 @@ fn map_ram_banks(rom_image: &[u8]) -> Result<Vec<[u8; RAM_BANK_SIZE]>, String> {
 
 impl Mbc for Mbc1 {
     fn new(rom_image: &[u8]) -> Result<Self, String> {
+        println!("Mbc1");
         let banks = map_rom_into_bank(rom_image)?;
+        println!("mapping rom into bank");
         let ram_banks = map_ram_banks(rom_image)?;
+        println!("mapping ram into bank");
         if ram_banks.iter().count() > 4 {
             Err(
                 format!("Supposed ram bank size can't be more than 4 in mbc1 cartridge.")
@@ -149,6 +168,7 @@ pub struct Mbc2 {
 
 impl Mbc for Mbc2 {
     fn read(&self, addr: u16) -> u8 {
+        println!("Mbc2");
         match addr {
             0x0000..0x4000 => {
                 self.rom_banks[0][addr as usize]
@@ -213,6 +233,7 @@ impl Default for RomOnly {
 
 impl Mbc for RomOnly{
     fn new(rom_image: &[u8]) -> Result<Self, String> {
+        println!("Romonly");
         let mut bank = [0; ONLY_ROM_SIZE];
         let end = min(ONLY_ROM_SIZE, rom_image.len());
         bank[..end].copy_from_slice(&rom_image[..end]);
@@ -247,6 +268,7 @@ pub struct Mbc3 {
 
 impl Mbc3 {
     fn get_time_value(&self, rtc_select: &u8) -> u8 {
+        println!("mbc3");
         let time = if let Some(latched_time) = &self.latched_time_value {
             latched_time.clone()
         } else {
@@ -339,6 +361,7 @@ pub struct Mbc5 {
 
 impl Mbc for Mbc5 {
     fn new(rom_image: &[u8]) -> Result<Self, String> where Self: Sized {
+        println!("mbc5");
         let rom_banks = map_rom_into_bank(rom_image)?;
         let ram_banks = map_ram_banks(rom_image)?;
 

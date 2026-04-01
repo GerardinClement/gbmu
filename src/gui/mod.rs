@@ -146,7 +146,8 @@ async fn launch_game(
 ) -> Result<(), String> {
     let rom_data: Vec<u8> = read_rom(rom_path);
     let code = rom_data[0x0147];
-    let mut app = match code {
+    println!("this is launching game");
+    let app_res: Result<AnyGameApp, String> = match code {
             0x00 | 0x08 | 0x09 => Ok(AnyGameApp::OnlyRom(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change,)?)),
             0x01 | 0x02 | 0x03 => Ok(AnyGameApp::Mbc1(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change,)?)),
             0x05 | 0x06 => Ok(AnyGameApp::Mbc2(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change)?)),
@@ -157,9 +158,11 @@ async fn launch_game(
             0x20 => Ok(todo!()), // Mbc6
             0x22 => Ok(todo!()),// MBC7+SENSOR+RUMBLE+RAM+BATTERY
         */
-            _ => Err("Unmanaged cartridge type")
+            _ => Ok(AnyGameApp::OnlyRom(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change,)?))
 
-    }?;
+    };
+    let mut app = app_res?;
+    println!("this is comming");
 
     let input = KeyInput::default();
 

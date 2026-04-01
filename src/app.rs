@@ -37,6 +37,8 @@ impl<T: Mbc> GameApp<T> {
         let mut boot_rom = [0u8; 0x0100];
         boot_rom.copy_from_slice(&boot_bytes);
 
+        println!("Game app creation.");
+
 
         let gameboy = GameBoy::<T>::new(rom, boot_rom, image_to_change.clone())?;
         println!("{}", gameboy.cpu);
@@ -53,6 +55,7 @@ impl<T: Mbc> GameApp<T> {
             },
             image_to_change,
         })
+
     }
 
     fn send_watched_address(&mut self) {

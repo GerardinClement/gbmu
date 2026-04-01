@@ -39,9 +39,8 @@ impl<T: Mbc>  GameBoy<T> {
     }
 
     pub fn run_frame(&mut self, key_input: &KeyInput) -> bool {
-        let mut cycles_elapsed = 0;
-
-        while cycles_elapsed < FRAME_CYCLES {
+        let mut tick = 0;
+        loop {
             // 1. Tick Timers
             self.bus.write().unwrap().tick_timers();
 
@@ -54,9 +53,7 @@ impl<T: Mbc>  GameBoy<T> {
             if vblank {
                 return true;
             }
-
-            cycles_elapsed += 1;
+            tick+=1;
         }
-        false
     }
 }

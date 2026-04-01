@@ -2,8 +2,8 @@ const OAM_BEGINNING: u16 = 0xFE00;
 
 #[derive(Clone, Copy)]
 pub struct Sprite {
-	pub y: u8, // Y-position of the sprite
-	pub x: u8, // X-position of the sprite
+	pub y: u16, // Y-position of the sprite
+	pub x: u16, // X-position of the sprite
 	pub tile: u8, // Tile index
     pub oam_index: u8, // OAM index
 	pub attributes: u8, // bit 7: Priority, bit 6: Y flip, bit 5: X flip, bit 4: Palette, bit 3-0: unused for DMG
@@ -52,8 +52,8 @@ impl Oam {
 		let byte = ((addr - OAM_BEGINNING) % 4) as usize;
 
 		match byte {
-			0 => self.sprites[sprite].y,
-			1 => self.sprites[sprite].x,
+			0 => self.sprites[sprite].y as u8,
+			1 => self.sprites[sprite].x as u8,
 			2 => self.sprites[sprite].tile,
 			3 => self.sprites[sprite].attributes,
 			_ => 0,
@@ -65,8 +65,8 @@ impl Oam {
 		let byte = ((addr - OAM_BEGINNING) % 4) as usize;
 
 		match byte {
-			0 => self.sprites[sprite].y = val,
-			1 => self.sprites[sprite].x = val,
+			0 => self.sprites[sprite].y = val as u16,
+			1 => self.sprites[sprite].x = val as u16,
 			2 => self.sprites[sprite].tile = val,
 			3 => self.sprites[sprite].attributes = val,
 			_ => (),
