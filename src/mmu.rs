@@ -113,20 +113,17 @@ impl<T: Mbc> Mmu<T> {
         self.boot_enable = true;
     }
 
+    pub fn is_in_boot(&self) -> bool {
+        self.boot_enable
+    }
+
     pub fn tick_timers(&mut self) {
         if self.timers.tick() {
-            let interrupt_flags_addr = MemoryRegion::InterruptFlag.to_address();
-            let mut interrupt_flags = self.read_byte(interrupt_flags_addr);
-            interrupt_flags |= 0b100;
-            self.write_byte(interrupt_flags_addr, interrupt_flags);
+            self.interrupts_request(Interrupt::Timer);
         }
     }
 
     pub fn ppu_read_byte(&self, addr: u16) -> u8 {
-        if self.boot_enable && addr <= 0x00FF {
-            return self.boot_rom[addr as usize];
-        }
-
         match MemoryRegion::from(addr) {
             MemoryRegion::Mbc | MemoryRegion::ERam => self.cart.read(addr),
             MemoryRegion::Timers => self.timers.read_byte(addr),
@@ -166,6 +163,7 @@ impl<T: Mbc> Mmu<T> {
                 if self.mem_protection_state != MmuProtectionState::OAMandVramProtected {
                     self.data[addr as usize]
                 } else {
+                    println!("vram is protected");
                     0xFF
                 }
             }
@@ -173,6 +171,7 @@ impl<T: Mbc> Mmu<T> {
                 if self.mem_protection_state == MmuProtectionState::Released {
                     self.oam.read(addr)
                 }else  {
+                    println!("oam is protected");
                     0xFF
                 }
             }
@@ -199,6 +198,7 @@ impl<T: Mbc> Mmu<T> {
                 self.data[mirror as usize] = val;
             }
             MemoryRegion::Timers => {
+                println!("attempt to write timers");
                 self.timers.write_byte(addr, val);
             }
             MemoryRegion::Vram => {
@@ -233,14 +233,16 @@ impl<T: Mbc> Mmu<T> {
             MemoryRegion::Timers => {
                 self.timers.write_byte(addr, val);
             }
-            MemoryRegion::Vram => {
-                if self.mem_protection_state != MmuProtectionState::OAMandVramProtected {
-                    self.data[addr as usize] = val;
-                }
-            }
             MemoryRegion::Oam => {
                 if self.mem_protection_state == MmuProtectionState::Released {
                     self.oam.write(addr, val);
+                } else {
+                    println!("attempt to write to oam when protected");
+                }
+            },
+            MemoryRegion::Vram => {
+                if self.mem_protection_state != MmuProtectionState::OAMandVramProtected {
+                    self.data[addr as usize] = val;
                 }
             }
             MemoryRegion::Unusable => {}

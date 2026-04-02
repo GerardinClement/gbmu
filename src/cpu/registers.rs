@@ -59,7 +59,7 @@ impl From<u8> for R16Mem {
 }
 
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum R8 {
     B = 0,
     C = 1,
@@ -330,7 +330,7 @@ impl Registers {
         self.f.set_carry(value);
     }
 
-    pub fn get_zero_flag(&mut self) -> bool {
+    pub fn get_zero_flag(&self) -> bool {
         self.f.get_zero()
     }
 

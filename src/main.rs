@@ -24,18 +24,21 @@ async fn main() {
         ..Default::default()
     };
     if let Some(path) = args_iterator.next() {
-        if Path::new(&path).exists() {
+        let str_path = String::from(path);
+        if Path::new(str_path.clone().as_str()).exists() {
             let _ = eframe::run_native(
-                "path",
+                str_path.clone().as_str(),
                 options,
                 Box::new(|_cc|
                     Box::new(
                         GraphicalApp::emulation_app(
-                            String::from(path)
+                            str_path
                         )
                     )
                 )
             );
+        } else {
+            println!("Path doesn't exist : {str_path}");
         }
     } else {
         let _ = eframe::run_native(

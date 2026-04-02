@@ -23,7 +23,7 @@ pub  struct Mbc1 {
 
 fn get_rom_bank_size(rom: &[u8]) -> Result<usize, String>{
     println!("getting rom_bank_size");
-    let code = rom[0x149];
+    let code = rom[0x148];
     println!("code={code}");
     match code {
         0 => Ok(2),
@@ -40,10 +40,11 @@ fn get_rom_bank_size(rom: &[u8]) -> Result<usize, String>{
 }
 
 fn get_ram_bank_size(rom: &[u8]) -> Result<usize, String>{
-    let code = rom[0x148];
+    println!("getting ram_bank_size");
+    let code = rom[0x149];
+    println!("code={code}");
     match code {
         0 => Ok(0),
-        1 => Ok(0),
         2 => Ok(1),
         3 => Ok(4),
         4 => Ok(16),
@@ -82,8 +83,9 @@ fn map_rom_into_bank(rom_image: &[u8]) -> Result<Vec<[u8; ROM_BANK_SIZE]>, Strin
 }
 
 fn map_ram_banks(rom_image: &[u8]) -> Result<Vec<[u8; RAM_BANK_SIZE]>, String> {
+    println!("trying to map");
     let supposed_ram_bank_size = get_ram_bank_size(rom_image)?;
-    println!("ram bank size {}", supposed_ram_bank_size);
+    println!("ram bank size is : {}", supposed_ram_bank_size);
     Ok(vec![[0u8; RAM_BANK_SIZE]; supposed_ram_bank_size])
 }
 
@@ -130,6 +132,10 @@ impl Mbc for Mbc1 {
             0xA000..0xC000 => {
                 if self.ram_gate_register {
                     if self.ram_banks.is_empty() {
+                        println!("trying to read to {:b} bank at index {:x}", 
+                            self.mode_register as usize * (self.bank_register_2) as usize,
+                            (addr - 0xA000) as usize
+                        );
                         0xFF
                     } else {
                         self.ram_banks[
@@ -145,10 +151,6 @@ impl Mbc for Mbc1 {
     }
 
     fn write(&mut self, addr: u16, val: u8) {
-        println!("trying to write to {:b} bank at index {:x}", 
-            self.mode_register as usize * (self.bank_register_2) as usize,
-            addr as usize
-        );
         match addr {
             0x0000..0x2000 => self.ram_gate_register = (val & 0b1010) == 0b1010,
             0x2000..0x4000 => self.bank_register_1 = val & 0b11111,
@@ -160,6 +162,12 @@ impl Mbc for Mbc1 {
                     self.ram_banks[
                         self.mode_register as usize * (self.bank_register_2 % count) as usize
                     ] [addr as usize - 0xA000] = val;
+                }
+                else {
+                    println!("trying to write to {:b} bank at index {:x}", 
+                        self.mode_register as usize * (self.bank_register_2) as usize,
+                        (addr - 0xA000)as usize
+                    );
                 }
             },
             _ => unreachable!()

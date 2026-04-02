@@ -57,7 +57,7 @@ fn get_instruction_block_prefix(instruction: u8) -> u8 {
     panic!("No unique instruction found for opcode: {instruction:#04x}");
 }
 
-pub fn execute_instruction_block_prefix<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) -> u8 {
+pub fn execute_instruction_block_prefix<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) {
     let opcode = get_instruction_block_prefix(instruction);
 
     match opcode {
@@ -73,15 +73,6 @@ pub fn execute_instruction_block_prefix<T: Mbc>(cpu: &mut Cpu<T>, instruction: u
         0b10000000 => block_prefix::res_b3_r8(cpu, instruction),
         0b11000000 => block_prefix::set_b3_r8(cpu, instruction),
         _ => panic!("Unknown CB opcode: {instruction:#04x}"),
-    }
-
-    let is_hl = (instruction & 0x07) == 0x06; // xxx110 => (HL)
-    let is_bit = (instruction & 0xC0) == 0x40; // 01xxxxxx => BIT b, r
-
-    if is_hl {
-        if is_bit { 12 } else { 16 }
-    } else {
-        8
     }
 }
 

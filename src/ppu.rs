@@ -694,7 +694,7 @@ OBJ disabled : la condition LCDC.1 avant de déclencher le fetch sprite n'est pa
     }
 
     fn mode_vblank(&mut self) -> bool {
-        if self.dots > SCANLINE_DOTS {
+        if self.dots >= SCANLINE_DOTS {
             self.dots -= SCANLINE_DOTS;
             self.ly += 1;
             self.check_lyc_equals_ly();

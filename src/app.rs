@@ -168,13 +168,20 @@ impl<T: Mbc> GameApp<T> {
 
         let mut frame_was_edited = false;
         if is_debug {
-            for _ in 0..instruction_to_execute {
-                frame_was_edited = self.gameboy.run_frame(keys_down);
-                self.send_next_instructions();
-                self.send_watched_address();
-                self.send_registers();
+            if self.gameboy.is_in_boot() {
+                self.gameboy.run_frame(keys_down)
+            } else {
+                let mut executed_instruction = 0;
+                let mut cpu_executed: bool;
+                while  executed_instruction < instruction_to_execute {
+                    (cpu_executed, frame_was_edited)= self.gameboy.machine_cycle(keys_down);
+                    self.send_next_instructions();
+                    self.send_watched_address();
+                    self.send_registers();
+                    executed_instruction += cpu_executed as usize;
+                }
+                frame_was_edited
             }
-            frame_was_edited
         } else {
             self.gameboy.run_frame(keys_down)
         }

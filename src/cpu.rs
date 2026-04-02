@@ -36,6 +36,7 @@ pub struct Cpu<T: Mbc> {
     pub halted: bool,    // for HALT instruction
     pub halt_bug: bool,
     tick_to_wait: u8,
+    ticked: usize,
 }
 
 impl<T: Mbc> Default for Cpu<T> {
@@ -43,12 +44,13 @@ impl<T: Mbc> Default for Cpu<T> {
         Cpu {
             registers: Registers::default(),
             bus: Arc::new(RwLock::new(Mmu::<T>::default())),
-            pc: 0x0100,
+            pc: 0x0000,
             ime: false,
             ime_delay: false,
             halted: false,
             halt_bug: false,
             tick_to_wait: 0,
+            ticked: 0,
         }
     }
 }
@@ -58,16 +60,17 @@ impl<T: Mbc> Cpu<T> {
         Cpu {
             registers: Registers::default(),
             bus,
-            pc: 0x0100,
+            pc: 0x0000,
             ime: false,
             ime_delay: false,
             halted: false,
             halt_bug: false,
             tick_to_wait: 0,
+            ticked: 0,
         }
     }
 
-    pub fn execute_instruction(&mut self, instruction: u8) -> u8 {
+    pub fn execute_instruction(&mut self, instruction: u8) {
         let block = (instruction & BLOCK_MASK) >> 6;
         match block {
             0b00 => block0::execute_instruction_block0(self, instruction),
@@ -78,11 +81,15 @@ impl<T: Mbc> Cpu<T> {
         }
     }
 
-    pub fn tick(&mut self) {
-        if self.tick_to_wait > 0 {
-            self.tick_to_wait -= 1;
+    pub fn tick(&mut self) -> bool {
+        if self.tick_to_wait == 0 {
+            self.tick_to_wait = self.step() * 4;
+            true
         } else {
-            self.tick_to_wait = self.step();
+            self.ticked += 1;
+            self.tick_to_wait -= 1;
+
+            false
         }
     }
 
@@ -106,27 +113,27 @@ impl<T: Mbc> Cpu<T> {
     }
 
     fn handle_ime_state(&mut self) -> StepStatus {
-        if self.ime {
-            let mut bus = self.bus.write().unwrap();
-            if let Some(interrupt) = bus.interrupts_next_request() {
-                self.ime = false;
-                bus.interrupts_clear_request(interrupt);
+        if !self.ime { return StepStatus::Continue ; }
+    
+        let mut bus = self.bus.write().unwrap();
+        let interrupt = bus.interrupts_next_request();
+        
+        if let Some(interrupt) = bus.interrupts_next_request() {
+            self.ime = false;
+            bus.interrupts_clear_request(interrupt);
 
-                let ret_addr = self.pc;
+            let ret_addr = self.pc;
 
-                let sp1 = self.registers.get_sp().wrapping_sub(1);
-                self.registers.set_sp(sp1);
-                bus.write_byte(sp1, (ret_addr >> 8) as u8);
+            let sp1 = self.registers.get_sp().wrapping_sub(1);
+            self.registers.set_sp(sp1);
+            bus.write_byte(sp1, (ret_addr >> 8) as u8);
 
-                let sp2 = sp1.wrapping_sub(1);
-                self.registers.set_sp(sp2);
-                bus.write_byte(sp2, (ret_addr & 0xFF) as u8);
+            let sp2 = sp1.wrapping_sub(1);
+            self.registers.set_sp(sp2);
+            bus.write_byte(sp2, (ret_addr & 0xFF) as u8);
 
-                self.pc = interrupt.vector();
-                StepStatus::Halted
-            } else {
-                StepStatus::Continue
-            }
+            self.pc = interrupt.vector();
+            StepStatus::Halted
         } else {
             StepStatus::Continue
         }
@@ -146,37 +153,131 @@ impl<T: Mbc> Cpu<T> {
         }
     }
 
-    pub fn step(&mut self) -> u8 {
-        if self.handle_halt_state() == StepStatus::Halted {
-            return 4;
+    const OP_CYCLES: [u8; 256] = [
+        1, 3, 2, 2, 1, 1, 2, 1, 5, 2, 2, 2, 1, 1, 2, 1, // 0
+        0, 3, 2, 2, 1, 1, 2, 1, 3, 2, 2, 2, 1, 1, 2, 1, // 1
+        2, 3, 2, 2, 1, 1, 2, 1, 2, 2, 2, 2, 1, 1, 2, 1, // 2
+        2, 3, 2, 2, 3, 3, 3, 1, 2, 2, 2, 2, 1, 1, 2, 1, // 3
+        1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // 4
+        1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // 5
+        1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // 6
+        2, 2, 2, 2, 2, 2, 0, 2, 1, 1, 1, 1, 1, 1, 2, 1, // 7
+        1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // 8
+        1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // 9
+        1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // a
+        1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // b
+        2, 3, 3, 4, 3, 4, 2, 4, 2, 4, 3, 0, 3, 6, 2, 4, // c
+        2, 3, 3, 0, 3, 4, 2, 4, 2, 4, 3, 0, 3, 0, 2, 4, // d
+        3, 3, 2, 0, 0, 4, 2, 4, 4, 1, 4, 0, 0, 0, 2, 4, // e
+        3, 3, 2, 1, 0, 4, 2, 4, 3, 2, 4, 1, 0, 0, 2, 4, // f
+    ];
+
+    //  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
+    const CB_CYCLES: [u8; 256] = [
+        2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 0
+        2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 1
+        2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 2
+        2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 3
+        2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2, // 4
+        2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2, // 5
+        2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2, // 6
+        2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2, // 7
+        2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 8
+        2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 9
+        2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // a
+        2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // b
+        2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // c
+        2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // d
+        2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // e
+        2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // f
+    ];
+
+    fn get_deltas(&self, instruction: u8) -> u8 {
+        match instruction {
+            0x20 | 0x30 => {
+                if self.registers.get_zero_flag() {
+                    0
+                } else {
+                    1
+                }
+            }
+            0x28 | 0x38 => {
+                if self.registers.get_zero_flag() {
+                    1
+                } else {
+                    0
+                }
+            }
+            0xc0 | 0xd0 => {
+                if self.registers.get_zero_flag() {
+                    0
+                } else {
+                    3
+                }
+            }
+            0xc8 | 0xcc | 0xd8 | 0xdc => {
+                if self.registers.get_zero_flag() {
+                    3
+                } else {
+                    0
+                }
+            }
+            0xc2 | 0xd2 => {
+                if self.registers.get_zero_flag() {
+                    0
+                } else {
+                    1
+                }
+            }
+            0xca | 0xda => {
+                if self.registers.get_zero_flag() {
+                    1
+                } else {
+                    0
+                }
+            }
+            0xc4 | 0xd4 => {
+                if self.registers.get_zero_flag() {
+                    0
+                } else {
+                    3
+                }
+            }
+            _ => 0,
         }
-        if self.handle_ime_state() == StepStatus::Halted {
-            return 5;
-        }
-
-        let instruction_byte = self.bus.read().unwrap().read_byte(self.pc);
-        let tick_to_wait = self.execute_instruction(instruction_byte);
-
-        self.handle_halt_bug();
-        self.handle_ime_delay();
-
-        tick_to_wait
     }
 
-    pub fn debug_step(&mut self, instruction: u8) -> u8 {
+    // Step returns the number of machine cycle the cpu is going iddle after 
+    // the instruction execution.
+    pub fn step(&mut self) -> u8 {
         if self.handle_halt_state() == StepStatus::Halted {
-            return 4;
+            return 1;
         }
         if self.handle_ime_state() == StepStatus::Halted {
-            return 5;
+            return 4;
         }
 
-        let tick_to_wait = self.execute_instruction(instruction);
+        let instruction_byte;
+        let second_opcode;
+        {
+            let bus = self.bus.read().unwrap();
+            instruction_byte = bus.read_byte(self.pc);
+            second_opcode =  bus.read_byte(self.pc + 1);
+        }
+        self.execute_instruction(instruction_byte);
 
         self.handle_halt_bug();
         self.handle_ime_delay();
 
-        tick_to_wait
+        if instruction_byte == 0xcb {
+            Self::CB_CYCLES[second_opcode as usize] 
+        } else {
+            Self::OP_CYCLES[instruction_byte as usize] + self.get_deltas(instruction_byte)
+        } 
+    }
+
+    pub fn debug_step(&mut self, instruction: u8) {
+        // this must be implemented
     }
 
     pub fn get_r8_value(&self, register: R8) -> u8 {

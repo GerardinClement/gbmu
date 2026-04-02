@@ -24,6 +24,10 @@ pub struct GameBoy<T: Mbc> {
 }
 
 impl<T: Mbc>  GameBoy<T> {
+    pub fn is_in_boot(&self) -> bool {
+        self.bus.read().unwrap().is_in_boot()
+    }
+
     pub fn new(rom: Vec<u8>, boot_rom: [u8; 0x0100], image: Arc<Mutex<Vec<u8>>>) -> Result<GameBoy<T>, String> {
         let bus = Arc::new(RwLock::new(Mmu::<T>::new(&rom)?));
 
@@ -39,8 +43,7 @@ impl<T: Mbc>  GameBoy<T> {
     }
 
     pub fn run_frame(&mut self, key_input: &KeyInput) -> bool {
-        let mut tick = 0;
-        loop {
+        for _ in  0..FRAME_CYCLES {
             // 1. Tick Timers
             self.bus.write().unwrap().tick_timers();
 
@@ -48,12 +51,24 @@ impl<T: Mbc>  GameBoy<T> {
             self.cpu.tick();
 
             // 3. Tick PPU
-            let vblank = self.ppu.tick(1, &mut self.image);
-
-            if vblank {
-                return true;
-            }
-            tick+=1;
+            self.ppu.tick(1, &mut self.image);
         }
+        true
+    }
+
+    pub fn machine_cycle(&mut self, key_input: &KeyInput) -> (bool, bool) {
+        let mut updated = false;
+        let mut cpu_executed = false;
+        for _ in (0..4).into_iter(){
+            // 1. Tick Timers
+            self.bus.write().unwrap().tick_timers();
+
+            // 2. Tick CPU
+            cpu_executed |= self.cpu.tick();
+
+            // 3. Tick PPU
+            updated = updated || self.ppu.tick(1, &mut self.image);
+        }
+        (cpu_executed, updated)
     }
 }

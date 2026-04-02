@@ -10,7 +10,7 @@ pub enum PpuMode {
     PixelTransfer = 3,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct LcdStatus {
     lyc_int_select: bool,
     mode_2_int_select: bool,

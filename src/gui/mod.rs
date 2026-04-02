@@ -27,7 +27,7 @@ use eframe::egui;
 use tokio::time::{self, Duration as TokioDuration};
 use std::sync::Mutex;
 use std::fs;
-use std::process; use tokio::sync::mpsc::{Receiver, Sender, channel};
+use std::process; use tokio::sync::{watch, mpsc::{Receiver, Sender, channel}};
 use tokio::task::JoinHandle;
 
 
@@ -147,7 +147,7 @@ impl AnyGameApp {
 
 async fn launch_game(
     rom_path: String,
-    mut input_receiver: Receiver<KeyInput>,
+    input_receiver: watch::Receiver<KeyInput>,
     updated_image_boolean: Arc<AtomicBool>,
     command_query_receiver: Receiver<DebugCommandQueries>,
     debug_response_sender: Sender<DebugResponse>,
@@ -183,9 +183,7 @@ async fn launch_game(
         // Cela permet de checker si la tache n'a pas ete annule
 
 
-        if let Ok(input) = input_receiver.try_recv(){
-            let input = input;
-        }
+        let input = input_receiver.borrow();
         let buffer_was_updated = app.update(&input);
         if buffer_was_updated {
             updated_image_boolean.store(true, Ordering::Relaxed);
@@ -217,7 +215,7 @@ pub struct WatchedAdresses {
 
 pub struct CoreGameDevice {
     pub handler: JoinHandle<Result<(), String>>,
-    pub input_sender: Sender<KeyInput>,
+    pub input_sender: watch::Sender<KeyInput>,
     pub updated_image_boolean: Arc<AtomicBool>,
     pub command_query_sender: Sender<DebugCommandQueries>,
     pub debug_response_receiver: Receiver<DebugResponse>,
@@ -245,7 +243,6 @@ impl KeyMaping {
 
 impl Drop for CoreGameDevice {
     fn drop(&mut self) {
-        println!("this was droped");
         self.handler.abort();
     }
 }
@@ -284,7 +281,7 @@ impl CoreGameDevice {
     }
 
     fn new(path: String) -> Self {
-        let (input_sender, input_receiver) = channel::<KeyInput>(1);
+        let (input_sender, input_receiver) = watch::channel::<KeyInput>(KeyInput::default());
         let updated_image_boolean = Arc::new(AtomicBool::new(false));
         let (command_query_sender, command_query_receiver) = channel::<DebugCommandQueries>(1);
         let (debug_response_sender, debug_response_receiver) = channel::<DebugResponse>(10);
