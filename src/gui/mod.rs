@@ -49,6 +49,16 @@ impl eframe::App for GraphicalApp {
     }
 }
 
+impl GraphicalApp {
+    pub fn emulation_app(path: String) -> Self {
+        GraphicalApp {
+            app_state: AppState::EmulationHub(EmulationDevice{
+                core_game: CoreGameDevice::new(path)
+            })
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct StartingHubDevice {}
 

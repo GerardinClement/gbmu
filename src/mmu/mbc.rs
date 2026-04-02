@@ -61,7 +61,6 @@ fn map_rom_into_bank(rom_image: &[u8]) -> Result<Vec<[u8; ROM_BANK_SIZE]>, Strin
             data.copy_from_slice(&slice);
             data
         }).collect();
-    println!("this is fine");
     match get_rom_bank_size(rom_image) {
         Ok(supposed_rom_bank_size) =>{
             println!("supposed_rom_bank_size={supposed_rom_bank_size}");
@@ -84,6 +83,7 @@ fn map_rom_into_bank(rom_image: &[u8]) -> Result<Vec<[u8; ROM_BANK_SIZE]>, Strin
 
 fn map_ram_banks(rom_image: &[u8]) -> Result<Vec<[u8; RAM_BANK_SIZE]>, String> {
     let supposed_ram_bank_size = get_ram_bank_size(rom_image)?;
+    println!("ram bank size {}", supposed_ram_bank_size);
     Ok(vec![[0u8; RAM_BANK_SIZE]; supposed_ram_bank_size])
 }
 
@@ -129,9 +129,13 @@ impl Mbc for Mbc1 {
             },
             0xA000..0xC000 => {
                 if self.ram_gate_register {
-                    self.ram_banks[
-                        self.mode_register as usize * self.bank_register_2 as usize
-                    ][addr as usize - 0xA000]
+                    if self.ram_banks.is_empty() {
+                        0xFF
+                    } else {
+                        self.ram_banks[
+                            self.mode_register as usize * self.bank_register_2 as usize
+                        ][addr as usize - 0xA000]
+                    }
                 } else {
                     0
                 }
@@ -141,16 +145,21 @@ impl Mbc for Mbc1 {
     }
 
     fn write(&mut self, addr: u16, val: u8) {
+        println!("trying to write to {:b} bank at index {:x}", 
+            self.mode_register as usize * (self.bank_register_2) as usize,
+            addr as usize
+        );
         match addr {
             0x0000..0x2000 => self.ram_gate_register = (val & 0b1010) == 0b1010,
             0x2000..0x4000 => self.bank_register_1 = val & 0b11111,
             0x4000..0x6000 => self.bank_register_2 = val & 0b11,
             0x6000..0x8000 => self.mode_register = (val & 0b1) == 0b1,
             0xA000..0xC000 => {
-                if self.ram_gate_register {
-                self.ram_banks[
-                        self.mode_register as usize * self.bank_register_2 as usize
-                    ][addr as usize - 0xA000] = val
+                if self.ram_gate_register && !self.ram_banks.is_empty() {
+                    let count = self.ram_banks.iter().count() as u8;
+                    self.ram_banks[
+                        self.mode_register as usize * (self.bank_register_2 % count) as usize
+                    ] [addr as usize - 0xA000] = val;
                 }
             },
             _ => unreachable!()

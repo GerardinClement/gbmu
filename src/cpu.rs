@@ -43,7 +43,7 @@ impl<T: Mbc> Default for Cpu<T> {
         Cpu {
             registers: Registers::default(),
             bus: Arc::new(RwLock::new(Mmu::<T>::default())),
-            pc: 0x0000,
+            pc: 0x0100,
             ime: false,
             ime_delay: false,
             halted: false,
@@ -58,7 +58,7 @@ impl<T: Mbc> Cpu<T> {
         Cpu {
             registers: Registers::default(),
             bus,
-            pc: 0x0000,
+            pc: 0x0100,
             ime: false,
             ime_delay: false,
             halted: false,
