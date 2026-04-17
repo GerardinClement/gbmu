@@ -60,9 +60,19 @@ impl PixelFetcher {
                 },
                 FetcherState::GetHighData => {
                     self.tile_data_high = self.get_tile_data_high(bus, ly, scy, lcd_control);
-                    self.fetcher_state = FetcherState::Sleep;
 
-                    return None
+                    if fifo.is_empty() {
+                        let tile: Option<[Pixel; 8]> = self.push_pixel(bus);
+
+                        self.fetcher_x += 1;
+                        self.fetcher_state = FetcherState::GetTileId;
+
+                        tile
+                    } else {
+                        self.fetcher_state = FetcherState::Sleep;
+
+                        return None
+                    }
                 },
                 FetcherState::Sleep => {
                     self.fetcher_state = FetcherState::PushPixel;
