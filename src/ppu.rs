@@ -129,7 +129,16 @@ impl<T: Mbc> Ppu<T> {
         }
     }
 
+
     pub fn get_pixel_color_index(&self, tile_data: [u8; 16], x: usize, y: usize) -> u8 {
+        /*
+            Every tile is 8x8 pixels, 2 bits/pixels
+            Every line is 2 bytes:
+                - low weight bit (LSB)
+                - heavy weight bit (MSB)
+            The final pixel is (MSB << 1) | LSB
+        */
+
         let pixel_x = x % 8;
         let pixel_y = y % 8;
 
@@ -140,8 +149,6 @@ impl<T: Mbc> Ppu<T> {
 
         let lsb_bit = (lsb_byte >> bit_index) & 1;
         let msb_bit = (msb_byte >> bit_index) & 1;
-
-        
 
         (msb_bit << 1) | lsb_bit
     }
@@ -179,6 +186,13 @@ impl<T: Mbc> Ppu<T> {
     }
 
     fn get_tile_address(&self, y: usize, x: usize, use_window: bool) -> u16 {
+        /*
+            The Game Boy has 2 tilemaps (BG and Windows)
+            and 2 addressing modes for tiles:
+                - 0x8000 (unsigned index)
+                - 0x8800/0x9000 (signed index)
+        */
+
         let tilemap_base: std::ops::Range<u16> = if use_window {
             self.lcd_control.window_tile_map_area()
         } else {
@@ -192,7 +206,9 @@ impl<T: Mbc> Ppu<T> {
             .unwrap()
             .read_byte(tilemap_base.start + offset);
         match self.lcd_control.bg_window_tile_data_area() {
+            // Unsigned mode: simple multiplication
             lcd_control::TILE_DATA_1 => 0x8000 + (tile_number as u16) * 16,
+            // Signed mode: tile_number is interpreted as i8 ([-128;127]), base = 0x9000
             lcd_control::TILE_DATA_0 => {
                 let base = 0x9000u16;
                 let offset = (tile_number as i8) as i16 * 16;
@@ -203,6 +219,8 @@ impl<T: Mbc> Ppu<T> {
     }
 
     fn oam_search(&mut self) {
+        // Select max 10 visible sprites on the scanline
+
         let height:u8 = if self.lcd_control.is_obj_size_8x16() {
             16
         } else {
@@ -231,16 +249,26 @@ impl<T: Mbc> Ppu<T> {
     }
 
     fn render_background(&self) -> Vec<Pixel> {
+        /*
+            Generate one complete scanline (160 pixels) by applying:
+                - scroll (SCX/SCY)
+                - window (WX/WY)
+                - wrapping (256x256)
+         */
+
         let mut pixels = Vec::new();
         let ly = self.ly as usize; // line to render
         let default_color = self.apply_background_palette(0);
 
         for x in 0..WIN_SIZE_X {
+            // If BG is disabled, color 0 everywhere
             if !self.lcd_control.is_bg_window_enabled() {
                 pixels.push(Pixel::new_bg(default_color, 0));
                 continue;
             }
 
+            // Hardware condition to enable the window
+            // WX is shifted by 7 pixels
             let use_window = self.lcd_control.is_window_enabled()
                 && (ly >= self.wy as usize)
                 && (x + 7 >= self.wx as usize);
@@ -250,6 +278,7 @@ impl<T: Mbc> Ppu<T> {
                 let win_y = self.wly as usize;
                 (win_x % 256, win_y % 256)
             } else {
+                // coordinates with scrool (wrap 256)
                 (
                     (x + self.scx as usize) % 256,
                     (ly + self.scy as usize) % 256,
@@ -291,6 +320,8 @@ impl<T: Mbc> Ppu<T> {
     }
 
     fn get_right_pixel(&self, old_pixel: &Pixel, color: Color, priority: bool) -> Option<Pixel> {
+        // Deal with sprite/background priority
+
         if old_pixel.get_is_sprite() {
             return None
         }
@@ -332,16 +363,28 @@ impl<T: Mbc> Ppu<T> {
     }
 
     fn render_sprites(&self, mut pixels: Vec<Pixel>) -> Vec<Pixel> {
+        /*
+            Apply sprites above background
+            respect:
+                - priority
+                - flip X/Y
+                - palettes
+                - transparency
+        */
+
         let height: u8 = if self.lcd_control.is_obj_size_8x16() { 16 } else { 8 };
 
+        // sort by X then OAM order (hardware behavior)
         let sorted_sprites = self.sort_sprites_by_x();
-       for sprite in sorted_sprites {
+
+        for sprite in sorted_sprites {
             if !self.lcd_control.is_obj_enabled() {
                 continue;
             }
 
             let (priority, y_flip, x_flip, palette_attribute) = self.extract_attributes(sprite.attributes);
 
+            // sprite coordinates are shifted: Y - 16, X - 8
             let sprite_top: i16 = sprite.y as i16 - 16;
             let sprite_line = (self.ly as i16 - sprite_top) as usize;
 
@@ -357,7 +400,8 @@ impl<T: Mbc> Ppu<T> {
 
                 let actual_pixel_x = if x_flip { 7 - pixel_x } else { pixel_x };
                 let color_index = self.get_pixel_color_index(tile, actual_pixel_x as usize, actual_sprite_line % 8); // % 8 to handle 8x16
-                    
+
+                // 0 = transparency for sprites 
                 if color_index == 0 { continue; }
                     
                 let color = self.apply_sprite_palette(color_index, palette_attribute);
@@ -402,6 +446,8 @@ impl<T: Mbc> Ppu<T> {
     }
 
     fn mode_hblank(&mut self) -> bool {
+        // End of scanline -> next one after 456 dots
+
         if self.dots >= SCANLINE_DOTS {
             self.dots -= SCANLINE_DOTS;
 
@@ -459,6 +505,12 @@ impl<T: Mbc> Ppu<T> {
     }
 
     fn check_lyc_equals_ly(&mut self) {
+        /*
+            LYC == LY is an hardware condition:
+                - update a flag in STAT
+                - can trigger a LCD STAT interrupt
+            It's used by many games to synchronize with scanline
+        */
         let lyc_match = self.ly == self.lyc;
         self.lcd_status.set_lyc_equals_ly(lyc_match);
         
@@ -473,15 +525,22 @@ impl<T: Mbc> Ppu<T> {
         self.scx = self.bus.read().unwrap().read_byte(SCX_ADDR);
         self.wy = self.bus.read().unwrap().read_byte(WY_ADDR);
         self.wx = self.bus.read().unwrap().read_byte(WX_ADDR);
+
+        // LCDC control the whole PPU's behavior
         self.lcd_control
             .update_from_byte(self.bus.read().unwrap().read_byte(LCD_CONTROL_ADDR));
+        
+        // STAT is an hybrid register, some bits are controlled by PPU and other by CPU
 
+        // Write internal state in memory
         let stat_byte = self.lcd_status.struct_to_byte();
         self.bus.write().unwrap().write_byte(STAT_ADDR, stat_byte);
 
+        // Read state from memory to get the modifications made by CPU
         let stat_from_mmu = self.bus.read().unwrap().read_byte(STAT_ADDR);
         self.lcd_status.update_from_byte(stat_from_mmu);
 
+        // Current line
         self.bus.write().unwrap().write_byte(LY_ADDR, self.ly);
     }
 }
