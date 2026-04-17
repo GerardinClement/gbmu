@@ -3,7 +3,7 @@
 
 use crate::ppu::colors_palette::Color;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Pixel {
     color: Color,
     is_sprite: bool,

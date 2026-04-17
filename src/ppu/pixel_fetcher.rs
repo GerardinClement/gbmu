@@ -5,8 +5,10 @@ use crate::mmu::Mmu;
 use crate::mmu::mbc::Mbc;
 use crate::ppu::lcd_control::LcdControl;
 use crate::ppu::pixel::Pixel;
+use crate::ppu::colors_palette::Color;
 use std::sync::{Arc, RwLock};
 
+const BGP_ADDR: u16 = 0xFF47; // Background Palette
 const TILE_DATA_1_START: u16 = 0x8000;
 const TILE_DATA_0_START: u16 = 0x8800;
 
@@ -58,7 +60,14 @@ impl PixelFetcher {
 
                     return None
                 },
-                FetcherState::PushPixel => return None,
+                FetcherState::PushPixel => {
+                    let tile: Option<[Pixel; 8]> = self.push_pixel(bus);
+
+                    self.fetcher_x += 1;
+                    self.fetcher_state = FetcherState::GetTileId;
+
+                    tile
+                },
             }
         } else {
             None
@@ -142,5 +151,33 @@ impl PixelFetcher {
         } else {
             unreachable!()
         }
+    }
+
+    fn apply_background_palette<T: Mbc>(&self, bus: &Arc<RwLock<Mmu<T>>>, color_index: u8) -> Color {
+        let palette = bus.read().unwrap().read_byte(BGP_ADDR);
+
+        let index = (palette >> (color_index * 2)) & 0b11;
+
+        Color::from_index(index)
+    }
+
+    fn push_pixel<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>) -> Option<[Pixel; 8]> {
+        let mut tile_pixels = [Pixel::default(); 8];
+
+        for i in 0..8 {
+            let bit_index = 7 - i;
+
+            let low_weight_bit = (self.tile_data_low >> bit_index) & 1;
+            let high_weight_bit = (self.tile_data_high >> bit_index) & 1;
+
+            let color_index = (high_weight_bit << 1) | low_weight_bit;
+            let bgp = self.apply_background_palette(bus, color_index);
+
+            let pixel = Pixel::new(bgp, false, color_index);
+            
+            tile_pixels[i as usize] = pixel;
+        }
+
+        Some(tile_pixels)
     }
 }
