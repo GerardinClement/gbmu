@@ -180,7 +180,6 @@ impl<T: Mbc> Default for Mmu<T> {
     }
 }
 
-// In mmu.rs
 #[cfg(test)]
 mod tests {
     use crate::mmu::mbc::RomOnly;
