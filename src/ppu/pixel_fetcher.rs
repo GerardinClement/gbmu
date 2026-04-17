@@ -7,6 +7,9 @@ use crate::ppu::lcd_control::LcdControl;
 use crate::ppu::pixel::Pixel;
 use std::sync::{Arc, RwLock};
 
+const TILE_DATA_1_START: u16 = 0x8000;
+const TILE_DATA_0_START: u16 = 0x8800;
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
 pub enum FetcherState {
     #[default]
@@ -39,10 +42,22 @@ impl PixelFetcher {
                     return None
                 },
                 FetcherState::GetLowData => {
+                    self.tile_data_low = self.get_tile_data_low(bus, ly, scy, lcd_control);
+                    self.fetcher_state = FetcherState::GetHighData;
+
                     return None
                 },
-                FetcherState::GetHighData => return None,
-                FetcherState::Sleep => return None,
+                FetcherState::GetHighData => {
+                    self.tile_data_high = self.get_tile_data_high(bus, ly, scy, lcd_control);
+                    self.fetcher_state = FetcherState::Sleep;
+
+                    return None
+                },
+                FetcherState::Sleep => {
+                    self.fetcher_state = FetcherState::PushPixel;
+
+                    return None
+                },
                 FetcherState::PushPixel => return None,
             }
         } else {
@@ -57,7 +72,7 @@ impl PixelFetcher {
             lcd_control.bg_tile_map_area()
         };
 
-        let x = ((scx / 8) as u16 + self.fetcher_x as u16) & 0x1F; // mask to keep the 5 lowest bits
+        let x: u16 = ((scx / 8) as u16 + self.fetcher_x as u16) & 0x1F; // mask to keep the 5 lowest bits
         let y: u16 = ((ly as u16 + scy as u16) / 8) & 0xFF;
 
         let offset = (y * 32 + x) as u16;
@@ -68,5 +83,64 @@ impl PixelFetcher {
             .read_byte(tilemap_base.start + offset);
 
         tile_number
+    }
+
+    fn get_tile_data_low<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, ly: u8, scy: u8, lcd_control: &LcdControl) -> u8 {
+        let correct_byte = ((ly as u16 + scy as u16) % 8) * 2;
+
+        if lcd_control.bg_window_tile_data_area().start == TILE_DATA_1_START {
+            let tilemap_base = TILE_DATA_1_START + (self.tile_id as u16) * 16;
+
+            let tile_low = bus
+                .read()
+                .unwrap()
+                .read_byte(tilemap_base + correct_byte);
+
+            tile_low
+            
+        } else if lcd_control.bg_window_tile_data_area().start == TILE_DATA_0_START {
+            let base = 0x9000u16;
+            let offset = (self.tile_id as i8) as i16 * 16;
+            let tilemap_base = base.wrapping_add_signed(offset);
+
+            let tile_low = bus
+                .read()
+                .unwrap()
+                .read_byte(tilemap_base + correct_byte);
+
+            tile_low
+        } else {
+            unreachable!()
+        }
+    }
+
+
+    fn get_tile_data_high<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, ly: u8, scy: u8, lcd_control: &LcdControl) -> u8 {
+        let correct_byte = (((ly as u16 + scy as u16) % 8) * 2) + 1;
+
+        if lcd_control.bg_window_tile_data_area().start == TILE_DATA_1_START {
+            let tilemap_base = TILE_DATA_1_START + (self.tile_id as u16) * 16;
+
+            let tile_low = bus
+                .read()
+                .unwrap()
+                .read_byte(tilemap_base + correct_byte);
+
+            tile_low
+            
+        } else if lcd_control.bg_window_tile_data_area().start == TILE_DATA_0_START {
+            let base = 0x9000u16;
+            let offset = (self.tile_id as i8) as i16 * 16;
+            let tilemap_base = base.wrapping_add_signed(offset);
+
+            let tile_low = bus
+                .read()
+                .unwrap()
+                .read_byte(tilemap_base + correct_byte);
+
+            tile_low
+        } else {
+            unreachable!()
+        }
     }
 }
