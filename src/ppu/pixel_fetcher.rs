@@ -10,6 +10,7 @@ use crate::ppu::pixel_fifo::PixelFifo;
 use std::sync::{Arc, RwLock};
 
 const BGP_ADDR: u16 = 0xFF47; // Background Palette
+const BGP_ADDR: u16 = 0xFF47; // Background Palette
 const TILE_DATA_1_START: u16 = 0x8000;
 const TILE_DATA_0_START: u16 = 0x8800;
 
