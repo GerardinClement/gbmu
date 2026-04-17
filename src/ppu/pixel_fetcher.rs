@@ -6,6 +6,7 @@ use crate::mmu::mbc::Mbc;
 use crate::ppu::lcd_control::LcdControl;
 use crate::ppu::pixel::Pixel;
 use crate::ppu::colors_palette::Color;
+use crate::ppu::pixel_fifo::PixelFifo;
 use std::sync::{Arc, RwLock};
 
 const BGP_ADDR: u16 = 0xFF47; // Background Palette
@@ -33,9 +34,17 @@ pub struct PixelFetcher {
 }
 
 impl PixelFetcher {
-    pub fn tick<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, ly: u8, scx: u8, scy: u8, lcd_control: &LcdControl, use_window: bool) -> Option<[Pixel; 8]> {
+    pub fn tick<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, fifo: &PixelFifo, ly: u8, scx: u8, scy: u8, lcd_control: &LcdControl, use_window: bool) -> Option<[Pixel; 8]> {
         self.dot_counter += 1;
-        if self.dot_counter % 2 == 0 {
+
+        if self.fetcher_state == FetcherState::PushPixel && fifo.is_empty() {
+            let tile: Option<[Pixel; 8]> = self.push_pixel(bus);
+
+            self.fetcher_x += 1;
+            self.fetcher_state = FetcherState::GetTileId;
+
+            tile
+        } else if self.dot_counter % 2 == 0 {
             match self.fetcher_state {
                 FetcherState::GetTileId => {
                     self.tile_id = self.get_tile_id(bus, ly, scx, scy, lcd_control, use_window);
@@ -60,14 +69,7 @@ impl PixelFetcher {
 
                     return None
                 },
-                FetcherState::PushPixel => {
-                    let tile: Option<[Pixel; 8]> = self.push_pixel(bus);
-
-                    self.fetcher_x += 1;
-                    self.fetcher_state = FetcherState::GetTileId;
-
-                    tile
-                },
+                FetcherState::PushPixel => { return None; },
             }
         } else {
             None
