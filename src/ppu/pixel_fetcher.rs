@@ -92,6 +92,14 @@ impl PixelFetcher {
         }
     }
 
+    pub fn reset_at_new_line(&mut self) {
+        self.fetcher_state = FetcherState::GetTileId;
+        self.fetcher_x = 0;
+        self.dot_counter = 0;
+        self.use_window = false;
+    }
+
+
     fn reset_if_window(&mut self, use_window: bool) -> bool {
         if !self.use_window && use_window {
             self.fetcher_state = FetcherState::GetTileId;

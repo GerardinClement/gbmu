@@ -479,6 +479,8 @@ impl<T: Mbc> Ppu<T> {
 
             // reset for newline
             self.bg_color_indices = [0; 160];
+            self.x = 0;
+            self.fetcher.reset_at_new_line();
 
             if self.ly >= WIN_SIZE_Y as u8 {
                 self.lcd_status.update_ppu_mode(PpuMode::VBlank);
