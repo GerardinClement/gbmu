@@ -368,8 +368,11 @@ impl<T: Mbc> Ppu<T> {
         sprites.into_iter().map(| (_, s) | s).collect()
     }
 
-    fn render_sprites(&self, image: &mut Arc<Mutex<Vec<u8>>>) -> &mut Arc<Mutex<Vec<u8>>> {
+    fn render_sprites(&self, image: &mut Arc<Mutex<Vec<u8>>>, bg_color_indices: &[u8; 160]) {
         /*
+            TODO Transition modification until the FIFO OBJ is implemented. Right now the modifications
+            should make the function works while we test the FIFO background
+
             Apply sprites above background
             respect:
                 - priority
@@ -412,12 +415,14 @@ impl<T: Mbc> Ppu<T> {
                     
                 let color = self.apply_sprite_palette(color_index, palette_attribute);
 
-                if let Some(new_pixel) = self.get_right_pixel(&pixels[screen_x as usize], color, priority) {
-                    pixels[screen_x as usize] = new_pixel;
+                if let Some(new_pixel) = self.get_right_pixel(bg_color_indices[screen_x as usize], color, priority) {
+                    let offset = (self.ly as usize * WIN_SIZE_X + screen_x as usize) * 3;
+                    let mut frame = image.lock().unwrap();
+
+                    self.set_pixel_color(&mut frame, offset, new_pixel);
                 }
             }
         }
-        image
     }
 
 
