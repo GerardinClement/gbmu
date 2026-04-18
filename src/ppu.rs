@@ -323,20 +323,22 @@ impl<T: Mbc> Ppu<T> {
         self.read_tile_data(tile_address)
     }
 
-    fn get_right_pixel(&self, old_pixel: &Pixel, color: Color, priority: bool) -> Option<Pixel> {
+    fn get_right_pixel(&self, color_index: u8, color: Color, priority: bool) -> Option<Color> {
         // Deal with sprite/background priority
+        //TODO tmp function to handle the transition between scanline rendering and FIFO.
+        // right now only fifo background is implemented. In order to keep render_sprites working
+        // we need to keep and adapt this function.
 
-        if old_pixel.get_is_sprite() {
-            return None
-        }
-
-        let color_index = old_pixel.get_color_index();
+        // if old_pixel.get_is_sprite() {
+        //     return None
+        // }
 
         if priority && color_index != 0 {
             return None
         }
 
-        Some(Pixel::new(color, true, color_index))
+        // Some(Pixel::new(color, true, color_index))
+        Some(color)
     }
 
     fn apply_sprite_palette(&self, color_index: u8, palette_attribute: bool) -> Color {
@@ -366,7 +368,7 @@ impl<T: Mbc> Ppu<T> {
         sprites.into_iter().map(| (_, s) | s).collect()
     }
 
-    fn render_sprites(&self, mut pixels: Vec<Pixel>) -> Vec<Pixel> {
+    fn render_sprites(&self, image: &mut Arc<Mutex<Vec<u8>>>) -> &mut Arc<Mutex<Vec<u8>>> {
         /*
             Apply sprites above background
             respect:
@@ -415,7 +417,7 @@ impl<T: Mbc> Ppu<T> {
                 }
             }
         }
-        pixels
+        image
     }
 
 
@@ -445,7 +447,10 @@ impl<T: Mbc> Ppu<T> {
             }
         }
 
-        self.lcd_status.update_ppu_mode(PpuMode::HBlank);
+        if self.x == 160 {
+            self.lcd_status.update_ppu_mode(PpuMode::HBlank);
+        }
+
         false
     }
 
