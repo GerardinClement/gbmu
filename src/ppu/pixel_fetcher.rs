@@ -343,11 +343,25 @@ mod tests {
         assert_eq!(fetcher.fetcher_x, 1);
     }
 
+    #[test]
+    fn test_window_is_activated_mid_cycle() {
+        let (mut fetcher, fifo, lcd) = setup_fetcher();
+        let bus = setup_bus();
 
-    // fn test_scx_misalignment_bug() {
-    //     let (mut fetcher, mut fifo, lcd) = setup_fetcher();
-    //     let bus = setup_bus();
-    // }
+        fetcher.dot_counter += 1;
+
+        assert_eq!(fetcher.fetcher_state, FetcherState::GetTileId);        
+
+        fetcher.tick(&bus, &fifo, 0, 0, 0, &lcd, false);
+        assert_eq!(fetcher.fetcher_state, FetcherState::GetLowData);        
+        fetcher.dot_counter += 1;
+
+        // use_window become true, the cycle is reset
+        let result = fetcher.tick(&bus, &fifo, 0, 0, 0, &lcd, true);
+        assert_eq!(fetcher.fetcher_state, FetcherState::GetTileId);
+        assert!(result.is_none(), "The cycle should be reset and not push anything.");
+    }
+
 
     // fn test_wx_glitch() {
     //     let (mut fetcher, mut fifo, lcd) = setup_fetcher();
