@@ -63,6 +63,7 @@ pub struct Ppu<T: Mbc> {
     bg_fifo: PixelFifo, // Background pixel FIFO
     visible_sprites: [Option<Sprite>; 10],
     pub dots: u32,
+    bg_color_indices: [u8; 160], // tmp until FIFO OBJ
 }
 
 impl<T: Mbc> Ppu<T> {
@@ -83,6 +84,7 @@ impl<T: Mbc> Ppu<T> {
             bg_fifo: PixelFifo::default(),
             visible_sprites: [None; 10],
             dots: 0,
+            bg_color_indices: [0; 160],
         }
     }
 
@@ -368,7 +370,7 @@ impl<T: Mbc> Ppu<T> {
         sprites.into_iter().map(| (_, s) | s).collect()
     }
 
-    fn render_sprites(&self, image: &mut Arc<Mutex<Vec<u8>>>, bg_color_indices: &[u8; 160]) {
+    fn render_sprites(&self, image: &mut Arc<Mutex<Vec<u8>>>) {
         /*
             TODO Transition modification until the FIFO OBJ is implemented. Right now the modifications
             should make the function works while we test the FIFO background
@@ -415,7 +417,7 @@ impl<T: Mbc> Ppu<T> {
                     
                 let color = self.apply_sprite_palette(color_index, palette_attribute);
 
-                if let Some(new_pixel) = self.get_right_pixel(bg_color_indices[screen_x as usize], color, priority) {
+                if let Some(new_pixel) = self.get_right_pixel(self.bg_color_indices[screen_x as usize], color, priority) {
                     let offset = (self.ly as usize * WIN_SIZE_X + screen_x as usize) * 3;
                     let mut frame = image.lock().unwrap();
 
@@ -439,7 +441,6 @@ impl<T: Mbc> Ppu<T> {
     fn mode_pixel_transfer(&mut self, image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
         if self.ly < WIN_SIZE_Y as u8 {
             let mut pixels = self.render_background();
-            pixels = self.render_sprites(pixels);
 
             {
                 let mut frame = image.lock().unwrap();
@@ -453,6 +454,7 @@ impl<T: Mbc> Ppu<T> {
         }
 
         if self.x == 160 {
+            self.render_sprites(image);
             self.lcd_status.update_ppu_mode(PpuMode::HBlank);
         }
 
@@ -474,6 +476,9 @@ impl<T: Mbc> Ppu<T> {
             
             self.ly += 1;
             self.check_lyc_equals_ly();
+
+            // reset for newline
+            self.bg_color_indices = [0; 160];
 
             if self.ly >= WIN_SIZE_Y as u8 {
                 self.lcd_status.update_ppu_mode(PpuMode::VBlank);
