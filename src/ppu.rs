@@ -48,6 +48,7 @@ const SCANLINE_DOTS: u32 = 456; // always 456
 
 pub struct Ppu<T: Mbc> {
     pub bus: Arc<RwLock<Mmu<T>>>,
+    pub dots: u32,
     lcd_control: LcdControl,
     lcd_status: LcdStatus, // LCD Status register
     scx: u8,               // Scroll X
@@ -61,7 +62,7 @@ pub struct Ppu<T: Mbc> {
     fetcher: PixelFetcher,
     bg_fifo: PixelFifo, // Background pixel FIFO
     visible_sprites: [Option<Sprite>; 10],
-    pub dots: u32,
+    pixels_to_discard: u8, // Required in order to prevent the SCX misalignment bug
     bg_color_indices: [u8; 160], // tmp until FIFO OBJ
 }
 
@@ -69,6 +70,7 @@ impl<T: Mbc> Ppu<T> {
     pub fn new(bus: Arc<RwLock<Mmu<T>>>) -> Self {
         Ppu {
             bus,
+            dots: 0,
             lcd_control: LcdControl::default(),
             lcd_status: LcdStatus::new(),
             scx: 0x00,
@@ -82,7 +84,7 @@ impl<T: Mbc> Ppu<T> {
             fetcher: PixelFetcher::default(),
             bg_fifo: PixelFifo::default(),
             visible_sprites: [None; 10],
-            dots: 0,
+            pixels_to_discard: 0,
             bg_color_indices: [0u8; 160],
         }
     }
@@ -437,6 +439,11 @@ impl<T: Mbc> Ppu<T> {
         false
     }
 
+    // TODO SCX misalignment
+    // TODO WX glitch
+    // TODO push color 0 when BG disabled
+    // TODO Reset at the beginning of VBlank
+    // TODO Window activation mid-scanline -> empty fifo
     fn mode_pixel_transfer(&mut self, image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
         if self.ly < WIN_SIZE_Y as u8 {
             // let mut pixels = self.render_background();
@@ -455,15 +462,19 @@ impl<T: Mbc> Ppu<T> {
 
             {
                 if let Some(current_pixel) = self.bg_fifo.pop() {
-                    self.bg_color_indices[self.x] = current_pixel.get_color_index();
+                    if self.pixels_to_discard > 0 {
+                        self.pixels_to_discard -= 1;
+                    } else {
+                        self.bg_color_indices[self.x] = current_pixel.get_color_index();
 
-                    let mut frame = image.lock().unwrap();
-                    let ly = self.ly as usize;
+                        let mut frame = image.lock().unwrap();
+                        let ly = self.ly as usize;
 
-                    let offset = (ly * WIN_SIZE_X + self.x) * 3; // * 3 for each pixels (3 bytes (RGB))
-                    self.set_pixel_color(&mut frame, offset, *current_pixel.get_color());
+                        let offset = (ly * WIN_SIZE_X + self.x) * 3; // * 3 for each pixels (3 bytes (RGB))
+                        self.set_pixel_color(&mut frame, offset, *current_pixel.get_color());
 
-                    self.x += 1;
+                        self.x += 1;
+                    }
                 }
 
             }
@@ -496,7 +507,9 @@ impl<T: Mbc> Ppu<T> {
             // reset for newline
             self.bg_color_indices = [0; 160];
             self.x = 0;
+            self.bg_fifo.clear();
             self.fetcher.reset_at_new_line();
+            self.pixels_to_discard = self.scx % 8;
 
             if self.ly >= WIN_SIZE_Y as u8 {
                 self.lcd_status.update_ppu_mode(PpuMode::VBlank);
