@@ -46,7 +46,6 @@ const PIXEL_TRANSFER_DOTS: u32 = 172; // can change between 172 and 289, to hand
 const HBLANK_DOTS: u32 = 204; // can change between 87 and 204, to handle later
 const SCANLINE_DOTS: u32 = 456; // always 456
 
-#[derive(Default)]
 pub struct Ppu<T: Mbc> {
     pub bus: Arc<RwLock<Mmu<T>>>,
     lcd_control: LcdControl,
@@ -84,7 +83,7 @@ impl<T: Mbc> Ppu<T> {
             bg_fifo: PixelFifo::default(),
             visible_sprites: [None; 10],
             dots: 0,
-            bg_color_indices: [0; 160],
+            bg_color_indices: [0u8; 160],
         }
     }
 
