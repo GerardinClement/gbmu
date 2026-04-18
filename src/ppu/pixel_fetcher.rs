@@ -29,13 +29,18 @@ pub struct PixelFetcher {
     tile_id: u8,
     tile_data_low: u8,
     tile_data_high: u8,
-    dot_counter: u32,
     fetcher_x: u8,
+    dot_counter: u32,
+    use_window: bool,
 }
 
 impl PixelFetcher {
     pub fn tick<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, fifo: &PixelFifo, ly: u8, scx: u8, scy: u8, lcd_control: &LcdControl, use_window: bool) -> Option<[Pixel; 8]> {
         self.dot_counter += 1;
+
+        if self.reset_if_window(use_window) {
+           return None;
+        }
 
         if self.fetcher_state == FetcherState::PushPixel && fifo.is_empty() {
             let tile: Option<[Pixel; 8]> = self.push_pixel(bus);
@@ -84,6 +89,21 @@ impl PixelFetcher {
         } else {
             None
         }
+    }
+
+    fn reset_if_window(&mut self, use_window: bool) -> bool {
+        if !self.use_window && use_window {
+            self.fetcher_state = FetcherState::GetTileId;
+            self.fetcher_x = 0;
+
+            self.use_window = use_window;
+
+            return true;
+        }
+
+        self.use_window = use_window;
+
+        false
     }
 
     fn get_tile_id<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, ly: u8, scx: u8, scy: u8, lcd_control: &LcdControl, use_window: bool) -> u8 {
@@ -356,15 +376,12 @@ mod tests {
         assert_eq!(fetcher.fetcher_state, FetcherState::GetLowData);        
         fetcher.dot_counter += 1;
 
+        fetcher.fetcher_x = 4;
+
         // use_window become true, the cycle is reset
         let result = fetcher.tick(&bus, &fifo, 0, 0, 0, &lcd, true);
         assert_eq!(fetcher.fetcher_state, FetcherState::GetTileId);
         assert!(result.is_none(), "The cycle should be reset and not push anything.");
+        assert_eq!(fetcher.fetcher_x, 0, "fetcher_x should be reset to 0.");
     }
-
-
-    // fn test_wx_glitch() {
-    //     let (mut fetcher, mut fifo, lcd) = setup_fetcher();
-    //     let bus = setup_bus();
-    // }
 }
