@@ -440,16 +440,33 @@ impl<T: Mbc> Ppu<T> {
 
     fn mode_pixel_transfer(&mut self, image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
         if self.ly < WIN_SIZE_Y as u8 {
-            let mut pixels = self.render_background();
+            // let mut pixels = self.render_background();
+
+            let use_window = self.lcd_control.is_window_enabled()
+                && (self.ly as usize >= self.wy as usize)
+                && (self.x + 7 >= self.wx as usize);    
+
+            let tile_pixels = self.fetcher.tick(&self.bus, &self.bg_fifo, self.ly, self.scx, self.scy, &self.lcd_control, use_window);
+            
+            if let Some(pixels) = tile_pixels {
+                for pixel in pixels {
+                    self.bg_fifo.push(pixel);
+                }
+            }
 
             {
-                let mut frame = image.lock().unwrap();
-                let ly = self.ly as usize;
+                if let Some(current_pixel) = self.bg_fifo.pop() {
+                    self.bg_color_indices[self.x] = current_pixel.get_color_index();
 
-                for (x, p) in pixels.into_iter().enumerate() {
-                    let offset = (ly * WIN_SIZE_X + x) * 3; // * 3 for each pixels (3 bytes (RGB))
-                    self.set_pixel_color(&mut frame, offset, *p.get_color());
+                    let mut frame = image.lock().unwrap();
+                    let ly = self.ly as usize;
+
+                    let offset = (ly * WIN_SIZE_X + self.x) * 3; // * 3 for each pixels (3 bytes (RGB))
+                    self.set_pixel_color(&mut frame, offset, *current_pixel.get_color());
+
+                    self.x += 1;
                 }
+
             }
         }
 
