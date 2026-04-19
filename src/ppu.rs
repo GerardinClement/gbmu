@@ -237,7 +237,7 @@ impl<T: Mbc> Ppu<T> {
 
         for x in 0..WIN_SIZE_X {
             if !self.lcd_control.is_bg_window_enabled() {
-                pixels.push(Pixel::new(default_color, false, 0));
+                pixels.push(Pixel::new_bg(default_color, 0));
                 continue;
             }
 
@@ -265,7 +265,7 @@ impl<T: Mbc> Ppu<T> {
 
             let color_index = self.get_pixel_color_index(tile, pixel_x, pixel_y);
             let color = self.apply_background_palette(color_index);
-            let pixel = Pixel::new(color, false, color_index);
+            let pixel = Pixel::new_bg(color, color_index);
             
             pixels.push(pixel);
         }
@@ -301,7 +301,7 @@ impl<T: Mbc> Ppu<T> {
             return None
         }
 
-        Some(Pixel::new(color, true, color_index))
+        Some(Pixel::new_obj(color, color_index, priority, 0))
     }
 
     fn apply_sprite_palette(&self, color_index: u8, palette_attribute: bool) -> Color {
