@@ -460,6 +460,8 @@ impl<T: Mbc> Ppu<T> {
 
                 self.use_window = use_window;
                 self.wx_at_window_start = self.wx;
+
+                self.pixels_to_discard = 0;
             }
 
             if self.use_window && self.wx != self.wx_at_window_start
