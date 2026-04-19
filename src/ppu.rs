@@ -64,6 +64,8 @@ pub struct Ppu<T: Mbc> {
     visible_sprites: [Option<Sprite>; 10],
     pixels_to_discard: u8, // Required in order to prevent the SCX misalignment bug
     use_window: bool, // Required for BG FIFO in order to know if the window is activated midline
+    wx_at_window_start: u8, // Required to handle the WX hardware glitch
+    is_wx_glitch_happened: bool, // Required to handle the WX hardware glitch
     bg_color_indices: [u8; 160], // tmp until FIFO OBJ
 }
 
@@ -87,6 +89,8 @@ impl<T: Mbc> Ppu<T> {
             visible_sprites: [None; 10],
             pixels_to_discard: 0,
             use_window: false,
+            wx_at_window_start: 0x00,
+            is_wx_glitch_happened: false,
             bg_color_indices: [0u8; 160],
         }
     }
@@ -441,7 +445,6 @@ impl<T: Mbc> Ppu<T> {
         false
     }
 
-    // TODO WX glitch
     fn mode_pixel_transfer(&mut self, image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
         if self.ly < WIN_SIZE_Y as u8 {
             // let mut pixels = self.render_background();
@@ -454,7 +457,18 @@ impl<T: Mbc> Ppu<T> {
             if !self.use_window && use_window {
                 self.fetcher.reset();
                 self.bg_fifo.clear();
+
                 self.use_window = use_window;
+                self.wx_at_window_start = self.wx;
+            }
+
+            if self.use_window && self.wx != self.wx_at_window_start
+                && self.x + 7 >= self.wx as usize
+                && !self.is_wx_glitch_happened {
+                    let glitched_pixel = Pixel::new(self.apply_background_palette(0), false, 0);
+
+                    self.bg_fifo.push(glitched_pixel);
+                    self.is_wx_glitch_happened = true;
             }
 
             let tile_pixels = self.fetcher.tick(&self.bus, &self.bg_fifo, self.ly, self.scx, self.scy, &self.lcd_control, use_window);
@@ -529,6 +543,7 @@ impl<T: Mbc> Ppu<T> {
             self.fetcher.reset();
             self.pixels_to_discard = self.scx % 8;
             self.use_window = false;
+            self.is_wx_glitch_happened = false;
 
             if self.ly >= WIN_SIZE_Y as u8 {
                 self.lcd_status.update_ppu_mode(PpuMode::VBlank);
@@ -562,6 +577,7 @@ impl<T: Mbc> Ppu<T> {
                 self.fetcher.reset();
                 self.pixels_to_discard = self.scx % 8;
                 self.use_window = false;
+                self.is_wx_glitch_happened = false;
 
                 self.lcd_status.update_ppu_mode(PpuMode::OamSearch);
             }
