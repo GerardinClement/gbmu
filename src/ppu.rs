@@ -546,6 +546,9 @@ impl<T: Mbc> Ppu<T> {
 
                 self.wly = 0;
 
+                self.fetcher.reset_at_new_line();
+                self.bg_fifo.clear();
+
                 self.lcd_status.update_ppu_mode(PpuMode::OamSearch);
             }
         }
