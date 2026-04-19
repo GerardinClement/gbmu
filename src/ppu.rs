@@ -6,6 +6,7 @@ mod lcd_control;
 mod lcd_status;
 mod pixel;
 mod pixel_fifo;
+mod obj_piso;
 mod pixel_fetcher;
 
 use std::sync::Mutex;
@@ -22,6 +23,7 @@ use crate::ppu::lcd_status::LcdStatus;
 use crate::ppu::lcd_status::PpuMode;
 use crate::ppu::pixel::Pixel;
 use crate::ppu::pixel_fifo::PixelFifo;
+use crate::ppu::obj_piso::ObjPiso;
 use crate::ppu::pixel_fetcher::PixelFetcher;
 
 pub const WIN_SIZE_X: usize = 160; // Window size in X direction
@@ -467,7 +469,7 @@ impl<T: Mbc> Ppu<T> {
             if self.use_window && self.wx != self.wx_at_window_start
                 && self.x + 7 >= self.wx as usize
                 && !self.is_wx_glitch_happened {
-                    let glitched_pixel = Pixel::new(self.apply_background_palette(0), false, 0);
+                    let glitched_pixel = Pixel::new_bg(self.apply_background_palette(0),  0);
 
                     self.bg_fifo.push(glitched_pixel);
                     self.is_wx_glitch_happened = true;
