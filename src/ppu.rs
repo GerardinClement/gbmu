@@ -276,7 +276,7 @@ impl<T: Mbc> Ppu<T> {
         for x in 0..WIN_SIZE_X {
             // If BG is disabled, color 0 everywhere
             if !self.lcd_control.is_bg_window_enabled() {
-                pixels.push(Pixel::new(default_color, false, 0));
+                pixels.push(Pixel::new_bg(default_color, 0));
                 continue;
             }
 
@@ -307,7 +307,7 @@ impl<T: Mbc> Ppu<T> {
 
             let color_index = self.get_pixel_color_index(tile, pixel_x, pixel_y);
             let color = self.apply_background_palette(color_index);
-            let pixel = Pixel::new(color, false, color_index);
+            let pixel = Pixel::new_bg(color, color_index);
             
             pixels.push(pixel);
         }
