@@ -8,6 +8,7 @@ mod pixel;
 mod pixel_fifo;
 mod obj_piso;
 mod pixel_fetcher;
+mod oam_fetcher;
 
 use std::sync::Mutex;
 use std::sync::{Arc, RwLock};
@@ -25,6 +26,7 @@ use crate::ppu::pixel::Pixel;
 use crate::ppu::pixel_fifo::PixelFifo;
 use crate::ppu::obj_piso::ObjPiso;
 use crate::ppu::pixel_fetcher::PixelFetcher;
+use crate::ppu::oam_fetcher::OamFetcher;
 
 pub const WIN_SIZE_X: usize = 160; // Window size in X direction
 pub const WIN_SIZE_Y: usize = 144; // Window size in Y direction
