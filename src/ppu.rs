@@ -63,6 +63,7 @@ pub struct Ppu<T: Mbc> {
     bg_fifo: PixelFifo, // Background pixel FIFO
     visible_sprites: [Option<Sprite>; 10],
     pixels_to_discard: u8, // Required in order to prevent the SCX misalignment bug
+    use_window: bool, // Required for BG FIFO in order to know if the window is activated midline
     bg_color_indices: [u8; 160], // tmp until FIFO OBJ
 }
 
@@ -85,6 +86,7 @@ impl<T: Mbc> Ppu<T> {
             bg_fifo: PixelFifo::default(),
             visible_sprites: [None; 10],
             pixels_to_discard: 0,
+            use_window: false,
             bg_color_indices: [0u8; 160],
         }
     }
@@ -440,8 +442,6 @@ impl<T: Mbc> Ppu<T> {
     }
 
     // TODO WX glitch
-    // TODO Reset at the beginning of VBlank
-    // TODO Window activation mid-scanline -> empty fifo
     fn mode_pixel_transfer(&mut self, image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
         if self.ly < WIN_SIZE_Y as u8 {
             // let mut pixels = self.render_background();
@@ -449,6 +449,11 @@ impl<T: Mbc> Ppu<T> {
             let use_window = self.lcd_control.is_window_enabled()
                 && (self.ly as usize >= self.wy as usize)
                 && (self.x + 7 >= self.wx as usize);    
+
+            if !self.use_window && use_window {
+                self.bg_fifo.clear();
+                self.use_window = use_window;
+            }
 
             let tile_pixels = self.fetcher.tick(&self.bus, &self.bg_fifo, self.ly, self.scx, self.scy, &self.lcd_control, use_window);
             
@@ -515,11 +520,13 @@ impl<T: Mbc> Ppu<T> {
             self.check_lyc_equals_ly();
 
             // reset for newline
+            // TODO proper reset function
             self.bg_color_indices = [0; 160];
             self.x = 0;
             self.bg_fifo.clear();
             self.fetcher.reset_at_new_line();
             self.pixels_to_discard = self.scx % 8;
+            self.use_window = false;
 
             if self.ly >= WIN_SIZE_Y as u8 {
                 self.lcd_status.update_ppu_mode(PpuMode::VBlank);
@@ -546,8 +553,13 @@ impl<T: Mbc> Ppu<T> {
 
                 self.wly = 0;
 
-                self.fetcher.reset_at_new_line();
+                // TODO proper reset function
+                self.bg_color_indices = [0; 160];
+                self.x = 0;
                 self.bg_fifo.clear();
+                self.fetcher.reset_at_new_line();
+                self.pixels_to_discard = self.scx % 8;
+                self.use_window = false;
 
                 self.lcd_status.update_ppu_mode(PpuMode::OamSearch);
             }
