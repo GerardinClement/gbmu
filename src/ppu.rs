@@ -439,9 +439,7 @@ impl<T: Mbc> Ppu<T> {
         false
     }
 
-    // TODO SCX misalignment
     // TODO WX glitch
-    // TODO push color 0 when BG disabled
     // TODO Reset at the beginning of VBlank
     // TODO Window activation mid-scanline -> empty fifo
     fn mode_pixel_transfer(&mut self, image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
@@ -465,13 +463,25 @@ impl<T: Mbc> Ppu<T> {
                     if self.pixels_to_discard > 0 {
                         self.pixels_to_discard -= 1;
                     } else {
-                        self.bg_color_indices[self.x] = current_pixel.get_color_index();
+                        let color_index: u8;
+                        let color: Color;
+
+                        // If BG is disabled, color 0 everywhere
+                        if !self.lcd_control.is_bg_window_enabled() {
+                            color_index = 0;
+                            color = self.apply_background_palette(0);
+                        }
+                        else {
+                            color_index = current_pixel.get_color_index();
+                            color = *current_pixel.get_color();
+                        }
+                        self.bg_color_indices[self.x] = color_index;
 
                         let mut frame = image.lock().unwrap();
                         let ly = self.ly as usize;
 
                         let offset = (ly * WIN_SIZE_X + self.x) * 3; // * 3 for each pixels (3 bytes (RGB))
-                        self.set_pixel_color(&mut frame, offset, *current_pixel.get_color());
+                        self.set_pixel_color(&mut frame, offset, color);
 
                         self.x += 1;
                     }
