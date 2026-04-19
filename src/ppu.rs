@@ -450,7 +450,9 @@ impl<T: Mbc> Ppu<T> {
                 && (self.ly as usize >= self.wy as usize)
                 && (self.x + 7 >= self.wx as usize);    
 
+            // check if window is activated in the middle of scanline
             if !self.use_window && use_window {
+                self.fetcher.reset();
                 self.bg_fifo.clear();
                 self.use_window = use_window;
             }
@@ -524,7 +526,7 @@ impl<T: Mbc> Ppu<T> {
             self.bg_color_indices = [0; 160];
             self.x = 0;
             self.bg_fifo.clear();
-            self.fetcher.reset_at_new_line();
+            self.fetcher.reset();
             self.pixels_to_discard = self.scx % 8;
             self.use_window = false;
 
@@ -557,7 +559,7 @@ impl<T: Mbc> Ppu<T> {
                 self.bg_color_indices = [0; 160];
                 self.x = 0;
                 self.bg_fifo.clear();
-                self.fetcher.reset_at_new_line();
+                self.fetcher.reset();
                 self.pixels_to_discard = self.scx % 8;
                 self.use_window = false;
 
