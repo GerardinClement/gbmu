@@ -193,7 +193,7 @@ impl PixelFetcher {
             let color_index = (high_weight_bit << 1) | low_weight_bit;
             let bgp = self.apply_background_palette(bus, color_index);
 
-            let pixel = Pixel::new(bgp, false, color_index);
+            let pixel = Pixel::new_bg(bgp, color_index);
             
             tile_pixels[i as usize] = pixel;
         }
