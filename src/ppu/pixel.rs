@@ -1,6 +1,8 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
+use std::u8;
+
 use crate::ppu::colors_palette::Color;
 
 #[derive(Debug, Clone, Copy)]
@@ -15,7 +17,7 @@ pub struct Pixel {
 impl Pixel {
     pub fn new_bg(color: Color, color_index: u8) -> Self {
         let priority = false;
-        let oam_index = 0;
+        let oam_index = u8::MAX;
         let is_sprite = false;
 
         Pixel {
