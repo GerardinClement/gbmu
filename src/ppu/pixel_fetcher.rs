@@ -39,10 +39,6 @@ impl PixelFetcher {
     pub fn tick<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, fifo: &PixelFifo, ly: u8, scx: u8, scy: u8, lcd_control: &LcdControl, use_window: bool) -> Option<[Pixel; 8]> {
         self.dot_counter += 1;
 
-        if self.reset_if_window(use_window) {
-           return None;
-        }
-
         if self.fetcher_state == FetcherState::PushPixel && fifo.is_empty() {
             let tile: Option<[Pixel; 8]> = self.push_pixel(bus);
 
@@ -92,27 +88,11 @@ impl PixelFetcher {
         }
     }
 
-    pub fn reset_at_new_line(&mut self) {
+    pub fn reset(&mut self) {
         self.fetcher_state = FetcherState::GetTileId;
         self.fetcher_x = 0;
         self.dot_counter = 0;
         self.use_window = false;
-    }
-
-
-    fn reset_if_window(&mut self, use_window: bool) -> bool {
-        if !self.use_window && use_window {
-            self.fetcher_state = FetcherState::GetTileId;
-            self.fetcher_x = 0;
-
-            self.use_window = use_window;
-
-            return true;
-        }
-
-        self.use_window = use_window;
-
-        false
     }
 
     fn get_tile_id<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, ly: u8, scx: u8, scy: u8, lcd_control: &LcdControl, use_window: bool) -> u8 {
