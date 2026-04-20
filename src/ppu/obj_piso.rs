@@ -88,3 +88,143 @@ impl ObjPiso {
         self.pixels = [Pixel::default(); 8];
     }
 }
+
+
+// tests
+
+// merge replace a transparent pixel
+
+// merge does not replace a transparent pixel
+
+// merge ignore the pixels in overscan (pos < 0)
+
+// shift out shift correctly and insert a transparent pixel
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ppu::pixel::Pixel;
+
+    // helper
+    fn make_pixel(color_index: u8) -> Pixel {
+        Pixel::new_obj(
+            Color::from_index(color_index),
+            color_index,
+            false,
+            0,
+        )
+    }
+
+    #[test]
+    fn merge_replaces_transparent_pixel() {
+        let mut piso = ObjPiso::new();
+
+        // sprite x = 8 -> aligned on FIFO[0]
+        piso.merge(
+            0b1000_0000, // bit 7 = 1 -> pixel visible for i=0
+            0,
+            8,
+            false,
+            0b1110_0100,
+            0,
+            false,
+        );
+
+        assert_ne!(piso.pixels[0].get_color_index(), 0, "The pixel should not be transparent anymore");
+    }
+
+    #[test]
+    fn merge_does_not_replace_existing_pixel() {
+        let mut piso = ObjPiso::new();
+
+        piso.pixels[0] = make_pixel(2);
+
+        // Try to put a pixel at the same place
+        piso.merge(
+            0b1000_0000,
+            0,
+            8,
+            false,
+            0b1110_0100,
+            1,
+            false,
+        );
+
+        assert_eq!(piso.pixels[0].get_color_index(), 2, "The pixel should not change.");
+    }
+
+    #[test]
+    fn merge_ignores_pixels_left_overscan() {
+        let mut piso = ObjPiso::new();
+
+        // sprite_x = 5 -> some pixels will have pos < 0
+        piso.merge(
+            0xFF, // all actives pixels
+            0,
+            5,
+            false,
+            0b1110_0100,
+            0,
+            false,
+        );
+
+        assert_eq!(piso.pixels[5].get_color_index(), 0, "The first slots have to stay transparents");
+        assert_eq!(piso.pixels[6].get_color_index(), 0, "The first slots have to stay transparents");
+        assert_eq!(piso.pixels[7].get_color_index(), 0, "The first slots have to stay transparents");
+    }
+
+    #[test]
+    fn merge_ignores_transparent_pixels() {
+        let mut piso = ObjPiso::new();
+
+        // tile data = 0 -> all pixels transparents
+        piso.merge(
+            0,
+            0,
+            8,
+            false,
+            0b1110_0100,
+            0,
+            false,
+        );
+
+        for i in 0..8 {
+            assert_eq!(piso.pixels[i].get_color_index(), 0, "The pixel is not transparent.");
+        }
+    }
+
+    #[test]
+    fn shift_out_shifts_correctly() {
+        let mut piso = ObjPiso::new();
+
+        for i in 0..8 {
+            piso.pixels[i] = make_pixel((i % 4) as u8);
+        }
+
+        let out = piso.shift_out();
+
+        assert_eq!(out.get_color_index(), 0, "The first pixel should shift out of the piso");
+
+        // shift
+        for i in 0..7 {
+            assert_eq!(piso.pixels[i].get_color_index(), ((i + 1) % 4) as u8, "A pixel didn't shift.");
+        }
+
+        assert_eq!(piso.pixels[7].get_color_index(), 0, "The last pixel should be transparent");
+    }
+
+    #[test]
+    fn reset_clears_fifo() {
+        let mut piso = ObjPiso::new();
+
+        piso.pixels[3] = make_pixel(2);
+
+        piso.reset();
+
+        for i in 0..8 {
+            assert_eq!(piso.pixels[i].get_color_index(), 0, "The reset function hasn't erased all pixels.");
+        }
+    }
+
+
+}
