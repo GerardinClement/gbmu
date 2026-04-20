@@ -35,7 +35,7 @@ pub struct OamFetcher {
 
 impl OamFetcher {
     pub fn tick<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, sprite: &Sprite, piso: &mut ObjPiso, ly: u8, lcd_control: &LcdControl, height: u8) -> bool {
-        self.dot_counter += 1;
+        self.dot_counter = self.dot_counter.wrapping_add(1);
 
         if self.dot_counter % 2 == 0 {
             match self.fetcher_state {
@@ -65,6 +65,7 @@ impl OamFetcher {
                 }
             }
         }
+
         false
     }
 
@@ -118,5 +119,130 @@ impl OamFetcher {
         let palette = bus.read().unwrap().read_byte(palette_addr);
 
         piso.merge(self.tile_data_low, self.tile_data_high, sprite.x, x_flip, palette, sprite.oam_index, priority);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::mmu::Mmu;
+    use crate::mmu::mbc::RomOnly;
+
+    use std::sync::{Arc, RwLock};
+
+    fn setup_bus() -> Arc<RwLock<Mmu<RomOnly>>> {
+        Arc::new(RwLock::new(
+            Mmu::<RomOnly>::new(&[]).unwrap()
+        ))
+    }
+
+    #[test]
+    fn test_state_progression() {
+        let mut fetcher = OamFetcher::default();
+
+        let bus = setup_bus();
+        let sprite = Sprite { y: 16, x: 8, tile: 0, oam_index: 0, attributes: 0 };
+        let mut piso = ObjPiso::new();
+        let lcd = LcdControl::default();
+
+        // tick 1 -> nothing (odd dot)
+        assert_eq!(fetcher.tick(&bus, &sprite, &mut piso, 0, &lcd, 8), false);
+        assert_eq!(fetcher.fetcher_state, FetcherState::GetTileId);
+
+        // tick 2 -> GetTileId
+        assert_eq!(fetcher.tick(&bus, &sprite, &mut piso, 0, &lcd, 8), false);
+        assert_eq!(fetcher.fetcher_state, FetcherState::GetLowData);
+
+        // tick 4 -> GetLowData
+        fetcher.tick(&bus, &sprite, &mut piso, 0, &lcd, 8);
+        assert_eq!(fetcher.fetcher_state, FetcherState::GetLowData);
+        assert_eq!(fetcher.tick(&bus, &sprite, &mut piso, 0, &lcd, 8), false);
+        assert_eq!(fetcher.fetcher_state, FetcherState::GetHighData);
+
+        // tick 6 -> GetHighData
+        fetcher.tick(&bus, &sprite, &mut piso, 0, &lcd, 8);
+        assert_eq!(fetcher.fetcher_state, FetcherState::GetHighData);
+        assert_eq!(fetcher.tick(&bus, &sprite, &mut piso, 0, &lcd, 8), false);
+        assert_eq!(fetcher.fetcher_state, FetcherState::PushPixel);
+
+        // tick 8 -> PushPixel → return false
+        assert_eq!(fetcher.tick(&bus, &sprite, &mut piso, 0, &lcd, 8), false);
+        assert_eq!(fetcher.fetcher_state, FetcherState::PushPixel);
+        assert_eq!(fetcher.tick(&bus, &sprite, &mut piso, 0, &lcd, 8), true);
+        assert_eq!(fetcher.fetcher_state, FetcherState::GetTileId);
+    }
+
+    #[test]
+    fn test_sprite_line_no_flip() {
+        let mut fetcher = OamFetcher::default();
+
+        let sprite = Sprite {
+            y: 16 + 5, // sprite begin at y=5
+            x: 0,
+            tile: 3,
+            oam_index: 0,
+            attributes: 0,
+        };
+
+        let line = fetcher.get_tile_id(&sprite, 5, 8);
+
+        assert_eq!(fetcher.actual_sprite_line, 0);
+    }
+
+    #[test]
+    fn test_sprite_line_with_y_flip() {
+        let mut fetcher = OamFetcher::default();
+
+        let sprite = Sprite {
+            y: 16,
+            tile: 0,
+            attributes: 0b0100_0000, // y_flip
+            ..Default::default()
+        };
+
+        fetcher.get_tile_id(&sprite, 0, 8);
+
+        // reversed line -> 7 instead of 0
+        assert_eq!(fetcher.actual_sprite_line, 7);
+    }
+
+    #[test]
+    fn test_sprite_8x16_tile_selection() {
+        let mut fetcher = OamFetcher::default();
+
+        let sprite = Sprite {
+            y: 16,
+            tile: 5,
+            attributes: 0,
+            ..Default::default()
+        };
+
+        // line in second hald
+        let tile = fetcher.get_tile_id(&sprite, 10, 16);
+
+        // tile have to be pair + 1
+        assert_eq!(tile, (5 & 0xFE) + 1);
+    }
+
+    #[test]
+    fn test_sprite_8x16_with_y_flip() {
+        let mut fetcher = OamFetcher::default();
+
+        let sprite = Sprite {
+            y: 16,
+            x: 0,
+            tile: 4,
+            oam_index: 0,
+            attributes: 0b0100_0000,
+        };
+
+        let tile = fetcher.get_tile_id(&sprite, 12, 16);
+        let base_tile = 4 & 0xFE;
+
+        assert_eq!(
+            tile,
+            base_tile,
+            "Y flip in 8x16 sprite should reverse tile selection"
+        );
     }
 }

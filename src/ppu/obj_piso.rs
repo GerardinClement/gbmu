@@ -89,17 +89,6 @@ impl ObjPiso {
     }
 }
 
-
-// tests
-
-// merge replace a transparent pixel
-
-// merge does not replace a transparent pixel
-
-// merge ignore the pixels in overscan (pos < 0)
-
-// shift out shift correctly and insert a transparent pixel
-
 #[cfg(test)]
 mod tests {
     use super::*;
