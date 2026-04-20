@@ -29,6 +29,31 @@ pub struct OamFetcher {
 
 impl OamFetcher {
      pub fn tick<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, sprite: &Sprite, piso: &ObjPiso, ly: u8, lcd_control: &LcdControl) -> bool {
+        self.dot_counter += 1;
+
+        if self.dot_counter % 2 == 0 {
+            match self.fetcher_state {
+                FetcherState::GetTileId => {
+                    self.fetcher_state = FetcherState::GetLowData;
+
+                    return false;
+                },
+                FetcherState::GetLowData => {
+                    self.fetcher_state = FetcherState::GetHighData;
+                    return false;
+                },
+                FetcherState::GetHighData => {
+                    self.fetcher_state = FetcherState::PushPixel;
+
+                    return false;
+                },
+                FetcherState::PushPixel => {
+                    self.fetcher_state = FetcherState::GetTileId;
+
+                    return false;
+                }
+            }
+        }
         false
      }
 }
