@@ -63,8 +63,10 @@ pub struct Ppu<T: Mbc> {
     ly: u8,
     lyc: u8,
     x: usize,
-    fetcher: PixelFetcher,
+    pixel_fetcher: PixelFetcher,
+    oam_fetcher: OamFetcher,
     bg_fifo: PixelFifo, // Background pixel FIFO
+    obj_piso: ObjPiso, // Objects (sprites) PISO
     visible_sprites: [Option<Sprite>; 10],
     pixels_to_discard: u8, // Required in order to prevent the SCX misalignment bug
     use_window: bool, // Required for BG FIFO in order to know if the window is activated midline
@@ -88,8 +90,10 @@ impl<T: Mbc> Ppu<T> {
             ly: 0x00,
             lyc: 0x00,
             x: 0,
-            fetcher: PixelFetcher::default(),
+            pixel_fetcher: PixelFetcher::default(),
+            oam_fetcher: OamFetcher::default(),
             bg_fifo: PixelFifo::default(),
+            obj_piso: ObjPiso::default(),
             visible_sprites: [None; 10],
             pixels_to_discard: 0,
             use_window: false,
@@ -482,8 +486,8 @@ impl<T: Mbc> Ppu<T> {
         }
     }
 
-    fn step_fetcher(&mut self, use_window: bool) {
-        let tile_pixels = self.fetcher.tick(&self.bus, &self.bg_fifo, self.ly, self.scx, self.scy, &self.lcd_control, use_window);
+    fn step_pixel_fetcher(&mut self, use_window: bool) {
+        let tile_pixels = self.pixel_fetcher.tick(&self.bus, &self.bg_fifo, self.ly, self.scx, self.scy, &self.lcd_control, use_window);
 
         if let Some(pixels) = tile_pixels {
             for pixel in pixels {
@@ -495,7 +499,7 @@ impl<T: Mbc> Ppu<T> {
     fn handle_window_switch(&mut self, use_window: bool) {
         // check if window is activated in the middle of scanline
         if !self.use_window && use_window {
-            self.fetcher.reset();
+            self.pixel_fetcher.reset();
             self.bg_fifo.clear();
 
             self.use_window = use_window;
@@ -525,7 +529,7 @@ impl<T: Mbc> Ppu<T> {
 
             self.handle_window_switch(use_window);
 
-            self.step_fetcher(use_window);
+            self.step_pixel_fetcher(use_window);
 
             let mut frame = image.lock().unwrap();
             self.push_pixel_to_screen(&mut frame);
@@ -560,7 +564,7 @@ impl<T: Mbc> Ppu<T> {
             self.bg_color_indices = [0; 160];
             self.x = 0;
             self.bg_fifo.clear();
-            self.fetcher.reset();
+            self.pixel_fetcher.reset();
             self.pixels_to_discard = self.scx % 8;
             self.use_window = false;
             self.is_wx_glitch_happened = false;
@@ -594,7 +598,7 @@ impl<T: Mbc> Ppu<T> {
                 self.bg_color_indices = [0; 160];
                 self.x = 0;
                 self.bg_fifo.clear();
-                self.fetcher.reset();
+                self.pixel_fetcher.reset();
                 self.pixels_to_discard = self.scx % 8;
                 self.use_window = false;
                 self.is_wx_glitch_happened = false;
