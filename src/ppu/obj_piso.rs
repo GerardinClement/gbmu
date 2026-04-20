@@ -167,6 +167,11 @@ mod tests {
             0,
             false,
         );
+        assert_ne!(piso.pixels[0].get_color_index(), 0, "The last slots should not be transparents");
+        assert_ne!(piso.pixels[1].get_color_index(), 0, "The last slots should not be transparents");
+        assert_ne!(piso.pixels[2].get_color_index(), 0, "The last slots should not be transparents");
+        assert_ne!(piso.pixels[3].get_color_index(), 0, "The last slots should not be transparents");
+        assert_ne!(piso.pixels[4].get_color_index(), 0, "The last slots should not be transparents");
 
         assert_eq!(piso.pixels[5].get_color_index(), 0, "The first slots have to stay transparents");
         assert_eq!(piso.pixels[6].get_color_index(), 0, "The first slots have to stay transparents");
