@@ -10,6 +10,8 @@ use crate::ppu::obj_piso::ObjPiso;
 
 use std::sync::{Arc, RwLock};
 
+const OBP0_ADDR: u16 = 0xFF48; // Object Palette 0
+const OBP1_ADDR: u16 = 0xFF49; // Object Palette 1
 const VRAM: MemoryRegion = MemoryRegion::Vram; // Start of VRAM
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
@@ -32,7 +34,7 @@ pub struct OamFetcher {
 }
 
 impl OamFetcher {
-    pub fn tick<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, sprite: &Sprite, piso: &ObjPiso, ly: u8, lcd_control: &LcdControl, height: u8) -> bool {
+    pub fn tick<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, sprite: &Sprite, piso: &mut ObjPiso, ly: u8, lcd_control: &LcdControl, height: u8) -> bool {
         self.dot_counter += 1;
 
         if self.dot_counter % 2 == 0 {
@@ -50,14 +52,16 @@ impl OamFetcher {
                     return false;
                 },
                 FetcherState::GetHighData => {
+                    self.tile_data_high = self.get_tile_data_high(bus);
                     self.fetcher_state = FetcherState::PushPixel;
 
                     return false;
                 },
                 FetcherState::PushPixel => {
+                    self.push_pixel(bus, piso, sprite);
                     self.fetcher_state = FetcherState::GetTileId;
 
-                    return false;
+                    return true;
                 }
             }
         }
@@ -96,5 +100,23 @@ impl OamFetcher {
         let data = bus.read().unwrap().read_byte(tile_address as u16 + 1);
 
         data
+    }
+
+    fn extract_attributes(&self, attributes: u8) -> (bool, bool, bool, bool) {
+        (
+            ((attributes >> 7) & 1) != 0,
+            ((attributes >> 6) & 1) != 0,
+            ((attributes >> 5) & 1) != 0,
+            ((attributes >> 4) & 1) != 0,
+        )
+    }
+
+    fn push_pixel<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, piso: &mut ObjPiso, sprite: &Sprite) {
+        let (priority, _, x_flip, palette_attribute) = self.extract_attributes(sprite.attributes);
+
+        let palette_addr = if palette_attribute { OBP1_ADDR } else { OBP0_ADDR };
+        let palette = bus.read().unwrap().read_byte(palette_addr);
+
+        piso.merge(self.tile_data_low, self.tile_data_high, sprite.x, x_flip, palette, sprite.oam_index, priority);
     }
 }
