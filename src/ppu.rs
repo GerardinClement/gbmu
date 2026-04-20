@@ -6,8 +6,10 @@ mod lcd_control;
 mod lcd_status;
 mod pixel;
 mod pixel_fifo;
+mod pixel_fetcher;
 
 use std::sync::Mutex;
+use std::sync::{Arc, RwLock};
 
 use crate::mmu::mbc::Mbc;
 use crate::mmu::MemoryRegion;
@@ -20,7 +22,7 @@ use crate::ppu::lcd_status::LcdStatus;
 use crate::ppu::lcd_status::PpuMode;
 use crate::ppu::pixel::Pixel;
 use crate::ppu::pixel_fifo::PixelFifo;
-use std::sync::{Arc, RwLock};
+use crate::ppu::pixel_fetcher::PixelFetcher;
 
 pub const WIN_SIZE_X: usize = 160; // Window size in X direction
 pub const WIN_SIZE_Y: usize = 144; // Window size in Y direction
@@ -57,6 +59,7 @@ pub struct Ppu<T: Mbc> {
     ly: u8,
     lyc: u8,
     x: usize,
+    fetcher: PixelFetcher,
     bg_fifo: PixelFifo, // Background pixel FIFO
     visible_sprites: [Option<Sprite>; 10],
     pub dots: u32,
@@ -76,6 +79,7 @@ impl<T: Mbc> Ppu<T> {
             ly: 0x00,
             lyc: 0x00,
             x: 0,
+            fetcher: PixelFetcher::default(),
             bg_fifo: PixelFifo::default(),
             visible_sprites: [None; 10],
             dots: 0,
