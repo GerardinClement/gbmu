@@ -453,6 +453,68 @@ impl<T: Mbc> Ppu<T> {
         false
     }
 
+    fn push_pixel_to_screen(&mut self, frame: &mut [u8]) {
+        if let Some(current_pixel) = self.bg_fifo.pop() {
+            if self.pixels_to_discard > 0 {
+                self.pixels_to_discard -= 1;
+            } else {
+                let color_index: u8;
+                let color: Color;
+
+                // If BG is disabled, color 0 everywhere
+                if !self.lcd_control.is_bg_window_enabled() {
+                    color_index = 0;
+                    color = self.apply_background_palette(0);
+                }
+                else {
+                    color_index = current_pixel.get_color_index();
+                    color = *current_pixel.get_color();
+                }
+                self.bg_color_indices[self.x] = color_index;
+
+                let ly = self.ly as usize;
+
+                let offset = (ly * WIN_SIZE_X + self.x) * 3; // * 3 for each pixels (3 bytes (RGB))
+                self.set_pixel_color(frame, offset, color);
+
+                self.x += 1;
+            }
+        }
+    }
+
+    fn step_fetcher(&mut self, use_window: bool) {
+        let tile_pixels = self.fetcher.tick(&self.bus, &self.bg_fifo, self.ly, self.scx, self.scy, &self.lcd_control, use_window);
+
+        if let Some(pixels) = tile_pixels {
+            for pixel in pixels {
+                self.bg_fifo.push(pixel);
+            }
+        }
+    }
+
+    fn handle_window_switch(&mut self, use_window: bool) {
+        // check if window is activated in the middle of scanline
+        if !self.use_window && use_window {
+            self.fetcher.reset();
+            self.bg_fifo.clear();
+
+            self.use_window = use_window;
+            self.wx_at_window_start = self.wx;
+
+            self.pixels_to_discard = 0;
+        }
+
+        // check wx glitch
+        if self.use_window && self.wx != self.wx_at_window_start
+            && self.x + 7 >= self.wx as usize
+            && !self.is_wx_glitch_happened {
+                let glitched_pixel = Pixel::new_bg(self.apply_background_palette(0),  0);
+
+                self.bg_fifo.push(glitched_pixel);
+                self.is_wx_glitch_happened = true;
+        }
+    }
+
     fn mode_pixel_transfer(&mut self, image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
         if self.ly < WIN_SIZE_Y as u8 {
             // let mut pixels = self.render_background();
@@ -461,64 +523,12 @@ impl<T: Mbc> Ppu<T> {
                 && (self.ly as usize >= self.wy as usize)
                 && (self.x + 7 >= self.wx as usize);    
 
-            // check if window is activated in the middle of scanline
-            if !self.use_window && use_window {
-                self.fetcher.reset();
-                self.bg_fifo.clear();
+            self.handle_window_switch(use_window);
 
-                self.use_window = use_window;
-                self.wx_at_window_start = self.wx;
+            self.step_fetcher(use_window);
 
-                self.pixels_to_discard = 0;
-            }
-
-            if self.use_window && self.wx != self.wx_at_window_start
-                && self.x + 7 >= self.wx as usize
-                && !self.is_wx_glitch_happened {
-                    let glitched_pixel = Pixel::new_bg(self.apply_background_palette(0),  0);
-
-                    self.bg_fifo.push(glitched_pixel);
-                    self.is_wx_glitch_happened = true;
-            }
-
-            let tile_pixels = self.fetcher.tick(&self.bus, &self.bg_fifo, self.ly, self.scx, self.scy, &self.lcd_control, use_window);
-            
-            if let Some(pixels) = tile_pixels {
-                for pixel in pixels {
-                    self.bg_fifo.push(pixel);
-                }
-            }
-
-            {
-                if let Some(current_pixel) = self.bg_fifo.pop() {
-                    if self.pixels_to_discard > 0 {
-                        self.pixels_to_discard -= 1;
-                    } else {
-                        let color_index: u8;
-                        let color: Color;
-
-                        // If BG is disabled, color 0 everywhere
-                        if !self.lcd_control.is_bg_window_enabled() {
-                            color_index = 0;
-                            color = self.apply_background_palette(0);
-                        }
-                        else {
-                            color_index = current_pixel.get_color_index();
-                            color = *current_pixel.get_color();
-                        }
-                        self.bg_color_indices[self.x] = color_index;
-
-                        let mut frame = image.lock().unwrap();
-                        let ly = self.ly as usize;
-
-                        let offset = (ly * WIN_SIZE_X + self.x) * 3; // * 3 for each pixels (3 bytes (RGB))
-                        self.set_pixel_color(&mut frame, offset, color);
-
-                        self.x += 1;
-                    }
-                }
-
-            }
+            let mut frame = image.lock().unwrap();
+            self.push_pixel_to_screen(&mut frame);
         }
 
         if self.x == 160 {
