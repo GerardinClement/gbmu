@@ -246,9 +246,13 @@ impl<T: Mbc> Ppu<T> {
         let mmu = self.bus.read().unwrap();
         let oam  = mmu.get_oam();
         let mut i: usize = 0;
-        for sprite in &oam.sprites {
+        for (oam_index, sprite) in oam.sprites.iter().enumerate() {
             if sprite.is_visible(self.ly, height) {
-                self.visible_sprites[i] = Some(*sprite);
+                let mut s = *sprite;
+
+                s.oam_index = oam_index as u8;
+                self.visible_sprites[i] = Some(s);
+
                 i += 1;
                 if i >= 10 {
                     break;
