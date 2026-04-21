@@ -38,10 +38,6 @@ impl PixelFetcher {
     pub fn tick<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, fifo: &PixelFifo, ly: u8, scx: u8, scy: u8, lcd_control: &LcdControl, use_window: bool) -> Option<[Pixel; 8]> {
         self.dot_counter += 1;
 
-        if self.reset_if_window(use_window) {
-           return None;
-        }
-
         if self.fetcher_state == FetcherState::PushPixel && fifo.is_empty() {
             let tile: Option<[Pixel; 8]> = self.push_pixel(bus);
 
@@ -91,19 +87,11 @@ impl PixelFetcher {
         }
     }
 
-    fn reset_if_window(&mut self, use_window: bool) -> bool {
-        if !self.use_window && use_window {
-            self.fetcher_state = FetcherState::GetTileId;
-            self.fetcher_x = 0;
-
-            self.use_window = use_window;
-
-            return true;
-        }
-
-        self.use_window = use_window;
-
-        false
+    pub fn reset(&mut self) {
+        self.fetcher_state = FetcherState::GetTileId;
+        self.fetcher_x = 0;
+        self.dot_counter = 0;
+        self.use_window = false;
     }
 
     fn get_tile_id<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, ly: u8, scx: u8, scy: u8, lcd_control: &LcdControl, use_window: bool) -> u8 {
@@ -361,27 +349,5 @@ mod tests {
         assert_eq!(fetcher.fetcher_state, FetcherState::GetTileId);        
         assert!(result.is_some());
         assert_eq!(fetcher.fetcher_x, 1);
-    }
-
-    #[test]
-    fn test_window_is_activated_mid_cycle() {
-        let (mut fetcher, fifo, lcd) = setup_fetcher();
-        let bus = setup_bus();
-
-        fetcher.dot_counter += 1;
-
-        assert_eq!(fetcher.fetcher_state, FetcherState::GetTileId);        
-
-        fetcher.tick(&bus, &fifo, 0, 0, 0, &lcd, false);
-        assert_eq!(fetcher.fetcher_state, FetcherState::GetLowData);        
-        fetcher.dot_counter += 1;
-
-        fetcher.fetcher_x = 4;
-
-        // use_window become true, the cycle is reset
-        let result = fetcher.tick(&bus, &fifo, 0, 0, 0, &lcd, true);
-        assert_eq!(fetcher.fetcher_state, FetcherState::GetTileId);
-        assert!(result.is_none(), "The cycle should be reset and not push anything.");
-        assert_eq!(fetcher.fetcher_x, 0, "fetcher_x should be reset to 0.");
     }
 }
