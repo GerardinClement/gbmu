@@ -31,12 +31,11 @@ pub struct PixelFetcher {
     tile_data_high: u8,
     fetcher_x: u8,
     dot_counter: u32,
-    use_window: bool,
     first_fetch_done: bool,
 }
 
 impl PixelFetcher {
-    pub fn tick<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, fifo: &PixelFifo, ly: u8, scx: u8, scy: u8, lcd_control: &LcdControl, use_window: bool) -> Option<[Pixel; 8]> {
+    pub fn tick<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, fifo: &PixelFifo, ly: u8, scx: u8, scy: u8, wly: u8, lcd_control: &LcdControl, use_window: bool) -> Option<[Pixel; 8]> {
         self.dot_counter = self.dot_counter.wrapping_add(1);
 
         if self.fetcher_state == FetcherState::PushPixel && fifo.is_empty() {
@@ -49,19 +48,19 @@ impl PixelFetcher {
         } else if self.dot_counter % 2 == 0 {
             match self.fetcher_state {
                 FetcherState::GetTileId => {
-                    self.tile_id = self.get_tile_id(bus, ly, scx, scy, lcd_control, use_window);
+                    self.tile_id = self.get_tile_id(bus, ly, scx, scy, wly, lcd_control, use_window);
                     self.fetcher_state = FetcherState::GetLowData;
 
                     return None
                 },
                 FetcherState::GetLowData => {
-                    self.tile_data_low = self.get_tile_data_low(bus, ly, scy, lcd_control);
+                    self.tile_data_low = self.get_tile_data_low(bus, ly, scy, wly, lcd_control, use_window);
                     self.fetcher_state = FetcherState::GetHighData;
 
                     return None
                 },
                 FetcherState::GetHighData => {
-                    self.tile_data_high = self.get_tile_data_high(bus, ly, scy, lcd_control);
+                    self.tile_data_high = self.get_tile_data_high(bus, ly, scy, wly, lcd_control, use_window);
 
                     if self.first_fetch_done {
                         if fifo.is_empty() {
@@ -96,7 +95,6 @@ impl PixelFetcher {
     pub fn reset(&mut self) {
         self.fetcher_state = FetcherState::GetTileId;
         self.fetcher_x = 0;
-        self.use_window = false;
         self.first_fetch_done = false;
     }
 
@@ -104,15 +102,25 @@ impl PixelFetcher {
         self.fetcher_state = FetcherState::GetTileId;
     }
 
-    fn get_tile_id<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, ly: u8, scx: u8, scy: u8, lcd_control: &LcdControl, use_window: bool) -> u8 {
+    fn get_tile_id<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, ly: u8, scx: u8, scy: u8, wly: u8, lcd_control: &LcdControl, use_window: bool) -> u8 {
         let tilemap_base: std::ops::Range<u16> = if use_window {
             lcd_control.window_tile_map_area()
         } else {
             lcd_control.bg_tile_map_area()
         };
 
-        let x: u16 = ((scx / 8) as u16 + self.fetcher_x as u16) & 0x1F; // mask to keep the 5 lowest bits
-        let y: u16 = ((ly as u16 + scy as u16) / 8) & 0xFF;
+        let (x, y) = if use_window {
+            (
+                self.fetcher_x as usize,
+                wly as usize / 8,
+            )
+        } else {
+            (
+                ((scx / 8) as usize + self.fetcher_x as usize) & 0x1F, // mask to keep the 5 lowest bits
+                ((ly as usize + scy as usize) / 8) & 0xFF,
+            )
+        };
+
 
         let offset = (y * 32 + x) as u16;
 
@@ -124,8 +132,14 @@ impl PixelFetcher {
         tile_number
     }
 
-    fn get_tile_data_low<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, ly: u8, scy: u8, lcd_control: &LcdControl) -> u8 {
-        let correct_byte = ((ly as u16 + scy as u16) % 8) * 2;
+    fn get_tile_data_low<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, ly: u8, scy: u8, wly: u8, lcd_control: &LcdControl, use_window: bool) -> u8 {
+        let y = if use_window {
+            wly as usize
+        } else {
+            ly as usize + scy as usize
+        };
+
+        let correct_byte = (y % 8) * 2;
 
         if lcd_control.bg_window_tile_data_area().start == TILE_DATA_1_START {
             let tilemap_base = TILE_DATA_1_START + (self.tile_id as u16) * 16;
@@ -133,7 +147,7 @@ impl PixelFetcher {
             let tile_low = bus
                 .read()
                 .unwrap()
-                .read_byte(tilemap_base + correct_byte);
+                .read_byte(tilemap_base + correct_byte as u16);
 
             tile_low
             
@@ -145,7 +159,7 @@ impl PixelFetcher {
             let tile_low = bus
                 .read()
                 .unwrap()
-                .read_byte(tilemap_base + correct_byte);
+                .read_byte(tilemap_base + correct_byte as u16);
 
             tile_low
         } else {
@@ -154,8 +168,14 @@ impl PixelFetcher {
     }
 
 
-    fn get_tile_data_high<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, ly: u8, scy: u8, lcd_control: &LcdControl) -> u8 {
-        let correct_byte = (((ly as u16 + scy as u16) % 8) * 2) + 1;
+    fn get_tile_data_high<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, ly: u8, scy: u8, wly: u8, lcd_control: &LcdControl, use_window:bool) -> u8 {
+        let y = if use_window {
+            wly as usize
+        } else {
+            ly as usize + scy as usize
+        };
+
+        let correct_byte = ((y % 8) * 2) + 1;
 
         if lcd_control.bg_window_tile_data_area().start == TILE_DATA_1_START {
             let tilemap_base = TILE_DATA_1_START + (self.tile_id as u16) * 16;
@@ -163,7 +183,7 @@ impl PixelFetcher {
             let tile_low = bus
                 .read()
                 .unwrap()
-                .read_byte(tilemap_base + correct_byte);
+                .read_byte(tilemap_base + correct_byte as u16);
 
             tile_low
             
@@ -175,7 +195,7 @@ impl PixelFetcher {
             let tile_low = bus
                 .read()
                 .unwrap()
-                .read_byte(tilemap_base + correct_byte);
+                .read_byte(tilemap_base + correct_byte as u16);
 
             tile_low
         } else {
@@ -251,7 +271,7 @@ mod tests {
 
         fetcher.fetcher_state = FetcherState::PushPixel;
 
-        let result = fetcher.tick(&bus, &fifo, 0, 0, 0, &lcd, false);
+        let result = fetcher.tick(&bus, &fifo, 0, 0, 0, 0, &lcd, false);
 
         assert!(result.is_none(), "Should not push when FIFO is not empty");
         assert_eq!(fetcher.fetcher_x, 0, "fetcher_x should not increment if the push wasn't done");
@@ -266,22 +286,22 @@ mod tests {
 
         assert_eq!(fetcher.fetcher_state, FetcherState::GetTileId);        
 
-        fetcher.tick(&bus, &fifo, 0, 0, 0, &lcd, false);
+        fetcher.tick(&bus, &fifo, 0, 0, 0, 0, &lcd, false);
         assert_eq!(fetcher.fetcher_state, FetcherState::GetLowData);        
         fetcher.dot_counter += 1;
 
         for _ in 0..8 {
             fifo.push(Pixel::default());
         }
-        fetcher.tick(&bus, &fifo, 0, 0, 0, &lcd, false);
+        fetcher.tick(&bus, &fifo, 0, 0, 0, 0, &lcd, false);
         assert_eq!(fetcher.fetcher_state, FetcherState::GetHighData);        
         fetcher.dot_counter += 1;
 
-        fetcher.tick(&bus, &fifo, 0, 0, 0, &lcd, false);
+        fetcher.tick(&bus, &fifo, 0, 0, 0, 0, &lcd, false);
         assert_eq!(fetcher.fetcher_state, FetcherState::Sleep);        
         fetcher.dot_counter += 1;
 
-        fetcher.tick(&bus, &fifo, 0, 0, 0, &lcd, false);
+        fetcher.tick(&bus, &fifo, 0, 0, 0, 0, &lcd, false);
         assert_eq!(fetcher.fetcher_state, FetcherState::PushPixel);        
         fetcher.dot_counter += 1;
 
@@ -289,7 +309,7 @@ mod tests {
             fifo.pop();
         }
 
-        fetcher.tick(&bus, &fifo, 0, 0, 0, &lcd, false);
+        fetcher.tick(&bus, &fifo, 0, 0, 0, 0, &lcd, false);
         assert_eq!(fetcher.fetcher_state, FetcherState::GetTileId);
     }
     
@@ -305,13 +325,13 @@ mod tests {
             fifo.push(Pixel::default());
         }
 
-        let res1 = fetcher.tick(&bus, &fifo, 0, 0, 0, &lcd, false);
+        let res1 = fetcher.tick(&bus, &fifo, 0, 0, 0, 0, &lcd, false);
         assert!(res1.is_none());
         assert_eq!(fetcher.fetcher_state, FetcherState::Sleep);
 
         fetcher.dot_counter += 1;
 
-        let res2 = fetcher.tick(&bus, &fifo, 0, 0, 0, &lcd, false);
+        let res2 = fetcher.tick(&bus, &fifo, 0, 0, 0, 0, &lcd, false);
         assert!(res2.is_none());
         assert_eq!(fetcher.fetcher_state, FetcherState::PushPixel);
 
@@ -319,7 +339,7 @@ mod tests {
             fifo.pop();
         }
 
-        let res3 = fetcher.tick(&bus, &fifo, 0, 0, 0, &lcd, false);
+        let res3 = fetcher.tick(&bus, &fifo, 0, 0, 0, 0, &lcd, false);
         assert!(res3.is_some(), "Should push tile when FIFO becomes empty");
         assert_eq!(fetcher.fetcher_state, FetcherState::GetTileId);
         assert_eq!(fetcher.fetcher_x, 1, "fetcher_x should increment after push");
@@ -331,7 +351,7 @@ mod tests {
         let bus = setup_bus();
 
         fetcher.fetcher_state = FetcherState::PushPixel;
-        let result = fetcher.tick(&bus, &fifo, 0, 0, 0, &lcd, false);
+        let result = fetcher.tick(&bus, &fifo, 0, 0, 0, 0, &lcd, false);
 
         assert!(result.is_some(), "Should push tile when tick is odd and FIFO is empty");
         assert_eq!(fetcher.fetcher_state, FetcherState::GetTileId);
@@ -347,15 +367,15 @@ mod tests {
 
         assert_eq!(fetcher.fetcher_state, FetcherState::GetTileId);        
 
-        fetcher.tick(&bus, &fifo, 0, 0, 0, &lcd, false);
+        fetcher.tick(&bus, &fifo, 0, 0, 0, 0, &lcd, false);
         assert_eq!(fetcher.fetcher_state, FetcherState::GetLowData);        
         fetcher.dot_counter += 1;
 
-        fetcher.tick(&bus, &fifo, 0, 0, 0, &lcd, false);
+        fetcher.tick(&bus, &fifo, 0, 0, 0, 0, &lcd, false);
         assert_eq!(fetcher.fetcher_state, FetcherState::GetHighData);        
         fetcher.dot_counter += 1;
 
-        let result = fetcher.tick(&bus, &fifo, 0, 0, 0, &lcd, false);
+        let result = fetcher.tick(&bus, &fifo, 0, 0, 0, 0, &lcd, false);
         assert_eq!(fetcher.fetcher_state, FetcherState::GetTileId);        
         assert!(result.is_some());
         assert_eq!(fetcher.fetcher_x, 1);

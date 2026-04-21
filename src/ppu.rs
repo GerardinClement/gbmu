@@ -472,11 +472,12 @@ impl<T: Mbc> Ppu<T> {
             self.pixel_fetcher.reset();
             self.bg_fifo.clear();
 
-            self.use_window = use_window;
             self.wx_at_window_start = self.wx;
 
             self.pixels_to_discard = 0;
         }
+
+        self.use_window = use_window;
 
         // check wx glitch
         if self.use_window && self.wx != self.wx_at_window_start
@@ -538,7 +539,7 @@ impl<T: Mbc> Ppu<T> {
 
 
     fn step_pixel_fetcher(&mut self, use_window: bool) {
-        let tile_pixels = self.pixel_fetcher.tick(&self.bus, &self.bg_fifo, self.ly, self.scx, self.scy, &self.lcd_control, use_window);
+        let tile_pixels = self.pixel_fetcher.tick(&self.bus, &self.bg_fifo, self.ly, self.scx, self.scy, self.wly, &self.lcd_control, use_window);
 
         if let Some(pixels) = tile_pixels {
             for pixel in pixels {
@@ -615,10 +616,9 @@ impl<T: Mbc> Ppu<T> {
 
 
 /*
-Premier fetch BG resetté : "The first time the background fetcher completes step 3 on a scanline the status is fully reset and operation restarts at Step 1" — tu ne gères pas ce cas particulier du premier fetch.
-Délai après fetch sprite : "If there are less than 6 pixels remaining in the Background FIFO when the sprite fetch is done, the PPU will have to wait" — tu ne gères pas ce délai de 6 - REMAINING_PIXEL_COUNT.
+V Premier fetch BG resetté : "The first time the background fetcher completes step 3 on a scanline the status is fully reset and operation restarts at Step 1" — tu ne gères pas ce cas particulier du premier fetch.
 V WY condition : "The condition WY = LY has been true at any point in the currently rendered frame" — tu vérifies ly >= wy mais pas si cette condition a déjà été vraie pendant la frame courante.
-C OBJ disabled : la condition LCDC.1 avant de déclencher le fetch sprite n'est pas vérifiée dans step_oam_fetcher.
+V OBJ disabled : la condition LCDC.1 avant de déclencher le fetch sprite n'est pas vérifiée dans step_oam_fetcher.
 */
     fn mode_pixel_transfer(&mut self, image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
 
