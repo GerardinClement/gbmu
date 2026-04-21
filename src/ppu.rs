@@ -532,13 +532,8 @@ impl<T: Mbc> Ppu<T> {
         };
 
         if self.fetching_sprite {
-
-
             if let Some(index) = self.current_sprite_to_fetch {
-
-
                 if let Some(sprite) = self.visible_sprites[index] {
-
                     let fetching_sprite = self.fetching_sprite;
 
                     self.fetching_sprite = !self.oam_fetcher.tick(
@@ -559,16 +554,12 @@ impl<T: Mbc> Ppu<T> {
             };
         }
         else {
-            
+            if !self.lcd_control.is_obj_enabled() { return; }
 
             for (index, sprite_opt) in self.visible_sprites.iter_mut().enumerate() {
-
-
                 if let Some(sprite) = sprite_opt {
 
-
                     if sprite.x as usize <= self.x + 8 {
-
                         let spritex = sprite.x;
                         let selfx = self.x;
 
@@ -585,7 +576,6 @@ impl<T: Mbc> Ppu<T> {
                             height,
                             self.x,
                         );
-
 
                         if !self.fetching_sprite {
                             *sprite_opt = None;
