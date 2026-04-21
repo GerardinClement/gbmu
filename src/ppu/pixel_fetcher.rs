@@ -271,6 +271,7 @@ mod tests {
 
         fetcher.fetcher_state = FetcherState::PushPixel;
 
+
         let result = fetcher.tick(&bus, &fifo, 0, 0, 0, 0, &lcd, false);
 
         assert!(result.is_none(), "Should not push when FIFO is not empty");
@@ -281,6 +282,8 @@ mod tests {
     fn test_states_switch_in_right_order_and_timing() {
         let (mut fetcher, mut fifo, lcd) = setup_fetcher();
         let bus = setup_bus();
+
+        fetcher.first_fetch_done = true;
 
         fetcher.dot_counter += 1;
 
@@ -317,6 +320,8 @@ mod tests {
     fn test_tick_pair_fifo_full_at_gethighdata_empty_at_pushpixel() {
         let (mut fetcher, mut fifo, lcd) = setup_fetcher();
         let bus = setup_bus();
+
+        fetcher.first_fetch_done = true;
 
         fetcher.fetcher_state = FetcherState::GetHighData;
         fetcher.dot_counter = 1;
@@ -363,6 +368,8 @@ mod tests {
         let (mut fetcher, fifo, lcd) = setup_fetcher();
         let bus = setup_bus();
 
+        fetcher.first_fetch_done = true;
+
         fetcher.dot_counter += 1;
 
         assert_eq!(fetcher.fetcher_state, FetcherState::GetTileId);        
@@ -379,5 +386,23 @@ mod tests {
         assert_eq!(fetcher.fetcher_state, FetcherState::GetTileId);        
         assert!(result.is_some());
         assert_eq!(fetcher.fetcher_x, 1);
+    }
+
+    #[test]
+    fn test_first_fetch_resets_and_does_not_push() {
+        let (mut fetcher, fifo, lcd) = setup_fetcher();
+        let bus = setup_bus();
+
+        fetcher.fetcher_state = FetcherState::GetHighData;
+        fetcher.dot_counter += 1;
+
+        let res1 = fetcher.tick(&bus, &fifo, 0, 0, 0, 0, &lcd, false);
+        
+        assert!(res1.is_none());
+
+        assert_eq!(fetcher.fetcher_state, FetcherState::GetTileId);
+        assert_eq!(fetcher.fetcher_x, 0);
+
+        assert!(fetcher.first_fetch_done);
     }
 }
