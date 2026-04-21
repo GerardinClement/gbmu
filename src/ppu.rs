@@ -74,6 +74,7 @@ pub struct Ppu<T: Mbc> {
     is_wx_glitch_happened: bool, // Required to handle the WX hardware glitch
     fetching_sprite: bool, // pixel fetcher and pixel shifter need to be paused while oam fetcher is called
     current_sprite_to_fetch: Option<usize>,
+    wy_equal_ly_condition_met: bool,
 }
 
 impl<T: Mbc> Ppu<T> {
@@ -102,6 +103,7 @@ impl<T: Mbc> Ppu<T> {
             is_wx_glitch_happened: false,
             fetching_sprite: false,
             current_sprite_to_fetch: None,
+            wy_equal_ly_condition_met: false,
         }
     }
 
@@ -458,6 +460,8 @@ impl<T: Mbc> Ppu<T> {
             self.visible_sprites = [None; 10];
             self.oam_search();
 
+            if self.wy == self.ly { self.wy_equal_ly_condition_met = true; }
+
             self.lcd_status.update_ppu_mode(PpuMode::PixelTransfer);
         }
         false
@@ -625,10 +629,11 @@ WY condition : "The condition WY = LY has been true at any point in the currentl
 OBJ disabled : la condition LCDC.1 avant de déclencher le fetch sprite n'est pas vérifiée dans step_oam_fetcher.
 */
     fn mode_pixel_transfer(&mut self, image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
+
         if self.ly < WIN_SIZE_Y as u8 {
             // let mut pixels = self.render_background();
             let use_window = self.lcd_control.is_window_enabled()
-                && (self.ly as usize >= self.wy as usize)
+                && self.wy_equal_ly_condition_met
                 && (self.x + 7 >= self.wx as usize);
 
             self.handle_window_switch(use_window);
@@ -658,7 +663,7 @@ OBJ disabled : la condition LCDC.1 avant de déclencher le fetch sprite n'est pa
             self.dots -= SCANLINE_DOTS;
 
             if self.lcd_control.is_window_enabled()
-                && self.ly >= self.wy
+                && self.wy_equal_ly_condition_met
                 && self.wx <= 166 {
 
                 self.wly += 1;
@@ -710,6 +715,7 @@ OBJ disabled : la condition LCDC.1 avant de déclencher le fetch sprite n'est pa
                 self.pixels_to_discard = self.scx % 8;
                 self.use_window = false;
                 self.is_wx_glitch_happened = false;
+                self.wy_equal_ly_condition_met = false;
 
                 self.lcd_status.update_ppu_mode(PpuMode::OamSearch);
             }
