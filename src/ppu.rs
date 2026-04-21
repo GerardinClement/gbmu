@@ -466,8 +466,30 @@ impl<T: Mbc> Ppu<T> {
         false
     }
 
+    fn handle_window_switch(&mut self, use_window: bool) {
+        // check if window is activated in the middle of scanline
+        if !self.use_window && use_window {
+            self.pixel_fetcher.reset();
+            self.bg_fifo.clear();
 
-    fn push_pixel_to_screen(&mut self, frame: &mut [u8]) {
+            self.use_window = use_window;
+            self.wx_at_window_start = self.wx;
+
+            self.pixels_to_discard = 0;
+        }
+
+        // check wx glitch
+        if self.use_window && self.wx != self.wx_at_window_start
+            && self.x + 7 >= self.wx as usize
+            && !self.is_wx_glitch_happened {
+                let glitched_pixel = Pixel::new_bg(self.apply_background_palette(0),  0);
+
+                self.bg_fifo.push(glitched_pixel);
+                self.is_wx_glitch_happened = true;
+        }
+    }
+
+    fn push_pixel_to_screen(&mut self, frame: &mut [u8], use_window: bool) {
 
         if let Some(bg_pixel) = self.bg_fifo.pop() {
             if self.pixels_to_discard > 0 {
@@ -510,7 +532,10 @@ impl<T: Mbc> Ppu<T> {
                 self.x += 1;
             }
         }
+
+        self.handle_window_switch(use_window);
     }
+
 
     fn step_pixel_fetcher(&mut self, use_window: bool) {
         let tile_pixels = self.pixel_fetcher.tick(&self.bus, &self.bg_fifo, self.ly, self.scx, self.scy, &self.lcd_control, use_window);
@@ -588,28 +613,6 @@ impl<T: Mbc> Ppu<T> {
         }
     }
 
-    fn handle_window_switch(&mut self, use_window: bool) {
-        // check if window is activated in the middle of scanline
-        if !self.use_window && use_window {
-            self.pixel_fetcher.reset();
-            self.bg_fifo.clear();
-
-            self.use_window = use_window;
-            self.wx_at_window_start = self.wx;
-
-            self.pixels_to_discard = 0;
-        }
-
-        // check wx glitch
-        if self.use_window && self.wx != self.wx_at_window_start
-            && self.x + 7 >= self.wx as usize
-            && !self.is_wx_glitch_happened {
-                let glitched_pixel = Pixel::new_bg(self.apply_background_palette(0),  0);
-
-                self.bg_fifo.push(glitched_pixel);
-                self.is_wx_glitch_happened = true;
-        }
-    }
 
 /*
 Premier fetch BG resetté : "The first time the background fetcher completes step 3 on a scanline the status is fully reset and operation restarts at Step 1" — tu ne gères pas ce cas particulier du premier fetch.
@@ -625,14 +628,13 @@ C OBJ disabled : la condition LCDC.1 avant de déclencher le fetch sprite n'est 
                 && self.wy_equal_ly_condition_met
                 && (self.x + 7 >= self.wx as usize);
 
-            self.handle_window_switch(use_window);
 
             self.step_oam_fetcher();
 
             if !self.fetching_sprite {
                 self.step_pixel_fetcher(use_window);
                 let mut frame = image.lock().unwrap();
-                self.push_pixel_to_screen(&mut frame);
+                self.push_pixel_to_screen(&mut frame, use_window);
             }
         }
 
