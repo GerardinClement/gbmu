@@ -500,6 +500,58 @@ impl<T: Mbc> Ppu<T> {
         }
     }
 
+    fn step_oam_fetcher(&mut self) {
+        let height:u8 = if self.lcd_control.is_obj_size_8x16() {
+            16
+        } else {
+            8
+        };
+
+        if self.fetching_sprite {
+            if let Some(index) = self.current_sprite_to_fetch {
+                if let Some(sprite) = self.visible_sprites[index] {
+                    self.fetching_sprite = !self.oam_fetcher.tick(
+                        &self.bus,
+                        &sprite,
+                        &mut self.obj_piso,
+                        self.ly,
+                        &self.lcd_control,
+                        height
+                    );
+
+                    if !self.fetching_sprite {
+                        self.visible_sprites[index] = None;
+                    }
+                }
+            };
+        }
+        else {
+            for (index, sprite_opt) in self.visible_sprites.iter_mut().enumerate() {
+                if let Some(sprite) = sprite_opt {
+                    if sprite.x as usize <= self.x + 8 {
+                        self.current_sprite_to_fetch = Some(index);
+                        self.pixel_fetcher.reset_to_state_1();
+
+                        self.fetching_sprite = !self.oam_fetcher.tick(
+                            &self.bus,
+                            sprite,
+                            &mut self.obj_piso,
+                            self.ly,
+                            &self.lcd_control,
+                            height
+                        );
+
+                        if !self.fetching_sprite {
+                            *sprite_opt = None;
+                        }
+
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
     fn handle_window_switch(&mut self, use_window: bool) {
         // check if window is activated in the middle of scanline
         if !self.use_window && use_window {
@@ -533,55 +585,7 @@ impl<T: Mbc> Ppu<T> {
 
             self.handle_window_switch(use_window);
 
-            let height:u8 = if self.lcd_control.is_obj_size_8x16() {
-                16
-            } else {
-                8
-            };
-
-            if self.fetching_sprite {
-                if let Some(index) = self.current_sprite_to_fetch {
-                    if let Some(sprite) = self.visible_sprites[index] {
-                        self.fetching_sprite = !self.oam_fetcher.tick(
-                            &self.bus,
-                            &sprite,
-                            &mut self.obj_piso,
-                            self.ly,
-                            &self.lcd_control,
-                            height
-                        );
-
-                        if !self.fetching_sprite {
-                            self.visible_sprites[index] = None;
-                        }
-                    }
-                };
-            }
-            else {
-                for (index, sprite_opt) in self.visible_sprites.iter_mut().enumerate() {
-                    if let Some(sprite) = sprite_opt {
-                        if sprite.x as usize <= self.x + 8 {
-                            self.current_sprite_to_fetch = Some(index);
-                            self.pixel_fetcher.reset_to_state_1();
-
-                            self.fetching_sprite = !self.oam_fetcher.tick(
-                                &self.bus,
-                                sprite,
-                                &mut self.obj_piso,
-                                self.ly,
-                                &self.lcd_control,
-                                height
-                            );
-
-                            if !self.fetching_sprite {
-                                *sprite_opt = None;
-                            }
-
-                            break;
-                        }
-                    }
-                }
-            }
+            self.step_oam_fetcher();
 
             if !self.fetching_sprite {
                 self.step_pixel_fetcher(use_window);
