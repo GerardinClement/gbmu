@@ -93,6 +93,10 @@ impl PixelFetcher {
         self.use_window = false;
     }
 
+    pub fn reset_to_state_1(&mut self) {
+        self.fetcher_state = FetcherState::GetTileId;
+    }
+
     fn get_tile_id<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, ly: u8, scx: u8, scy: u8, lcd_control: &LcdControl, use_window: bool) -> u8 {
         let tilemap_base: std::ops::Range<u16> = if use_window {
             lcd_control.window_tile_map_area()
