@@ -460,7 +460,6 @@ impl<T: Mbc> Ppu<T> {
             self.visible_sprites = [None; 10];
             self.oam_search();
 
-            if self.wy == self.ly { self.wy_equal_ly_condition_met = true; }
 
             self.lcd_status.update_ppu_mode(PpuMode::PixelTransfer);
         }
@@ -625,8 +624,8 @@ impl<T: Mbc> Ppu<T> {
 /*
 Premier fetch BG resetté : "The first time the background fetcher completes step 3 on a scanline the status is fully reset and operation restarts at Step 1" — tu ne gères pas ce cas particulier du premier fetch.
 Délai après fetch sprite : "If there are less than 6 pixels remaining in the Background FIFO when the sprite fetch is done, the PPU will have to wait" — tu ne gères pas ce délai de 6 - REMAINING_PIXEL_COUNT.
-WY condition : "The condition WY = LY has been true at any point in the currently rendered frame" — tu vérifies ly >= wy mais pas si cette condition a déjà été vraie pendant la frame courante.
-OBJ disabled : la condition LCDC.1 avant de déclencher le fetch sprite n'est pas vérifiée dans step_oam_fetcher.
+V WY condition : "The condition WY = LY has been true at any point in the currently rendered frame" — tu vérifies ly >= wy mais pas si cette condition a déjà été vraie pendant la frame courante.
+C OBJ disabled : la condition LCDC.1 avant de déclencher le fetch sprite n'est pas vérifiée dans step_oam_fetcher.
 */
     fn mode_pixel_transfer(&mut self, image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
 
@@ -661,6 +660,8 @@ OBJ disabled : la condition LCDC.1 avant de déclencher le fetch sprite n'est pa
 
         if self.dots >= SCANLINE_DOTS {
             self.dots -= SCANLINE_DOTS;
+
+            if self.wy == self.ly { self.wy_equal_ly_condition_met = true; }
 
             if self.lcd_control.is_window_enabled()
                 && self.wy_equal_ly_condition_met
