@@ -72,7 +72,6 @@ pub struct Ppu<T: Mbc> {
     use_window: bool, // Required for BG FIFO in order to know if the window is activated midline
     wx_at_window_start: u8, // Required to handle the WX hardware glitch
     is_wx_glitch_happened: bool, // Required to handle the WX hardware glitch
-    bg_color_indices: [u8; 160], // tmp until FIFO OBJ
     fetching_sprite: bool, // pixel fetcher and pixel shifter need to be paused while oam fetcher is called
     current_sprite_to_fetch: Option<usize>,
 }
@@ -101,7 +100,6 @@ impl<T: Mbc> Ppu<T> {
             use_window: false,
             wx_at_window_start: 0x00,
             is_wx_glitch_happened: false,
-            bg_color_indices: [0u8; 160],
             fetching_sprite: false,
             current_sprite_to_fetch: None,
         }
@@ -393,62 +391,62 @@ impl<T: Mbc> Ppu<T> {
         sprites.into_iter().map(| (_, s) | s).collect()
     }
 
-    fn render_sprites(&self, image: &mut Arc<Mutex<Vec<u8>>>) {
-        /*
-            TODO Transition modification until the FIFO OBJ is implemented. Right now the modifications
-            should make the function works while we test the FIFO background
+    // fn render_sprites(&self, image: &mut Arc<Mutex<Vec<u8>>>) {
+    //     /*
+    //         TODO Transition modification until the FIFO OBJ is implemented. Right now the modifications
+    //         should make the function works while we test the FIFO background
 
-            Apply sprites above background
-            respect:
-                - priority
-                - flip X/Y
-                - palettes
-                - transparency
-        */
+    //         Apply sprites above background
+    //         respect:
+    //             - priority
+    //             - flip X/Y
+    //             - palettes
+    //             - transparency
+    //     */
 
-        let height: u8 = if self.lcd_control.is_obj_size_8x16() { 16 } else { 8 };
+    //     let height: u8 = if self.lcd_control.is_obj_size_8x16() { 16 } else { 8 };
 
-        // sort by X then OAM order (hardware behavior)
-        let sorted_sprites = self.sort_sprites_by_x();
+    //     // sort by X then OAM order (hardware behavior)
+    //     let sorted_sprites = self.sort_sprites_by_x();
 
-        for sprite in sorted_sprites {
-            if !self.lcd_control.is_obj_enabled() {
-                continue;
-            }
+    //     for sprite in sorted_sprites {
+    //         if !self.lcd_control.is_obj_enabled() {
+    //             continue;
+    //         }
 
-            let (priority, y_flip, x_flip, palette_attribute) = self.extract_attributes(sprite.attributes);
+    //         let (priority, y_flip, x_flip, palette_attribute) = self.extract_attributes(sprite.attributes);
 
-            // sprite coordinates are shifted: Y - 16, X - 8
-            let sprite_top: i16 = sprite.y as i16 - 16;
-            let sprite_line = (self.ly as i16 - sprite_top) as usize;
+    //         // sprite coordinates are shifted: Y - 16, X - 8
+    //         let sprite_top: i16 = sprite.y as i16 - 16;
+    //         let sprite_line = (self.ly as i16 - sprite_top) as usize;
 
-            let actual_sprite_line = if y_flip { (height as usize - 1) - sprite_line } else { sprite_line };
-            let tile = self.get_sprite_tile(height, sprite, actual_sprite_line);
+    //         let actual_sprite_line = if y_flip { (height as usize - 1) - sprite_line } else { sprite_line };
+    //         let tile = self.get_sprite_tile(height, sprite, actual_sprite_line);
 
-            for pixel_x in 0..8 {
-                let screen_x = (sprite.x - 8 + pixel_x) as i16;
+    //         for pixel_x in 0..8 {
+    //             let screen_x = (sprite.x - 8 + pixel_x) as i16;
                     
-                if !(0..160).contains(&screen_x) {
-                    continue;
-                }
+    //             if !(0..160).contains(&screen_x) {
+    //                 continue;
+    //             }
 
-                let actual_pixel_x = if x_flip { 7 - pixel_x } else { pixel_x };
-                let color_index = self.get_pixel_color_index(tile, actual_pixel_x as usize, actual_sprite_line % 8); // % 8 to handle 8x16
+    //             let actual_pixel_x = if x_flip { 7 - pixel_x } else { pixel_x };
+    //             let color_index = self.get_pixel_color_index(tile, actual_pixel_x as usize, actual_sprite_line % 8); // % 8 to handle 8x16
 
-                // 0 = transparency for sprites 
-                if color_index == 0 { continue; }
+    //             // 0 = transparency for sprites 
+    //             if color_index == 0 { continue; }
                     
-                let color = self.apply_sprite_palette(color_index, palette_attribute);
+    //             let color = self.apply_sprite_palette(color_index, palette_attribute);
 
-                if let Some(new_pixel) = self.get_right_pixel(self.bg_color_indices[screen_x as usize], color, priority) {
-                    let offset = (self.ly as usize * WIN_SIZE_X + screen_x as usize) * 3;
-                    let mut frame = image.lock().unwrap();
+    //             if let Some(new_pixel) = self.get_right_pixel(self.bg_color_indices[screen_x as usize], color, priority) {
+    //                 let offset = (self.ly as usize * WIN_SIZE_X + screen_x as usize) * 3;
+    //                 let mut frame = image.lock().unwrap();
 
-                    self.set_pixel_color(&mut frame, offset, new_pixel);
-                }
-            }
-        }
-    }
+    //                 self.set_pixel_color(&mut frame, offset, new_pixel);
+    //             }
+    //         }
+    //     }
+    // }
 
 
     fn mode_oam_search(&mut self) -> bool {
@@ -461,29 +459,46 @@ impl<T: Mbc> Ppu<T> {
         false
     }
 
+
     fn push_pixel_to_screen(&mut self, frame: &mut [u8]) {
-        if let Some(current_pixel) = self.bg_fifo.pop() {
+
+        if let Some(bg_pixel) = self.bg_fifo.pop() {
             if self.pixels_to_discard > 0 {
                 self.pixels_to_discard -= 1;
             } else {
-                let color_index: u8;
-                let color: Color;
+                let obj_pixel = self.obj_piso.shift_out();
+
+                let bg_color_index: u8;
+                let bg_color: Color;
 
                 // If BG is disabled, color 0 everywhere
                 if !self.lcd_control.is_bg_window_enabled() {
-                    color_index = 0;
-                    color = self.apply_background_palette(0);
+                    bg_color_index = 0;
+                    bg_color = self.apply_background_palette(0);
                 }
                 else {
-                    color_index = current_pixel.get_color_index();
-                    color = *current_pixel.get_color();
+                    bg_color_index = bg_pixel.get_color_index();
+                    bg_color = *bg_pixel.get_color();
                 }
-                self.bg_color_indices[self.x] = color_index;
+
+                let obj_color_index = obj_pixel.get_color_index();
+
+                let final_color = if obj_color_index == 0 {
+                    bg_color
+                } else {
+                    let priority = obj_pixel.get_priority();
+
+                    if priority && bg_color_index != 0 {
+                        bg_color
+                    } else {
+                        *obj_pixel.get_color()
+                    }
+                };
 
                 let ly = self.ly as usize;
 
                 let offset = (ly * WIN_SIZE_X + self.x) * 3; // * 3 for each pixels (3 bytes (RGB))
-                self.set_pixel_color(frame, offset, color);
+                self.set_pixel_color(frame, offset, final_color);
 
                 self.x += 1;
             }
@@ -621,7 +636,6 @@ impl<T: Mbc> Ppu<T> {
 
             // reset for newline
             // TODO proper reset function
-            self.bg_color_indices = [0; 160];
             self.x = 0;
             self.bg_fifo.clear();
             self.pixel_fetcher.reset();
@@ -655,7 +669,6 @@ impl<T: Mbc> Ppu<T> {
                 self.wly = 0;
 
                 // TODO proper reset function
-                self.bg_color_indices = [0; 160];
                 self.x = 0;
                 self.bg_fifo.clear();
                 self.pixel_fetcher.reset();
