@@ -74,8 +74,7 @@ impl PixelFetcher {
                             self.fetcher_state = FetcherState::Sleep;
                         }
                     } else {
-                        self.reset();
-                        self.first_fetch_done = true;
+                        self.reset_internal(true);
                     }
 
                     return None
@@ -92,11 +91,19 @@ impl PixelFetcher {
         }
     }
 
-    pub fn reset(&mut self) {
+    fn reset_internal(&mut self, first_fetch_done: bool) {
         self.fetcher_state = FetcherState::GetTileId;
         self.fetcher_x = 0;
-        self.first_fetch_done = false;
+        self.first_fetch_done = first_fetch_done;
     }
+
+    pub fn reset_for_scanline(&mut self) {
+        self.reset_internal(false);
+    } 
+
+    pub fn reset_for_window(&mut self) {
+        self.reset_internal(true);
+    } 
 
     pub fn reset_to_state_1(&mut self) {
         self.fetcher_state = FetcherState::GetTileId;

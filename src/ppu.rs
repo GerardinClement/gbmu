@@ -469,11 +469,10 @@ impl<T: Mbc> Ppu<T> {
     fn handle_window_switch(&mut self, use_window: bool) {
         // check if window is activated in the middle of scanline
         if !self.use_window && use_window {
-            self.pixel_fetcher.reset();
+            self.pixel_fetcher.reset_for_window();
             self.bg_fifo.clear();
 
             self.wx_at_window_start = self.wx;
-
             self.pixels_to_discard = 0;
         }
 
@@ -670,7 +669,7 @@ V OBJ disabled : la condition LCDC.1 avant de déclencher le fetch sprite n'est 
             self.x = 0;
             self.bg_fifo.clear();
             self.obj_piso.reset();
-            self.pixel_fetcher.reset();
+            self.pixel_fetcher.reset_for_scanline();
             self.pixels_to_discard = self.scx % 8;
             self.use_window = false;
             self.is_wx_glitch_happened = false;
@@ -704,7 +703,7 @@ V OBJ disabled : la condition LCDC.1 avant de déclencher le fetch sprite n'est 
                 self.x = 0;
                 self.bg_fifo.clear();
                 self.obj_piso.reset();
-                self.pixel_fetcher.reset();
+                self.pixel_fetcher.reset_for_scanline();
                 self.pixels_to_discard = self.scx % 8;
                 self.use_window = false;
                 self.is_wx_glitch_happened = false;
