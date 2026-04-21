@@ -32,6 +32,7 @@ pub struct PixelFetcher {
     fetcher_x: u8,
     dot_counter: u32,
     use_window: bool,
+    first_fetch_done: bool,
 }
 
 impl PixelFetcher {
@@ -62,18 +63,23 @@ impl PixelFetcher {
                 FetcherState::GetHighData => {
                     self.tile_data_high = self.get_tile_data_high(bus, ly, scy, lcd_control);
 
-                    if fifo.is_empty() {
-                        let tile: Option<[Pixel; 8]> = self.push_pixel(bus);
+                    if self.first_fetch_done {
+                        if fifo.is_empty() {
+                            let tile: Option<[Pixel; 8]> = self.push_pixel(bus);
 
-                        self.fetcher_x += 1;
-                        self.fetcher_state = FetcherState::GetTileId;
+                            self.fetcher_x += 1;
+                            self.fetcher_state = FetcherState::GetTileId;
 
-                        tile
+                            return tile;
+                        } else {
+                            self.fetcher_state = FetcherState::Sleep;
+                        }
                     } else {
-                        self.fetcher_state = FetcherState::Sleep;
-
-                        return None
+                        self.reset();
+                        self.first_fetch_done = true;
                     }
+
+                    return None
                 },
                 FetcherState::Sleep => {
                     self.fetcher_state = FetcherState::PushPixel;
@@ -91,6 +97,7 @@ impl PixelFetcher {
         self.fetcher_state = FetcherState::GetTileId;
         self.fetcher_x = 0;
         self.use_window = false;
+        self.first_fetch_done = false;
     }
 
     pub fn reset_to_state_1(&mut self) {
