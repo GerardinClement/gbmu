@@ -467,7 +467,7 @@ impl<T: Mbc> Ppu<T> {
             if self.use_window && self.wx != self.wx_at_window_start
                 && self.x + 7 >= self.wx as usize
                 && !self.is_wx_glitch_happened {
-                    let glitched_pixel = Pixel::new(self.apply_background_palette(0), false, 0);
+                    let glitched_pixel = Pixel::new_bg(self.apply_background_palette(0), 0);
 
                     self.bg_fifo.push(glitched_pixel);
                     self.is_wx_glitch_happened = true;
