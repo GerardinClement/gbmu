@@ -638,6 +638,7 @@ impl<T: Mbc> Ppu<T> {
             // TODO proper reset function
             self.x = 0;
             self.bg_fifo.clear();
+            self.obj_piso.reset();
             self.pixel_fetcher.reset();
             self.pixels_to_discard = self.scx % 8;
             self.use_window = false;
@@ -671,6 +672,7 @@ impl<T: Mbc> Ppu<T> {
                 // TODO proper reset function
                 self.x = 0;
                 self.bg_fifo.clear();
+                self.obj_piso.reset();
                 self.pixel_fetcher.reset();
                 self.pixels_to_discard = self.scx % 8;
                 self.use_window = false;
