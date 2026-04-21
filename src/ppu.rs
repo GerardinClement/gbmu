@@ -73,6 +73,8 @@ pub struct Ppu<T: Mbc> {
     wx_at_window_start: u8, // Required to handle the WX hardware glitch
     is_wx_glitch_happened: bool, // Required to handle the WX hardware glitch
     bg_color_indices: [u8; 160], // tmp until FIFO OBJ
+    fetching_sprite: bool, // pixel fetcher and pixel shifter need to be paused while oam fetcher is called
+    current_sprite_to_fetch: Option<usize>,
 }
 
 impl<T: Mbc> Ppu<T> {
@@ -100,6 +102,8 @@ impl<T: Mbc> Ppu<T> {
             wx_at_window_start: 0x00,
             is_wx_glitch_happened: false,
             bg_color_indices: [0u8; 160],
+            fetching_sprite: false,
+            current_sprite_to_fetch: None,
         }
     }
 
@@ -519,29 +523,81 @@ impl<T: Mbc> Ppu<T> {
         }
     }
 
+
     fn mode_pixel_transfer(&mut self, image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
         if self.ly < WIN_SIZE_Y as u8 {
             // let mut pixels = self.render_background();
-
             let use_window = self.lcd_control.is_window_enabled()
                 && (self.ly as usize >= self.wy as usize)
-                && (self.x + 7 >= self.wx as usize);    
+                && (self.x + 7 >= self.wx as usize);
 
             self.handle_window_switch(use_window);
 
-            self.step_pixel_fetcher(use_window);
+            let height:u8 = if self.lcd_control.is_obj_size_8x16() {
+                16
+            } else {
+                8
+            };
 
-            let mut frame = image.lock().unwrap();
-            self.push_pixel_to_screen(&mut frame);
+            if self.fetching_sprite {
+                if let Some(index) = self.current_sprite_to_fetch {
+                    if let Some(sprite) = self.visible_sprites[index] {
+                        self.fetching_sprite = !self.oam_fetcher.tick(
+                            &self.bus,
+                            &sprite,
+                            &mut self.obj_piso,
+                            self.ly,
+                            &self.lcd_control,
+                            height
+                        );
+
+                        if !self.fetching_sprite {
+                            self.visible_sprites[index] = None;
+                        }
+                    }
+                };
+            }
+            else {
+                for (index, sprite_opt) in self.visible_sprites.iter_mut().enumerate() {
+                    if let Some(sprite) = sprite_opt {
+                        if sprite.x as usize <= self.x + 8 {
+                            self.current_sprite_to_fetch = Some(index);
+                            self.pixel_fetcher.reset_to_state_1();
+
+                            self.fetching_sprite = !self.oam_fetcher.tick(
+                                &self.bus,
+                                sprite,
+                                &mut self.obj_piso,
+                                self.ly,
+                                &self.lcd_control,
+                                height
+                            );
+
+                            if !self.fetching_sprite {
+                                *sprite_opt = None;
+                            }
+
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if !self.fetching_sprite {
+                self.step_pixel_fetcher(use_window);
+                let mut frame = image.lock().unwrap();
+                self.push_pixel_to_screen(&mut frame);
+            }
         }
 
         if self.x == 160 {
-            self.render_sprites(image);
+            // self.render_sprites(image);
             self.lcd_status.update_ppu_mode(PpuMode::HBlank);
         }
 
         false
     }
+
 
     fn mode_hblank(&mut self) -> bool {
         // End of scanline -> next one after 456 dots
