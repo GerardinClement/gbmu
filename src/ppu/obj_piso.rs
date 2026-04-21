@@ -28,9 +28,10 @@ impl ObjPiso {
         palette: u8,
         oam_index: u8,
         priority: bool,
+        scanline_x: usize,
     ) {
         for i in 0..8 {
-            let pos = sprite_x as i16 + i as i16 - 8;
+            let pos = (sprite_x as i16 + i as i16 - 8) - scanline_x as i16;
 
             // Check if the pixel is outside the fifo
             if pos < 0 || pos >= 8 {
@@ -117,6 +118,7 @@ mod tests {
             0b1110_0100,
             0,
             false,
+            0,
         );
 
         assert_ne!(piso.pixels[0].get_color_index(), 0, "The pixel should not be transparent anymore");
@@ -137,6 +139,7 @@ mod tests {
             0b1110_0100,
             1,
             false,
+            0,
         );
 
         assert_eq!(piso.pixels[0].get_color_index(), 2, "The pixel should not change.");
@@ -155,6 +158,7 @@ mod tests {
             0b1110_0100,
             0,
             false,
+            0,
         );
         assert_ne!(piso.pixels[0].get_color_index(), 0, "The last slots should not be transparents");
         assert_ne!(piso.pixels[1].get_color_index(), 0, "The last slots should not be transparents");
@@ -180,6 +184,7 @@ mod tests {
             0b1110_0100,
             0,
             false,
+            0,
         );
 
         for i in 0..8 {

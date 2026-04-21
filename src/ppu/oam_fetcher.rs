@@ -34,7 +34,7 @@ pub struct OamFetcher {
 }
 
 impl OamFetcher {
-    pub fn tick<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, sprite: &Sprite, piso: &mut ObjPiso, ly: u8, lcd_control: &LcdControl, height: u8) -> bool {
+    pub fn tick<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, sprite: &Sprite, piso: &mut ObjPiso, ly: u8, lcd_control: &LcdControl, height: u8, scanline_x: usize) -> bool {
         self.dot_counter = self.dot_counter.wrapping_add(1);
 
         if self.dot_counter % 2 == 0 {
@@ -58,7 +58,7 @@ impl OamFetcher {
                     return false;
                 },
                 FetcherState::PushPixel => {
-                    self.push_pixel(bus, piso, sprite);
+                    self.push_pixel(bus, piso, sprite, scanline_x);
                     self.fetcher_state = FetcherState::GetTileId;
 
                     return true;
@@ -112,13 +112,13 @@ impl OamFetcher {
         )
     }
 
-    fn push_pixel<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, piso: &mut ObjPiso, sprite: &Sprite) {
+    fn push_pixel<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, piso: &mut ObjPiso, sprite: &Sprite, scanline_x: usize) {
         let (priority, _, x_flip, palette_attribute) = self.extract_attributes(sprite.attributes);
 
         let palette_addr = if palette_attribute { OBP1_ADDR } else { OBP0_ADDR };
         let palette = bus.read().unwrap().read_byte(palette_addr);
 
-        piso.merge(self.tile_data_low, self.tile_data_high, sprite.x, x_flip, palette, sprite.oam_index, priority);
+        piso.merge(self.tile_data_low, self.tile_data_high, sprite.x, x_flip, palette, sprite.oam_index, priority, scanline_x);
     }
 }
 
@@ -146,29 +146,29 @@ mod tests {
         let lcd = LcdControl::default();
 
         // tick 1 -> nothing (odd dot)
-        assert_eq!(fetcher.tick(&bus, &sprite, &mut piso, 0, &lcd, 8), false);
+        assert_eq!(fetcher.tick(&bus, &sprite, &mut piso, 0, &lcd, 8, 0), false);
         assert_eq!(fetcher.fetcher_state, FetcherState::GetTileId);
 
         // tick 2 -> GetTileId
-        assert_eq!(fetcher.tick(&bus, &sprite, &mut piso, 0, &lcd, 8), false);
+        assert_eq!(fetcher.tick(&bus, &sprite, &mut piso, 0, &lcd, 8, 0), false);
         assert_eq!(fetcher.fetcher_state, FetcherState::GetLowData);
 
         // tick 4 -> GetLowData
-        fetcher.tick(&bus, &sprite, &mut piso, 0, &lcd, 8);
+        fetcher.tick(&bus, &sprite, &mut piso, 0, &lcd, 8, 0);
         assert_eq!(fetcher.fetcher_state, FetcherState::GetLowData);
-        assert_eq!(fetcher.tick(&bus, &sprite, &mut piso, 0, &lcd, 8), false);
+        assert_eq!(fetcher.tick(&bus, &sprite, &mut piso, 0, &lcd, 8, 0), false);
         assert_eq!(fetcher.fetcher_state, FetcherState::GetHighData);
 
         // tick 6 -> GetHighData
-        fetcher.tick(&bus, &sprite, &mut piso, 0, &lcd, 8);
+        fetcher.tick(&bus, &sprite, &mut piso, 0, &lcd, 8, 0);
         assert_eq!(fetcher.fetcher_state, FetcherState::GetHighData);
-        assert_eq!(fetcher.tick(&bus, &sprite, &mut piso, 0, &lcd, 8), false);
+        assert_eq!(fetcher.tick(&bus, &sprite, &mut piso, 0, &lcd, 8, 0), false);
         assert_eq!(fetcher.fetcher_state, FetcherState::PushPixel);
 
         // tick 8 -> PushPixel → return false
-        assert_eq!(fetcher.tick(&bus, &sprite, &mut piso, 0, &lcd, 8), false);
+        assert_eq!(fetcher.tick(&bus, &sprite, &mut piso, 0, &lcd, 8, 0), false);
         assert_eq!(fetcher.fetcher_state, FetcherState::PushPixel);
-        assert_eq!(fetcher.tick(&bus, &sprite, &mut piso, 0, &lcd, 8), true);
+        assert_eq!(fetcher.tick(&bus, &sprite, &mut piso, 0, &lcd, 8, 0), true);
         assert_eq!(fetcher.fetcher_state, FetcherState::GetTileId);
     }
 

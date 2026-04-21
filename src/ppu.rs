@@ -244,6 +244,7 @@ impl<T: Mbc> Ppu<T> {
     fn oam_search(&mut self) {
         // Select max 10 visible sprites on the scanline
 
+
         let height:u8 = if self.lcd_control.is_obj_size_8x16() {
             16
         } else {
@@ -254,9 +255,12 @@ impl<T: Mbc> Ppu<T> {
         let mut i: usize = 0;
         for (oam_index, sprite) in oam.sprites.iter().enumerate() {
             if sprite.is_visible(self.ly, height) {
+
                 let mut s = *sprite;
 
                 s.oam_index = oam_index as u8;
+
+
                 self.visible_sprites[i] = Some(s);
 
                 i += 1;
@@ -275,59 +279,59 @@ impl<T: Mbc> Ppu<T> {
         Color::from_index(index)
     }
 
-    fn render_background(&self) -> Vec<Pixel> {
-        /*
-            Generate one complete scanline (160 pixels) by applying:
-                - scroll (SCX/SCY)
-                - window (WX/WY)
-                - wrapping (256x256)
-         */
+    // fn render_background(&self) -> Vec<Pixel> {
+    //     /*
+    //         Generate one complete scanline (160 pixels) by applying:
+    //             - scroll (SCX/SCY)
+    //             - window (WX/WY)
+    //             - wrapping (256x256)
+    //      */
 
-        let mut pixels = Vec::new();
-        let ly = self.ly as usize; // line to render
-        let default_color = self.apply_background_palette(0);
+    //     let mut pixels = Vec::new();
+    //     let ly = self.ly as usize; // line to render
+    //     let default_color = self.apply_background_palette(0);
 
-        for x in 0..WIN_SIZE_X {
-            // If BG is disabled, color 0 everywhere
-            if !self.lcd_control.is_bg_window_enabled() {
-                pixels.push(Pixel::new_bg(default_color, 0));
-                continue;
-            }
+    //     for x in 0..WIN_SIZE_X {
+    //         // If BG is disabled, color 0 everywhere
+    //         if !self.lcd_control.is_bg_window_enabled() {
+    //             pixels.push(Pixel::new_bg(default_color, 0));
+    //             continue;
+    //         }
 
-            // Hardware condition to enable the window
-            // WX is shifted by 7 pixels
-            let use_window = self.lcd_control.is_window_enabled()
-                && (ly >= self.wy as usize)
-                && (x + 7 >= self.wx as usize);
+    //         // Hardware condition to enable the window
+    //         // WX is shifted by 7 pixels
+    //         let use_window = self.lcd_control.is_window_enabled()
+    //             && (ly >= self.wy as usize)
+    //             && (x + 7 >= self.wx as usize);
 
-            let (bg_x, bg_y) = if use_window {
-                let win_x = x + 7 - self.wx as usize;
-                let win_y = self.wly as usize;
-                (win_x % 256, win_y % 256)
-            } else {
-                // coordinates with scrool (wrap 256)
-                (
-                    (x + self.scx as usize) % 256,
-                    (ly + self.scy as usize) % 256,
-                )
-            };
+    //         let (bg_x, bg_y) = if use_window {
+    //             let win_x = x + 7 - self.wx as usize;
+    //             let win_y = self.wly as usize;
+    //             (win_x % 256, win_y % 256)
+    //         } else {
+    //             // coordinates with scrool (wrap 256)
+    //             (
+    //                 (x + self.scx as usize) % 256,
+    //                 (ly + self.scy as usize) % 256,
+    //             )
+    //         };
 
-            let tile_x = bg_x / 8;
-            let tile_y = bg_y / 8;
-            let tile_address = self.get_tile_address(tile_y, tile_x, use_window);
-            let tile = self.read_tile_data(tile_address);
-            let pixel_x = bg_x % 8;
-            let pixel_y = bg_y % 8;
+    //         let tile_x = bg_x / 8;
+    //         let tile_y = bg_y / 8;
+    //         let tile_address = self.get_tile_address(tile_y, tile_x, use_window);
+    //         let tile = self.read_tile_data(tile_address);
+    //         let pixel_x = bg_x % 8;
+    //         let pixel_y = bg_y % 8;
 
-            let color_index = self.get_pixel_color_index(tile, pixel_x, pixel_y);
-            let color = self.apply_background_palette(color_index);
-            let pixel = Pixel::new_bg(color, color_index);
+    //         let color_index = self.get_pixel_color_index(tile, pixel_x, pixel_y);
+    //         let color = self.apply_background_palette(color_index);
+    //         let pixel = Pixel::new_bg(color, color_index);
             
-            pixels.push(pixel);
-        }
+    //         pixels.push(pixel);
+    //     }
 
-        pixels
-    }
+    //     pixels
+    // }
 
     fn extract_attributes(&self, attributes: u8) -> (bool, bool, bool, bool) {
         (
@@ -515,7 +519,9 @@ impl<T: Mbc> Ppu<T> {
         }
     }
 
+
     fn step_oam_fetcher(&mut self) {
+
         let height:u8 = if self.lcd_control.is_obj_size_8x16() {
             16
         } else {
@@ -523,16 +529,25 @@ impl<T: Mbc> Ppu<T> {
         };
 
         if self.fetching_sprite {
+
+
             if let Some(index) = self.current_sprite_to_fetch {
+
+
                 if let Some(sprite) = self.visible_sprites[index] {
+
+                    let fetching_sprite = self.fetching_sprite;
+
                     self.fetching_sprite = !self.oam_fetcher.tick(
                         &self.bus,
                         &sprite,
                         &mut self.obj_piso,
                         self.ly,
                         &self.lcd_control,
-                        height
+                        height,
+                        self.x,
                     );
+
 
                     if !self.fetching_sprite {
                         self.visible_sprites[index] = None;
@@ -541,20 +556,33 @@ impl<T: Mbc> Ppu<T> {
             };
         }
         else {
+            
+
             for (index, sprite_opt) in self.visible_sprites.iter_mut().enumerate() {
+
+
                 if let Some(sprite) = sprite_opt {
+
+
                     if sprite.x as usize <= self.x + 8 {
+
+                        let spritex = sprite.x;
+                        let selfx = self.x;
+
                         self.current_sprite_to_fetch = Some(index);
                         self.pixel_fetcher.reset_to_state_1();
 
+                        let fetching_sprite = self.fetching_sprite;
                         self.fetching_sprite = !self.oam_fetcher.tick(
                             &self.bus,
                             sprite,
                             &mut self.obj_piso,
                             self.ly,
                             &self.lcd_control,
-                            height
+                            height,
+                            self.x,
                         );
+
 
                         if !self.fetching_sprite {
                             *sprite_opt = None;
@@ -590,7 +618,12 @@ impl<T: Mbc> Ppu<T> {
         }
     }
 
-
+/*
+Premier fetch BG resetté : "The first time the background fetcher completes step 3 on a scanline the status is fully reset and operation restarts at Step 1" — tu ne gères pas ce cas particulier du premier fetch.
+Délai après fetch sprite : "If there are less than 6 pixels remaining in the Background FIFO when the sprite fetch is done, the PPU will have to wait" — tu ne gères pas ce délai de 6 - REMAINING_PIXEL_COUNT.
+WY condition : "The condition WY = LY has been true at any point in the currently rendered frame" — tu vérifies ly >= wy mais pas si cette condition a déjà été vraie pendant la frame courante.
+OBJ disabled : la condition LCDC.1 avant de déclencher le fetch sprite n'est pas vérifiée dans step_oam_fetcher.
+*/
     fn mode_pixel_transfer(&mut self, image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
         if self.ly < WIN_SIZE_Y as u8 {
             // let mut pixels = self.render_background();
