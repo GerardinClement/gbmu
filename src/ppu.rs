@@ -351,6 +351,7 @@ impl<T: Mbc> Ppu<T> {
     }
 
     fn get_right_pixel(&self, color_index: u8, color: Color, priority: bool) -> Option<Color> {
+    fn get_right_pixel(&self, color_index: u8, color: Color, priority: bool) -> Option<Color> {
         // Deal with sprite/background priority
         //TODO tmp function to handle the transition between scanline rendering and FIFO.
         // right now only fifo background is implemented. In order to keep render_sprites working
