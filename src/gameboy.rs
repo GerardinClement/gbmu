@@ -26,17 +26,17 @@ pub struct GameBoy<T: Mbc> {
 
 impl<T: Mbc>  GameBoy<T> {
     pub fn new(rom: Vec<u8>, boot_rom: [u8; 0x0100], image: Arc<Mutex<Vec<u8>>>) -> Result<GameBoy<T>, String> {
-        let bus = Arc::new(RwLock::new(Mmu::<T>::new(&rom)?));
+        let bus_ref = Arc::new(RwLock::new(Mmu::<T>::new(&rom)?));
 
         {
-            let mut mmu = bus.write().unwrap();
+            let mut mmu = bus_ref.write().unwrap();
             mmu.load_boot_rom(boot_rom);
         }
 
-        let cpu = Cpu::<T>::new(bus.clone());
-        let ppu = Ppu::<T>::new(bus.clone());
+        let cpu = Cpu::<T>::new(bus_ref.clone());
+        let ppu = Ppu::<T>::new(bus_ref.clone());
 
-        Ok(GameBoy { cpu, bus, ppu, image })
+        Ok(GameBoy { cpu, bus: bus_ref, ppu, image })
     }
 
     pub fn run_frame(&mut self, key_input: &KeyInput) -> bool {

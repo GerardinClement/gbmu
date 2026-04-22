@@ -40,16 +40,9 @@ pub struct Cpu<T: Mbc> {
 
 impl<T: Mbc> Default for Cpu<T> {
     fn default() -> Self {
-        Cpu {
-            registers: Registers::default(),
-            bus: Arc::new(RwLock::new(Mmu::<T>::default())),
-            pc: 0x0000,
-            ime: false,
-            ime_delay: false,
-            halted: false,
-            halt_bug: false,
-            tick_to_wait: 0,
-        }
+        Cpu::new(
+            Arc::new(RwLock::new(Mmu::<T>::default())),
+        )
     }
 }
 
@@ -58,7 +51,12 @@ impl<T: Mbc> Cpu<T> {
         Cpu {
             pc: 0x0000,
             bus,
-            ..Default::default()
+            registers: Registers::default(),
+            ime: false,
+            ime_delay: false,
+            halted: false,
+            halt_bug: false,
+            tick_to_wait: 0,
         }
     }
 

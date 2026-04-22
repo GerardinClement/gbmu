@@ -22,7 +22,7 @@ pub  struct Mbc1 {
 }
 
 fn get_rom_bank_size(rom: &[u8]) -> Result<usize, String>{
-    let code = rom[0x149];
+    let code = rom[0x148];
     match code {
         0 => Ok(2),
         1 => Ok(4),
@@ -38,7 +38,7 @@ fn get_rom_bank_size(rom: &[u8]) -> Result<usize, String>{
 }
 
 fn get_ram_bank_size(rom: &[u8]) -> Result<usize, String>{
-    let code = rom[0x148];
+    let code = rom[0x149];
     match code {
         0 => Ok(0),
         1 => Ok(0),
