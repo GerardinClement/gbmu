@@ -490,7 +490,6 @@ impl<T: Mbc> Ppu<T> {
     }
 
     fn push_pixel_to_screen(&mut self, frame: &mut [u8], use_window: bool) {
-
         if let Some(bg_pixel) = self.bg_fifo.pop() {
             if self.pixels_to_discard > 0 {
                 self.pixels_to_discard -= 1;
@@ -533,7 +532,6 @@ impl<T: Mbc> Ppu<T> {
             }
         }
 
-        self.handle_window_switch(use_window);
     }
 
 
@@ -633,6 +631,7 @@ V OBJ disabled : la condition LCDC.1 avant de déclencher le fetch sprite n'est 
             if !self.fetching_sprite {
                 self.step_pixel_fetcher(use_window);
                 let mut frame = image.lock().unwrap();
+                self.handle_window_switch(use_window);
                 self.push_pixel_to_screen(&mut frame, use_window);
             }
         }
@@ -655,9 +654,8 @@ V OBJ disabled : la condition LCDC.1 avant de déclencher le fetch sprite n'est 
             if self.wy == self.ly { self.wy_equal_ly_condition_met = true; }
 
             if self.lcd_control.is_window_enabled()
-                && self.wy_equal_ly_condition_met
+                && self.ly >= self.wy
                 && self.wx <= 166 {
-
                 self.wly += 1;
             }
             
