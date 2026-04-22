@@ -451,14 +451,21 @@ impl<T: Mbc> Ppu<T> {
     //     }
     // }
 
+    fn update_ppu_mode(&mut self, mode: PpuMode) {
+        self.lcd_status.update_ppu_mode(mode);
+        let mut bus = self.bus.write().unwrap();
+        let mut status = bus.ppu_read_byte(MemoryRegion::LcdStatus.into());
+        status = 0b1111_1100 & status;
+        status = status | <PpuMode as Into<u8>>::into(mode);
+        bus.ppu_write_byte(MemoryRegion::LcdStatus.into(), status);
+    }
 
     fn mode_oam_search(&mut self) -> bool {
         if self.dots >= OAM_DOTS {
             self.visible_sprites = [None; 10];
             self.oam_search();
-
             self.bus.write().unwrap().protect_oam_and_vram();
-            self.lcd_status.update_ppu_mode(PpuMode::PixelTransfer);
+            self.update_ppu_mode(PpuMode::PixelTransfer);
         }
         false
     }
@@ -644,7 +651,7 @@ OBJ disabled : la condition LCDC.1 avant de déclencher le fetch sprite n'est pa
 
         if self.x == 160 {
             // self.render_sprites(image);
-            self.lcd_status.update_ppu_mode(PpuMode::HBlank);
+            self.update_ppu_mode(PpuMode::HBlank);
             self.bus.write().unwrap().release_mem_protection();
         }
 
@@ -679,7 +686,7 @@ OBJ disabled : la condition LCDC.1 avant de déclencher le fetch sprite n'est pa
             self.is_wx_glitch_happened = false;
 
             if self.ly >= WIN_SIZE_Y as u8 {
-                self.lcd_status.update_ppu_mode(PpuMode::VBlank);
+                self.update_ppu_mode(PpuMode::VBlank);
                 self.bus.write().unwrap().release_mem_protection();
 
                 self.bus.write().unwrap().interrupts_request(Interrupt::VBlank);
@@ -687,7 +694,7 @@ OBJ disabled : la condition LCDC.1 avant de déclencher le fetch sprite n'est pa
                 return true;
             } else {
                 self.bus.write().unwrap().protect_oam();
-                self.lcd_status.update_ppu_mode(PpuMode::OamSearch);
+                self.update_ppu_mode(PpuMode::OamSearch);
             }
         }
         false
@@ -715,7 +722,7 @@ OBJ disabled : la condition LCDC.1 avant de déclencher le fetch sprite n'est pa
                 self.is_wx_glitch_happened = false;
 
                 self.bus.write().unwrap().protect_oam();
-                self.lcd_status.update_ppu_mode(PpuMode::OamSearch);
+                self.update_ppu_mode(PpuMode::OamSearch);
             }
         }
         false

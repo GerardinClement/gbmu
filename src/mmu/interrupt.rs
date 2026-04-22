@@ -43,6 +43,7 @@ impl InterruptController {
     }
 
     pub fn read_interrupt_flag(&self) -> u8 {
+        println!("this is going");
         self.iflag | 0b11100000
     }
 

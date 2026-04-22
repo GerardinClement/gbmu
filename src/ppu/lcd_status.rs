@@ -10,6 +10,17 @@ pub enum PpuMode {
     PixelTransfer = 3,
 }
 
+impl From<PpuMode> for u8 {
+    fn from(value: PpuMode) -> Self {
+        match value {
+            PpuMode::HBlank => 0,
+            PpuMode::VBlank => 1,
+            PpuMode::OamSearch => 2,
+            PpuMode::PixelTransfer => 3,
+        } 
+    }
+}
+
 #[derive(Default, Debug)]
 pub struct LcdStatus {
     lyc_int_select: bool,

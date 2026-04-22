@@ -88,7 +88,7 @@ impl OamFetcher {
             + (self.tile_id as u16 * 16)
             + (self.actual_sprite_line % 8 * 2) as u16;
 
-        let data = bus.read().unwrap().read_byte(tile_address as u16);
+        let data = bus.read().unwrap().ppu_read_byte(tile_address as u16);
 
         data
     }
@@ -98,7 +98,7 @@ impl OamFetcher {
             + (self.tile_id as u16 * 16)
             + (self.actual_sprite_line % 8 * 2) as u16;
 
-        let data = bus.read().unwrap().read_byte(tile_address as u16 + 1);
+        let data = bus.read().unwrap().ppu_read_byte(tile_address as u16 + 1);
 
         data
     }
@@ -116,7 +116,7 @@ impl OamFetcher {
         let (priority, _, x_flip, palette_attribute) = self.extract_attributes(sprite.attributes);
 
         let palette_addr = if palette_attribute { OBP1_ADDR } else { OBP0_ADDR };
-        let palette = bus.read().unwrap().read_byte(palette_addr);
+        let palette = bus.read().unwrap().ppu_read_byte(palette_addr);
 
         piso.merge(self.tile_data_low, self.tile_data_high, sprite.x, x_flip, palette, sprite.oam_index, priority, scanline_x);
     }

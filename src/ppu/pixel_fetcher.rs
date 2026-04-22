@@ -112,7 +112,7 @@ impl PixelFetcher {
         let tile_number = bus
             .read()
             .unwrap()
-            .read_byte(tilemap_base.start + offset);
+            .ppu_read_byte(tilemap_base.start + offset);
 
         tile_number
     }
@@ -126,7 +126,7 @@ impl PixelFetcher {
             let tile_low = bus
                 .read()
                 .unwrap()
-                .read_byte(tilemap_base + correct_byte);
+                .ppu_read_byte(tilemap_base + correct_byte);
 
             tile_low
             
@@ -138,7 +138,7 @@ impl PixelFetcher {
             let tile_low = bus
                 .read()
                 .unwrap()
-                .read_byte(tilemap_base + correct_byte);
+                .ppu_read_byte(tilemap_base + correct_byte);
 
             tile_low
         } else {
@@ -156,7 +156,7 @@ impl PixelFetcher {
             let tile_low = bus
                 .read()
                 .unwrap()
-                .read_byte(tilemap_base + correct_byte);
+                .ppu_read_byte(tilemap_base + correct_byte);
 
             tile_low
             
@@ -168,7 +168,7 @@ impl PixelFetcher {
             let tile_low = bus
                 .read()
                 .unwrap()
-                .read_byte(tilemap_base + correct_byte);
+                .ppu_read_byte(tilemap_base + correct_byte);
 
             tile_low
         } else {
@@ -177,7 +177,7 @@ impl PixelFetcher {
     }
 
     fn apply_background_palette<T: Mbc>(&self, bus: &Arc<RwLock<Mmu<T>>>, color_index: u8) -> Color {
-        let palette = bus.read().unwrap().read_byte(BGP_ADDR);
+        let palette = bus.read().unwrap().ppu_read_byte(BGP_ADDR);
 
         let index = (palette >> (color_index * 2)) & 0b11;
 

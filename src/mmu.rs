@@ -22,10 +22,12 @@ pub enum MemoryRegion {
     Oam,             // 0xFE00-0xFE9F: Sprite Attribute Table
     Unusable,        // 0xFEA0-0xFEFF
     InterruptFlag,   // 0xFF0F: Interruption Flag: Inside IO
+    LcdStatus,       // 0xFF41: LCD Status
     Timers,          // 0xFF04-0xFF07
     Io,              // 0xFF00-0xFF7F
     HRam,            // 0xFF80-0xFFFE
     InterruptEnable, // 0xFFFF : Interruption Enable
+
 }
 
 impl MemoryRegion {
@@ -38,11 +40,12 @@ impl MemoryRegion {
             0xE000..=0xFDFF => MemoryRegion::Mram,
             0xFE00..=0xFE9F => MemoryRegion::Oam,
             0xFEA0..=0xFEFF => MemoryRegion::Unusable,
+            0xFF41 => MemoryRegion::LcdStatus,
+            0xFFFF => MemoryRegion::InterruptEnable,
+            0xFF0F => MemoryRegion::InterruptFlag, 
             0xFF04..=0xFF07 => MemoryRegion::Timers,
-            0xFF0F => MemoryRegion::InterruptFlag,
             0xFF00..=0xFF7F => MemoryRegion::Io,
             0xFF80..=0xFFFE => MemoryRegion::HRam,
-            0xFFFF => MemoryRegion::InterruptEnable,
         }
     }
 
@@ -54,6 +57,7 @@ impl MemoryRegion {
             MemoryRegion::Wram => 0xC000,
             MemoryRegion::Mram => 0xE000,
             MemoryRegion::Oam => 0xFE00,
+            MemoryRegion::LcdStatus => 0xFF41,
             MemoryRegion::Unusable => 0xFEA0,
             MemoryRegion::Timers => 0xFF04,
             MemoryRegion::InterruptFlag => 0xFF0F,
@@ -61,6 +65,18 @@ impl MemoryRegion {
             MemoryRegion::HRam => 0xFF80,
             MemoryRegion::InterruptEnable => 0xFFFF,
         }
+    }
+}
+
+impl From<MemoryRegion> for u16 {
+    fn from(value: MemoryRegion) -> Self {
+        value.to_address()
+    }
+}
+
+impl From<u16> for MemoryRegion {
+    fn from(value: u16) -> Self {
+        MemoryRegion::from(value)
     }
 }
 
@@ -87,15 +103,16 @@ impl<T: Mbc> Mmu<T> {
     pub fn protect_oam(&mut self) {
         self.mem_protection_state = MmuProtectionState::OAMProtected;
     }
+
     pub fn protect_oam_and_vram(&mut self) {
         self.mem_protection_state = MmuProtectionState::OAMandVramProtected;
     }
+
     pub fn release_mem_protection(&mut self) {
         self.mem_protection_state = MmuProtectionState::Released;
-
     }
+
     pub fn new(rom_image: &[u8]) -> Result<Self, String> {
-        
        Ok(Mmu {
             data: [0; 0x10000],
             cart: T::new(rom_image)?,
@@ -122,9 +139,40 @@ impl<T: Mbc> Mmu<T> {
             self.interrupts_request(Interrupt::Timer);
         }
     }
+    pub fn ppu_write_byte(&mut self, addr: u16, val: u8) {
+        if val != 0 && addr == 0xFF50 {
+            self.data[addr as usize] = val;
+            self.boot_enable = false;
+            return;
+        }
+
+        match MemoryRegion::from(addr) {
+            MemoryRegion::Mbc | MemoryRegion::ERam => self.cart.write(addr, val),
+            MemoryRegion::Mram => {
+                let mirror = addr - 0x2000;
+
+                self.data[mirror as usize] = val;
+            }
+            MemoryRegion::Timers => {
+                println!("attempt to write timers");
+                self.timers.write_byte(addr, val);
+            }
+            MemoryRegion::Vram => {
+                self.data[addr as usize] = val;
+            }
+            MemoryRegion::Oam => {
+                self.oam.write(addr, val);
+            }
+            MemoryRegion::Unusable => {}
+            MemoryRegion::InterruptFlag => self.interrupts.write_interrupt_flag(val),
+            MemoryRegion::InterruptEnable => self.interrupts.write_interrupt_enable(val),
+            _ => self.data[addr as usize] = val,
+        }
+    }
+
 
     pub fn ppu_read_byte(&self, addr: u16) -> u8 {
-        match MemoryRegion::from(addr) {
+        match addr.into() {
             MemoryRegion::Mbc | MemoryRegion::ERam => self.cart.read(addr),
             MemoryRegion::Timers => self.timers.read_byte(addr),
             MemoryRegion::Mram => {
@@ -150,6 +198,7 @@ impl<T: Mbc> Mmu<T> {
         if self.boot_enable && addr <= 0x00FF {
             return self.boot_rom[addr as usize];
         }
+        return self.ppu_read_byte(addr);
 
         match MemoryRegion::from(addr) {
             MemoryRegion::Mbc | MemoryRegion::ERam => self.cart.read(addr),
@@ -182,40 +231,10 @@ impl<T: Mbc> Mmu<T> {
         }
     }
 
-    pub fn ppu_write_byte(&mut self, addr: u16, val: u8) {
-        if val != 0 && addr == 0xFF50 {
-            self.data[addr as usize] = val;
-            self.boot_enable = false;
-
-            return;
-        }
-
-        match MemoryRegion::from(addr) {
-            MemoryRegion::Mbc | MemoryRegion::ERam => self.cart.write(addr, val),
-            MemoryRegion::Mram => {
-                let mirror = addr - 0x2000;
-
-                self.data[mirror as usize] = val;
-            }
-            MemoryRegion::Timers => {
-                println!("attempt to write timers");
-                self.timers.write_byte(addr, val);
-            }
-            MemoryRegion::Vram => {
-                self.data[addr as usize] = val;
-            }
-            MemoryRegion::Oam => {
-                self.oam.write(addr, val);
-            }
-            MemoryRegion::Unusable => {}
-            MemoryRegion::InterruptFlag => self.interrupts.write_interrupt_flag(val),
-            MemoryRegion::InterruptEnable => self.interrupts.write_interrupt_enable(val),
-            _ => self.data[addr as usize] = val,
-        }
-    }
-
 
     pub fn write_byte(&mut self, addr: u16, val: u8) {
+        self.ppu_write_byte(addr, val);
+        return ;
         if val != 0 && addr == 0xFF50 {
             self.data[addr as usize] = val;
             self.boot_enable = false;

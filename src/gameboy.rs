@@ -59,7 +59,7 @@ impl<T: Mbc>  GameBoy<T> {
     pub fn machine_cycle(&mut self, key_input: &KeyInput) -> (bool, bool) {
         let mut updated = false;
         let mut cpu_executed = false;
-        for _ in (0..4).into_iter(){
+        for _ in 0..4 {
             // 1. Tick Timers
             self.bus.write().unwrap().tick_timers();
 
