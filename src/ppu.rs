@@ -434,8 +434,6 @@ impl<T: Mbc> Ppu<T> {
         if self.fetching_sprite {
             if let Some(index) = self.current_sprite_to_fetch {
                 if let Some(sprite) = self.visible_sprites[index] {
-                    let fetching_sprite = self.fetching_sprite;
-
                     self.fetching_sprite = !self.oam_fetcher.tick(
                         &self.bus,
                         &sprite,
@@ -465,8 +463,6 @@ impl<T: Mbc> Ppu<T> {
 
                         self.current_sprite_to_fetch = Some(index);
                         self.pixel_fetcher.reset_to_state_1();
-
-                        let fetching_sprite = self.fetching_sprite;
                         self.fetching_sprite = !self.oam_fetcher.tick(
                             &self.bus,
                             sprite,
