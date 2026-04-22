@@ -27,7 +27,7 @@ use eframe::egui;
 use tokio::time::{self, Duration as TokioDuration};
 use std::sync::Mutex;
 use std::fs;
-use std::process; use tokio::sync::mpsc::{Receiver, Sender, channel};
+use std::process; use tokio::sync::{watch, mpsc::{Receiver, Sender, channel}};
 use tokio::task::JoinHandle;
 
 
@@ -46,6 +46,16 @@ impl eframe::App for GraphicalApp {
         let duration = debut.elapsed();
         //println!("egui : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
         ctx.request_repaint();
+    }
+}
+
+impl GraphicalApp {
+    pub fn emulation_app(path: String) -> Self {
+        GraphicalApp {
+            app_state: AppState::EmulationHub(EmulationDevice{
+                core_game: CoreGameDevice::new(path)
+            })
+        }
     }
 }
 
@@ -137,7 +147,7 @@ impl AnyGameApp {
 
 async fn launch_game(
     rom_path: String,
-    mut input_receiver: Receiver<KeyInput>,
+    input_receiver: watch::Receiver<KeyInput>,
     updated_image_boolean: Arc<AtomicBool>,
     command_query_receiver: Receiver<DebugCommandQueries>,
     debug_response_sender: Sender<DebugResponse>,
@@ -146,7 +156,8 @@ async fn launch_game(
 ) -> Result<(), String> {
     let rom_data: Vec<u8> = read_rom(rom_path);
     let code = rom_data[0x0147];
-    let mut app = match code {
+    println!("this is launching game");
+    let app_res: Result<AnyGameApp, String> = match code {
             0x00 | 0x08 | 0x09 => Ok(AnyGameApp::OnlyRom(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change,)?)),
             0x01 | 0x02 | 0x03 => Ok(AnyGameApp::Mbc1(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change,)?)),
             0x05 | 0x06 => Ok(AnyGameApp::Mbc2(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change)?)),
@@ -157,9 +168,11 @@ async fn launch_game(
             0x20 => Ok(todo!()), // Mbc6
             0x22 => Ok(todo!()),// MBC7+SENSOR+RUMBLE+RAM+BATTERY
         */
-            _ => Err("Unmanaged cartridge type")
+            _ => Ok(AnyGameApp::OnlyRom(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change,)?))
 
-    }?;
+    };
+    let mut app = app_res?;
+    println!("this is comming");
 
     let input = KeyInput::default();
 
@@ -170,9 +183,7 @@ async fn launch_game(
         // Cela permet de checker si la tache n'a pas ete annule
 
 
-        if let Ok(input) = input_receiver.try_recv(){
-            let input = input;
-        }
+        let input = input_receiver.borrow();
         let buffer_was_updated = app.update(&input);
         if buffer_was_updated {
             updated_image_boolean.store(true, Ordering::Relaxed);
@@ -204,7 +215,7 @@ pub struct WatchedAdresses {
 
 pub struct CoreGameDevice {
     pub handler: JoinHandle<Result<(), String>>,
-    pub input_sender: Sender<KeyInput>,
+    pub input_sender: watch::Sender<KeyInput>,
     pub updated_image_boolean: Arc<AtomicBool>,
     pub command_query_sender: Sender<DebugCommandQueries>,
     pub debug_response_receiver: Receiver<DebugResponse>,
@@ -232,7 +243,6 @@ impl KeyMaping {
 
 impl Drop for CoreGameDevice {
     fn drop(&mut self) {
-        println!("this was droped");
         self.handler.abort();
     }
 }
@@ -271,7 +281,7 @@ impl CoreGameDevice {
     }
 
     fn new(path: String) -> Self {
-        let (input_sender, input_receiver) = channel::<KeyInput>(1);
+        let (input_sender, input_receiver) = watch::channel::<KeyInput>(KeyInput::default());
         let updated_image_boolean = Arc::new(AtomicBool::new(false));
         let (command_query_sender, command_query_receiver) = channel::<DebugCommandQueries>(1);
         let (debug_response_sender, debug_response_receiver) = channel::<DebugResponse>(10);

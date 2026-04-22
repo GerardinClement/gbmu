@@ -23,7 +23,7 @@ fn get_instruction_block1(instruction: u8) -> u8 {
     }
 }
 
-pub fn execute_instruction_block1<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) -> u8 {
+pub fn execute_instruction_block1<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) {
     let opcode: u8 = get_instruction_block1(instruction);
 
     match opcode {
@@ -33,7 +33,7 @@ pub fn execute_instruction_block1<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) -> 
     }
 }
 
-fn load_r8_r8<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) -> u8 {
+fn load_r8_r8<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) {
     let source: R8 = utils::convert_source_index_to_r8(instruction);
     let dest: R8 = utils::convert_dest_index_to_r8(instruction);
 
@@ -41,13 +41,11 @@ fn load_r8_r8<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) -> u8 {
 
     cpu.set_r8_value(dest, value);
     cpu.pc = cpu.pc.wrapping_add(1);
-    if source == R8::HLIndirect { 8 } else { 4 }
 }
 
-fn halt<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
+fn halt<T: Mbc>(cpu: &mut Cpu<T>) {
     cpu.halted = true;
     cpu.pc = cpu.pc.wrapping_add(1);
-    4
 }
 
 #[cfg(test)]

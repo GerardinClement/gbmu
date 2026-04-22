@@ -111,7 +111,7 @@ impl<T: Mbc> Ppu<T> {
                 .bus
                 .read()
                 .unwrap()
-                .read_byte(VRAM.to_address() + i as u16);
+                .ppu_read_byte(VRAM.to_address() + i as u16);
             print!("{byte:02X} ");
             if (i + 1) % 16 == 0 {
                 println!();
@@ -129,7 +129,7 @@ impl<T: Mbc> Ppu<T> {
                     .bus
                     .read()
                     .unwrap()
-                    .read_byte(tile_address + byte_index as u16);
+                    .ppu_read_byte(tile_address + byte_index as u16);
                 print!("{byte:02X} ");
             }
             println!();
@@ -145,7 +145,7 @@ impl<T: Mbc> Ppu<T> {
                     .bus
                     .read()
                     .unwrap()
-                    .read_byte(tile_map_address + offset);
+                    .ppu_read_byte(tile_map_address + offset);
                 print!("{tile_number:02X} ");
             }
             println!();
@@ -180,7 +180,7 @@ impl<T: Mbc> Ppu<T> {
         let mut tile_data = [0; 16];
 
         for (i, byte) in tile_data.iter_mut().enumerate() {
-            *byte = self.bus.read().unwrap().read_byte(tile_address + i as u16);
+            *byte = self.bus.read().unwrap().ppu_read_byte(tile_address + i as u16);
         }
 
         tile_data
@@ -227,7 +227,7 @@ impl<T: Mbc> Ppu<T> {
             .bus
             .read()
             .unwrap()
-            .read_byte(tilemap_base.start + offset);
+            .ppu_read_byte(tilemap_base.start + offset);
         match self.lcd_control.bg_window_tile_data_area() {
             // Unsigned mode: simple multiplication
             lcd_control::TILE_DATA_1 => 0x8000 + (tile_number as u16) * 16,
@@ -272,7 +272,7 @@ impl<T: Mbc> Ppu<T> {
     }
 
     fn apply_background_palette(&self, color_index: u8) -> Color {
-        let palette = self.bus.read().unwrap().read_byte(BGP_ADDR);
+        let palette = self.bus.read().unwrap().ppu_read_byte(BGP_ADDR);
 
         let index = (palette >> (color_index * 2)) & 0b11;
 
@@ -370,7 +370,7 @@ impl<T: Mbc> Ppu<T> {
 
     fn apply_sprite_palette(&self, color_index: u8, palette_attribute: bool) -> Color {
         let palette_addr = if palette_attribute { OBP1_ADDR } else { OBP0_ADDR };
-        let palette = self.bus.read().unwrap().read_byte(palette_addr);
+        let palette = self.bus.read().unwrap().ppu_read_byte(palette_addr);
 
         let index = (palette >> (color_index * 2)) & 0b11;
 
@@ -441,7 +441,6 @@ impl<T: Mbc> Ppu<T> {
     //             if color_index == 0 { continue; }
                     
     //             let color = self.apply_sprite_palette(color_index, palette_attribute);
-
     //             if let Some(new_pixel) = self.get_right_pixel(self.bg_color_indices[screen_x as usize], color, priority) {
     //                 let offset = (self.ly as usize * WIN_SIZE_X + screen_x as usize) * 3;
     //                 let mut frame = image.lock().unwrap();
@@ -452,13 +451,21 @@ impl<T: Mbc> Ppu<T> {
     //     }
     // }
 
+    fn update_ppu_mode(&mut self, mode: PpuMode) {
+        self.lcd_status.update_ppu_mode(mode);
+        let mut bus = self.bus.write().unwrap();
+        let mut status = bus.ppu_read_byte(MemoryRegion::LcdStatus.into());
+        status = 0b1111_1100 & status;
+        status = status | <PpuMode as Into<u8>>::into(mode);
+        bus.ppu_write_byte(MemoryRegion::LcdStatus.into(), status);
+    }
 
     fn mode_oam_search(&mut self) -> bool {
         if self.dots >= OAM_DOTS {
             self.visible_sprites = [None; 10];
             self.oam_search();
-
-            self.lcd_status.update_ppu_mode(PpuMode::PixelTransfer);
+            self.bus.write().unwrap().protect_oam_and_vram();
+            self.update_ppu_mode(PpuMode::PixelTransfer);
         }
         false
     }
@@ -644,7 +651,8 @@ OBJ disabled : la condition LCDC.1 avant de déclencher le fetch sprite n'est pa
 
         if self.x == 160 {
             // self.render_sprites(image);
-            self.lcd_status.update_ppu_mode(PpuMode::HBlank);
+            self.update_ppu_mode(PpuMode::HBlank);
+            self.bus.write().unwrap().release_mem_protection();
         }
 
         false
@@ -678,13 +686,15 @@ OBJ disabled : la condition LCDC.1 avant de déclencher le fetch sprite n'est pa
             self.is_wx_glitch_happened = false;
 
             if self.ly >= WIN_SIZE_Y as u8 {
-                self.lcd_status.update_ppu_mode(PpuMode::VBlank);
+                self.update_ppu_mode(PpuMode::VBlank);
+                self.bus.write().unwrap().release_mem_protection();
 
                 self.bus.write().unwrap().interrupts_request(Interrupt::VBlank);
 
                 return true;
             } else {
-                self.lcd_status.update_ppu_mode(PpuMode::OamSearch);
+                self.bus.write().unwrap().protect_oam();
+                self.update_ppu_mode(PpuMode::OamSearch);
             }
         }
         false
@@ -711,7 +721,8 @@ OBJ disabled : la condition LCDC.1 avant de déclencher le fetch sprite n'est pa
                 self.use_window = false;
                 self.is_wx_glitch_happened = false;
 
-                self.lcd_status.update_ppu_mode(PpuMode::OamSearch);
+                self.bus.write().unwrap().protect_oam();
+                self.update_ppu_mode(PpuMode::OamSearch);
             }
         }
         false
@@ -745,27 +756,27 @@ OBJ disabled : la condition LCDC.1 avant de déclencher le fetch sprite n'est pa
     }
 
     pub fn update_registers(&mut self) {
-        self.lyc = self.bus.read().unwrap().read_byte(LYC_ADDR);
-        self.scy = self.bus.read().unwrap().read_byte(SCY_ADDR);
-        self.scx = self.bus.read().unwrap().read_byte(SCX_ADDR);
-        self.wy = self.bus.read().unwrap().read_byte(WY_ADDR);
-        self.wx = self.bus.read().unwrap().read_byte(WX_ADDR);
+        self.lyc = self.bus.read().unwrap().ppu_read_byte(LYC_ADDR);
+        self.scy = self.bus.read().unwrap().ppu_read_byte(SCY_ADDR);
+        self.scx = self.bus.read().unwrap().ppu_read_byte(SCX_ADDR);
+        self.wy = self.bus.read().unwrap().ppu_read_byte(WY_ADDR);
+        self.wx = self.bus.read().unwrap().ppu_read_byte(WX_ADDR);
 
         // LCDC control the whole PPU's behavior
         self.lcd_control
-            .update_from_byte(self.bus.read().unwrap().read_byte(LCD_CONTROL_ADDR));
+            .update_from_byte(self.bus.read().unwrap().ppu_read_byte(LCD_CONTROL_ADDR));
         
         // STAT is an hybrid register, some bits are controlled by PPU and other by CPU
 
         // Write internal state in memory
         let stat_byte = self.lcd_status.struct_to_byte();
-        self.bus.write().unwrap().write_byte(STAT_ADDR, stat_byte);
+        self.bus.write().unwrap().ppu_write_byte(STAT_ADDR, stat_byte);
 
         // Read state from memory to get the modifications made by CPU
-        let stat_from_mmu = self.bus.read().unwrap().read_byte(STAT_ADDR);
+        let stat_from_mmu = self.bus.read().unwrap().ppu_read_byte(STAT_ADDR);
         self.lcd_status.update_from_byte(stat_from_mmu);
 
         // Current line
-        self.bus.write().unwrap().write_byte(LY_ADDR, self.ly);
+        self.bus.write().unwrap().ppu_write_byte(LY_ADDR, self.ly);
     }
 }

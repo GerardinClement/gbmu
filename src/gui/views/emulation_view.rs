@@ -15,7 +15,10 @@ impl EmulationDevice {
         //println!("update and size image: Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
         let input = self.core_game.capture_input(ctx);
 
-        self.core_game.input_sender.send(input);
+        let res = self.core_game.input_sender.send(input);
+        if let Err(error) = res {
+            println!("{}", error);
+        }
 
         eframe::egui::CentralPanel::default()
             .show(ctx, |ui| {

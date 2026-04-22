@@ -1,10 +1,12 @@
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Timers {
     div: u16,
     tima: u8,
     tma: u8,
     tac: u8,
+    fetching_wait: u8,
     previous_and_result: bool,
+    ticked: usize,
 }
 
 const DIV_ADDR: u16 = 0xFF04;
@@ -15,7 +17,7 @@ const TAC_ADDR: u16 = 0xFF07;
 impl Timers {
     pub fn tick(&mut self) -> bool {
         self.div = self.div.wrapping_add(1);
-        let enabled = (self.tac & 0b100) > 0;
+        let enabled = (self.tac & 0b100) == 0b100;
         let mask = 0b1
             << match self.tac & 0b11 {
                 0b00 => 9,
@@ -28,31 +30,39 @@ impl Timers {
         let kept_bit = (self.div & mask) > 0;
         let and_result = kept_bit && enabled;
 
-        let mut overflowed = false;
-        if self.previous_and_result && !and_result {
-            let result = self.tima.wrapping_add(1);
-            if result == 0 {
+        if self.fetching_wait > 0 {
+            self.fetching_wait -= 1;
+            self.previous_and_result = and_result;
+            if self.fetching_wait == 0 {
                 self.tima = self.tma;
-                overflowed = true
-            } else {
-                self.tima = result;
+                return true;
+            }
+            return false;
+        }
+        if self.previous_and_result && !and_result {
+            self.tima =  self.tima.wrapping_add(1);
+            if self.tima == 0 {
+                self.fetching_wait = 4;
             }
         }
         self.previous_and_result = and_result;
-        overflowed
+        return false;
     }
 
     pub fn write_byte(&mut self, addr: u16, value: u8) {
         match addr {
             DIV_ADDR => self.div = 0,
-            TIMA_ADDR => self.tima = value,
+            TIMA_ADDR => {
+                self.tima = value;
+                self.fetching_wait = 0;
+            }
             TMA_ADDR => self.tma = value,
             TAC_ADDR => self.tac = value,
             _ => unreachable!(),
-        }
+        };
     }
+
     pub fn read_byte(&self, addr: u16) -> u8 {
-        let a_box = Box::new(18);
         match addr {
             DIV_ADDR => (self.div >> 8) as u8,
             TIMA_ADDR => self.tima,

@@ -67,7 +67,6 @@ impl DebugingDevice {
     pub fn debug_view(mut self, ctx: &Context, _frame: &mut eframe::Frame) -> AppState {
         let debuging_data_in = self.update_and_get_debuging_data(ctx);
         let actions_to_perform = display_interface(ctx, _frame, debuging_data_in);
-        println!("{actions_to_perform:?}");
         let next_state = self.execute_changes(actions_to_perform);
         self.switch_state(next_state)
     }
