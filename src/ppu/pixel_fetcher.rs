@@ -36,7 +36,7 @@ pub struct PixelFetcher {
 
 impl PixelFetcher {
     pub fn tick<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, fifo: &PixelFifo, ly: u8, scx: u8, scy: u8, lcd_control: &LcdControl, use_window: bool) -> Option<[Pixel; 8]> {
-        self.dot_counter += 1;
+        self.dot_counter = self.dot_counter.wrapping_add(1);
 
         if self.fetcher_state == FetcherState::PushPixel && fifo.is_empty() {
             let tile: Option<[Pixel; 8]> = self.push_pixel(bus);
@@ -90,8 +90,11 @@ impl PixelFetcher {
     pub fn reset(&mut self) {
         self.fetcher_state = FetcherState::GetTileId;
         self.fetcher_x = 0;
-        self.dot_counter = 0;
         self.use_window = false;
+    }
+
+    pub fn reset_to_state_1(&mut self) {
+        self.fetcher_state = FetcherState::GetTileId;
     }
 
     fn get_tile_id<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, ly: u8, scx: u8, scy: u8, lcd_control: &LcdControl, use_window: bool) -> u8 {
@@ -193,7 +196,7 @@ impl PixelFetcher {
             let color_index = (high_weight_bit << 1) | low_weight_bit;
             let bgp = self.apply_background_palette(bus, color_index);
 
-            let pixel = Pixel::new(bgp, false, color_index);
+            let pixel = Pixel::new_bg(bgp, color_index);
             
             tile_pixels[i as usize] = pixel;
         }
