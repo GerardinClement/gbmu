@@ -107,6 +107,7 @@ impl<T: Mbc> Ppu<T> {
         }
     }
 
+
     pub fn display_vram(&self) {
         for i in 0..0x2000 {
             let byte = self
@@ -120,6 +121,7 @@ impl<T: Mbc> Ppu<T> {
             }
         }
     }
+
 
     pub fn display_tiles_data(&self) {
         println!("Tile Data Area:");
@@ -137,6 +139,7 @@ impl<T: Mbc> Ppu<T> {
             println!();
         }
     }
+
 
     pub fn display_tile_map_area(&self, tile_map_address: u16) {
         println!("Tile Map Area at 0x{tile_map_address:04X}:");
@@ -203,12 +206,14 @@ impl<T: Mbc> Ppu<T> {
         frame
     }
 
+
     fn set_pixel_color(&self, frame: &mut [u8], offset: usize, color: Color) {
         let color_rgb = color.to_rgb();
         frame[offset] = color_rgb[0];
         frame[offset + 1] = color_rgb[1];
         frame[offset + 2] = color_rgb[2];
     }
+
 
     fn get_tile_address(&self, y: usize, x: usize, use_window: bool) -> u16 {
         /*
@@ -243,9 +248,9 @@ impl<T: Mbc> Ppu<T> {
         }
     }
 
+
     fn oam_search(&mut self) {
         // Select max 10 visible sprites on the scanline
-
 
         let height:u8 = if self.lcd_control.is_obj_size_8x16() {
             16
@@ -281,59 +286,6 @@ impl<T: Mbc> Ppu<T> {
         Color::from_index(index)
     }
 
-    // fn render_background(&self) -> Vec<Pixel> {
-    //     /*
-    //         Generate one complete scanline (160 pixels) by applying:
-    //             - scroll (SCX/SCY)
-    //             - window (WX/WY)
-    //             - wrapping (256x256)
-    //      */
-
-    //     let mut pixels = Vec::new();
-    //     let ly = self.ly as usize; // line to render
-    //     let default_color = self.apply_background_palette(0);
-
-    //     for x in 0..WIN_SIZE_X {
-    //         // If BG is disabled, color 0 everywhere
-    //         if !self.lcd_control.is_bg_window_enabled() {
-    //             pixels.push(Pixel::new_bg(default_color, 0));
-    //             continue;
-    //         }
-
-    //         // Hardware condition to enable the window
-    //         // WX is shifted by 7 pixels
-    //         let use_window = self.lcd_control.is_window_enabled()
-    //             && (ly >= self.wy as usize)
-    //             && (x + 7 >= self.wx as usize);
-
-    //         let (bg_x, bg_y) = if use_window {
-    //             let win_x = x + 7 - self.wx as usize;
-    //             let win_y = self.wly as usize;
-    //             (win_x % 256, win_y % 256)
-    //         } else {
-    //             // coordinates with scrool (wrap 256)
-    //             (
-    //                 (x + self.scx as usize) % 256,
-    //                 (ly + self.scy as usize) % 256,
-    //             )
-    //         };
-
-    //         let tile_x = bg_x / 8;
-    //         let tile_y = bg_y / 8;
-    //         let tile_address = self.get_tile_address(tile_y, tile_x, use_window);
-    //         let tile = self.read_tile_data(tile_address);
-    //         let pixel_x = bg_x % 8;
-    //         let pixel_y = bg_y % 8;
-
-    //         let color_index = self.get_pixel_color_index(tile, pixel_x, pixel_y);
-    //         let color = self.apply_background_palette(color_index);
-    //         let pixel = Pixel::new_bg(color, color_index);
-            
-    //         pixels.push(pixel);
-    //     }
-
-    //     pixels
-    // }
 
     fn extract_attributes(&self, attributes: u8) -> (bool, bool, bool, bool) {
         (
@@ -352,23 +304,6 @@ impl<T: Mbc> Ppu<T> {
         self.read_tile_data(tile_address)
     }
 
-    fn get_right_pixel(&self, color_index: u8, color: Color, priority: bool) -> Option<Color> {
-        // Deal with sprite/background priority
-        //TODO tmp function to handle the transition between scanline rendering and FIFO.
-        // right now only fifo background is implemented. In order to keep render_sprites working
-        // we need to keep and adapt this function.
-
-        // if old_pixel.get_is_sprite() {
-        //     return None
-        // }
-
-        if priority && color_index != 0 {
-            return None
-        }
-
-        // Some(Pixel::new(color, true, color_index))
-        Some(color)
-    }
 
     fn apply_sprite_palette(&self, color_index: u8, palette_attribute: bool) -> Color {
         let palette_addr = if palette_attribute { OBP1_ADDR } else { OBP0_ADDR };
@@ -397,72 +332,15 @@ impl<T: Mbc> Ppu<T> {
         sprites.into_iter().map(| (_, s) | s).collect()
     }
 
-    // fn render_sprites(&self, image: &mut Arc<Mutex<Vec<u8>>>) {
-    //     /*
-    //         TODO Transition modification until the FIFO OBJ is implemented. Right now the modifications
-    //         should make the function works while we test the FIFO background
-
-    //         Apply sprites above background
-    //         respect:
-    //             - priority
-    //             - flip X/Y
-    //             - palettes
-    //             - transparency
-    //     */
-
-    //     let height: u8 = if self.lcd_control.is_obj_size_8x16() { 16 } else { 8 };
-
-    //     // sort by X then OAM order (hardware behavior)
-    //     let sorted_sprites = self.sort_sprites_by_x();
-
-    //     for sprite in sorted_sprites {
-    //         if !self.lcd_control.is_obj_enabled() {
-    //             continue;
-    //         }
-
-    //         let (priority, y_flip, x_flip, palette_attribute) = self.extract_attributes(sprite.attributes);
-
-    //         // sprite coordinates are shifted: Y - 16, X - 8
-    //         let sprite_top: i16 = sprite.y as i16 - 16;
-    //         let sprite_line = (self.ly as i16 - sprite_top) as usize;
-
-    //         let actual_sprite_line = if y_flip { (height as usize - 1) - sprite_line } else { sprite_line };
-    //         let tile = self.get_sprite_tile(height, sprite, actual_sprite_line);
-
-    //         for pixel_x in 0..8 {
-    //             let screen_x = (sprite.x - 8 + pixel_x) as i16;
-                    
-    //             if !(0..160).contains(&screen_x) {
-    //                 continue;
-    //             }
-
-    //             let actual_pixel_x = if x_flip { 7 - pixel_x } else { pixel_x };
-    //             let color_index = self.get_pixel_color_index(tile, actual_pixel_x as usize, actual_sprite_line % 8); // % 8 to handle 8x16
-
-    //             // 0 = transparency for sprites 
-    //             if color_index == 0 { continue; }
-                    
-    //             let color = self.apply_sprite_palette(color_index, palette_attribute);
-
-    //             if let Some(new_pixel) = self.get_right_pixel(self.bg_color_indices[screen_x as usize], color, priority) {
-    //                 let offset = (self.ly as usize * WIN_SIZE_X + screen_x as usize) * 3;
-    //                 let mut frame = image.lock().unwrap();
-
-    //                 self.set_pixel_color(&mut frame, offset, new_pixel);
-    //             }
-    //         }
-    //     }
-    // }
-
 
     fn mode_oam_search(&mut self) -> bool {
         if self.dots >= OAM_DOTS {
             self.visible_sprites = [None; 10];
             self.oam_search();
 
-
             self.lcd_status.update_ppu_mode(PpuMode::PixelTransfer);
         }
+
         false
     }
 
@@ -547,7 +425,6 @@ impl<T: Mbc> Ppu<T> {
 
 
     fn step_oam_fetcher(&mut self) {
-
         let height:u8 = if self.lcd_control.is_obj_size_8x16() {
             16
         } else {
@@ -612,13 +489,7 @@ impl<T: Mbc> Ppu<T> {
     }
 
 
-/*
-V Premier fetch BG resetté : "The first time the background fetcher completes step 3 on a scanline the status is fully reset and operation restarts at Step 1" — tu ne gères pas ce cas particulier du premier fetch.
-V WY condition : "The condition WY = LY has been true at any point in the currently rendered frame" — tu vérifies ly >= wy mais pas si cette condition a déjà été vraie pendant la frame courante.
-V OBJ disabled : la condition LCDC.1 avant de déclencher le fetch sprite n'est pas vérifiée dans step_oam_fetcher.
-*/
     fn mode_pixel_transfer(&mut self, image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
-
         if self.ly < WIN_SIZE_Y as u8 {
             // let mut pixels = self.render_background();
             let use_window = self.lcd_control.is_window_enabled()
@@ -650,15 +521,12 @@ V OBJ disabled : la condition LCDC.1 avant de déclencher le fetch sprite n'est 
 
         if self.dots >= SCANLINE_DOTS {
             self.dots -= SCANLINE_DOTS;
-
-            if self.wy == self.ly { self.wy_equal_ly_condition_met = true; }
-
             if self.lcd_control.is_window_enabled()
                 && self.ly >= self.wy
                 && self.wx <= 166 {
                 self.wly += 1;
             }
-            
+
             self.ly += 1;
             self.check_lyc_equals_ly();
 
@@ -696,7 +564,6 @@ V OBJ disabled : la condition LCDC.1 avant de déclencher le fetch sprite n'est 
                 self.check_lyc_equals_ly();
 
                 self.wly = 0;
-
                 // TODO proper reset function
                 self.x = 0;
                 self.bg_fifo.clear();
@@ -716,6 +583,8 @@ V OBJ disabled : la condition LCDC.1 avant de déclencher le fetch sprite n'est 
     pub fn tick(&mut self, cycles: u32,  image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
         self.update_registers();
         self.dots += cycles;
+
+        if self.wy == self.ly { self.wy_equal_ly_condition_met = true; }
 
         match self.lcd_status.get_ppu_mode() {
             PpuMode::OamSearch => self.mode_oam_search(),
