@@ -17,6 +17,7 @@ WaitVBlank:
 	cp 144
 	jr c, WaitVBlank
 
+InitCopy:
 	; Turn the LCD off
 	ld a, 0
 	ld [rLCDC], a
