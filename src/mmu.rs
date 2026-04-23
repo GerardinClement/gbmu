@@ -172,6 +172,10 @@ impl<T: Mbc> Mmu<T> {
     pub fn get_oam(&self) -> &Oam {
         &self.oam
     }
+
+    pub fn get_boot_enable(&self) -> bool {
+        self.boot_enable
+    }
 }
 
 impl<T: Mbc> Default for Mmu<T> {
