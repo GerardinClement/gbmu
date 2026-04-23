@@ -24,22 +24,29 @@ pub struct GameApp<T: Mbc> {
 }
 
 impl<T: Mbc> GameApp<T> {
+    pub fn simulate_boot_rom_effect(&mut self) {
+        self.gameboy.simulate_boot_rom_effect()
+    }
+
     pub fn new(
         rom: Vec<u8>,
         receiver: Receiver<DebugCommandQueries>,
         sender: Sender<DebugResponse>,
         global_bool: Arc<AtomicBool>,
         image_to_change: Arc<Mutex<Vec<u8>>>,
+        boot_with_nintendo: bool,
     ) -> Result<Self, String> {
-        let boot_bytes = std::fs::read("boot-roms/dmg.bin").expect("cannot read boot rom");
-        assert!(boot_bytes.len() == 0x100, "boot rom must be 256 bytes");
+        let boot_rom = if boot_with_nintendo {
+            let boot_bytes = std::fs::read("boot-roms/dmg.bin").expect("cannot read boot rom");
+            assert!(boot_bytes.len() == 0x100, "boot rom must be 256 bytes");
 
-        let mut boot_rom = [0u8; 0x0100];
-        boot_rom.copy_from_slice(&boot_bytes);
+            let mut boot_rom = [0u8; 0x0100];
+            boot_rom.copy_from_slice(&boot_bytes);
+            Some(boot_rom)
+        } else { None };
 
 
         let gameboy = GameBoy::<T>::new(rom, boot_rom, image_to_change.clone())?;
-        println!("{}", gameboy.cpu);
         Ok(Self {
             gameboy,
             debug_receiver: receiver,
