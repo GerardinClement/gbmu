@@ -193,10 +193,10 @@ async fn launch_game(
     let rom_data: Vec<u8> = read_rom(rom_path);
     let code = rom_data[0x0147];
     let mut app = match code {
-            0x00 | 0x08 | 0x09 => Ok(AnyGameApp::OnlyRom(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change,)?)),
-            0x01 | 0x02 | 0x03 => Ok(AnyGameApp::Mbc1(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change,)?)),
-            0x05 | 0x06 => Ok(AnyGameApp::Mbc2(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change)?)),
-            0x0F | 0x10 | 0x11 | 0x12 | 0x13 => Ok(AnyGameApp::Mbc3(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change)?)),
+            0x00 | 0x08 | 0x09 => Ok(AnyGameApp::OnlyRom(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change, boot_rom)?)),
+            0x01 | 0x02 | 0x03 => Ok(AnyGameApp::Mbc1(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change, boot_rom)?)),
+            0x05 | 0x06 => Ok(AnyGameApp::Mbc2(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change, boot_rom)?)),
+            0x0F | 0x10 | 0x11 | 0x12 | 0x13 => Ok(AnyGameApp::Mbc3(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change, boot_rom)?)),
         /*
             0x0B | 0x0C | 0x0D => Ok(todo!()), // MMM01 pas dans le sujet
             0x19 | 0x1A | 0x1B | 0x1C | 0x1D | 0x1E => Ok(todo!()), // Mbc5
