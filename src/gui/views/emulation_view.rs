@@ -1,5 +1,5 @@
 use crate::gui::{
-        AppState, CoreGameDevice, DebuggingDevice, EmulationDevice, SelectionDevice, WatchedAdresses
+        AppState, CoreGameDevice, CoreGameOptions, DebuggingDevice, EmulationAppOptions, EmulationDevice, SelectionDevice, WatchedAdresses
     };
 use eframe::egui::{Context};
 
@@ -59,8 +59,12 @@ impl From<EmulationDevice> for DebuggingDevice {
 
 impl From<SelectionDevice> for EmulationDevice {
     fn from(original: SelectionDevice) -> Self {
-        let path = original.path;
-        let core_game = CoreGameDevice::new(path);
+        let rom_path = original.path;
+        let options = CoreGameOptions {
+            rom_path,
+            boot_rom: true,
+        };
+        let core_game = CoreGameDevice::new(options);
         EmulationDevice { core_game }
     }
 }

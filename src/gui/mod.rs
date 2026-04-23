@@ -6,9 +6,7 @@ mod common;
 mod views;
 
 use crate::mmu::mbc::{Mbc1, Mbc2, Mbc3, RomOnly};
-use crate::{
-    ppu,
-};
+use crate::ppu;
 use eframe::egui::{Key, TextureHandle};
 use eframe::egui::{load::SizedTexture, vec2, ColorImage, Context, TextureOptions};
 use std::collections::HashSet;
@@ -46,6 +44,45 @@ impl eframe::App for GraphicalApp {
         let duration = debut.elapsed();
         //println!("egui : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
         ctx.request_repaint();
+    }
+}
+
+pub struct EmulationAppOptions {
+    rom_path: String,
+    boot_rom: bool,
+}
+
+pub struct CoreGameOptions {
+    rom_path: String,
+    boot_rom: bool,
+}
+
+impl From<EmulationAppOptions> for CoreGameOptions {
+    fn from(value: EmulationAppOptions) -> Self {
+        Self {
+            rom_path: value.rom_path,
+            boot_rom: value.boot_rom,
+        }
+    }
+}
+
+impl EmulationAppOptions {
+    pub fn new(rom_path: String, boot_rom: bool) -> Self{
+        Self {
+            rom_path, boot_rom
+        }
+    }
+}
+
+impl GraphicalApp {
+    pub fn create_emulation_app(options: EmulationAppOptions) -> Self {
+        Self {
+            app_state: AppState::EmulationHub(
+                EmulationDevice {
+                    core_game: CoreGameDevice::new(options.into())
+                }
+            )
+        }
     }
 }
 
@@ -129,7 +166,15 @@ impl AnyGameApp {
             AnyGameApp::Mbc1(g)=> g.update(keys_down),
             AnyGameApp::Mbc2(g)=> g.update(keys_down),
             AnyGameApp::Mbc3(g)=> g.update(keys_down),
+        }
+    }
 
+    pub fn simulate_boot_rom_effect(&mut self) {
+        match self {
+            AnyGameApp::OnlyRom(g) => g.simulate_boot_rom_effect(),
+            AnyGameApp::Mbc1(g)=> g.simulate_boot_rom_effect(),
+            AnyGameApp::Mbc2(g)=> g.simulate_boot_rom_effect(),
+            AnyGameApp::Mbc3(g)=> g.simulate_boot_rom_effect(),
         }
     }
 }
@@ -137,6 +182,7 @@ impl AnyGameApp {
 
 async fn launch_game(
     rom_path: String,
+    boot_rom: bool,
     mut input_receiver: Receiver<KeyInput>,
     updated_image_boolean: Arc<AtomicBool>,
     command_query_receiver: Receiver<DebugCommandQueries>,
@@ -160,6 +206,10 @@ async fn launch_game(
             _ => Err("Unmanaged cartridge type")
 
     }?;
+
+    if !boot_rom {
+        app.simulate_boot_rom_effect()
+    }
 
     let input = KeyInput::default();
 
@@ -270,7 +320,7 @@ impl CoreGameDevice {
 
     }
 
-    fn new(path: String) -> Self {
+    fn new(options: CoreGameOptions) -> Self {
         let (input_sender, input_receiver) = channel::<KeyInput>(1);
         let updated_image_boolean = Arc::new(AtomicBool::new(false));
         let (command_query_sender, command_query_receiver) = channel::<DebugCommandQueries>(1);
@@ -283,7 +333,8 @@ impl CoreGameDevice {
             command_query_sender,
             debug_response_receiver,
             handler: tokio::spawn(launch_game(
-                path,
+                options.rom_path,
+                options.boot_rom,
                 input_receiver,
                 updated_image_boolean.clone(),
                 command_query_receiver,
