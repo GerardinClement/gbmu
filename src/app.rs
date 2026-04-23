@@ -24,6 +24,10 @@ pub struct GameApp<T: Mbc> {
 }
 
 impl<T: Mbc> GameApp<T> {
+    pub fn simulate_boot_rom_effect(&mut self) {
+        println!("Simulating boot sequence");
+    }
+
     pub fn new(
         rom: Vec<u8>,
         receiver: Receiver<DebugCommandQueries>,
