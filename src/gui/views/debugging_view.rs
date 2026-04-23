@@ -1,14 +1,14 @@
 mod display;
 
 use crate::debugger::debbuger;
-use crate::gui::{AppState, DebugingDevice, WatchedAdresses};
+use crate::gui::{AppState, DebuggingDevice, WatchedAdresses};
 
 use eframe::egui::load::SizedTexture;
 use eframe::egui::Context;
 
 use display::display_interface;
 
-struct DebugingDataIn<'a> {
+struct DebuggingDataIn<'a> {
     is_step: bool,
     watched_address: &'a WatchedAdresses,
     registers: &'a (u8, u8, u8, u8, u8, u8, u8, u16, u16),
@@ -20,7 +20,7 @@ struct DebugingDataIn<'a> {
 }
 
 #[derive(Debug)]
-struct DebugingDataOut {
+struct DebuggingDataOut {
     close_btn_clicked: bool,
     step_clicked: bool,
     step_mode_clicked: bool,
@@ -33,11 +33,11 @@ struct DebugingDataOut {
 
 enum OutState {
     Emulating,
-    Debuging,
+    Debugging,
 }
 
-impl DebugingDevice {
-    fn execute_changes(&mut self, data: DebugingDataOut) -> OutState {
+impl DebuggingDevice {
+    fn execute_changes(&mut self, data: DebuggingDataOut) -> OutState {
         if data.close_btn_clicked {
             return OutState::Emulating;
         }
@@ -61,18 +61,18 @@ impl DebugingDevice {
 
         self.hex_string = data.hex_string;
         if let Ok(result) = u16::from_str_radix(self.hex_string.as_ref(), 16) {}
-        OutState::Debuging
+        OutState::Debugging
     }
 
     pub fn debug_view(mut self, ctx: &Context, _frame: &mut eframe::Frame) -> AppState {
-        let debuging_data_in = self.update_and_get_debuging_data(ctx);
-        let actions_to_perform = display_interface(ctx, _frame, debuging_data_in);
+        let debugging_data_in = self.update_and_get_debugging_data(ctx);
+        let actions_to_perform = display_interface(ctx, _frame, debugging_data_in);
         println!("{actions_to_perform:?}");
         let next_state = self.execute_changes(actions_to_perform);
         self.switch_state(next_state)
     }
 
-    fn update_and_get_debuging_data(&mut self, ctx: &Context) -> DebugingDataIn<'_> {
+    fn update_and_get_debugging_data(&mut self, ctx: &Context) -> DebuggingDataIn<'_> {
         self.core_game.update_and_size_image(ctx);
         debbuger::update_info_struct(self);
 
@@ -81,7 +81,7 @@ impl DebugingDevice {
         } else {
             None
         };
-        DebugingDataIn {
+        DebuggingDataIn {
             is_step: self.is_step,
             sized_texture: self.core_game.sized_image,
             watched_address: &self.watched_adress,
@@ -95,7 +95,7 @@ impl DebugingDevice {
 
     fn switch_state(self, next_state: OutState) -> AppState {
         match next_state {
-            OutState::Debuging => AppState::DebugingHub(self),
+            OutState::Debugging => AppState::DebuggingHub(self),
             OutState::Emulating => AppState::EmulationHub(self.into()),
         }
     }

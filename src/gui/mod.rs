@@ -40,7 +40,7 @@ impl eframe::App for GraphicalApp {
             AppState::StartingHub(device) => device.starting_view(ctx, _frame),
             AppState::SelectionHub(device) => device.selection_view(ctx, _frame),
             AppState::EmulationHub(device) => device.emulation_view(ctx, _frame),
-            AppState::DebugingHub(device) => device.debug_view(ctx, _frame),
+            AppState::DebuggingHub(device) => device.debug_view(ctx, _frame),
             AppState::Default => unreachable!(),
         };
         let duration = debut.elapsed();
@@ -96,7 +96,7 @@ pub enum AppState {
     StartingHub(StartingHubDevice),
     SelectionHub(SelectionDevice),
     EmulationHub(EmulationDevice),
-    DebugingHub(DebugingDevice),
+    DebuggingHub(DebuggingDevice),
     Default,
 }
 
@@ -321,7 +321,7 @@ pub struct EmulationDevice {
     pub core_game: CoreGameDevice,
 }
 
-pub struct DebugingDevice {
+pub struct DebuggingDevice {
     pub core_game: CoreGameDevice,
     /*
     Info stored for the GUI to use them;

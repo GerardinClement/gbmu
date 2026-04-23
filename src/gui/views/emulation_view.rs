@@ -1,5 +1,5 @@
 use crate::gui::{
-        AppState, CoreGameDevice, DebugingDevice, EmulationDevice, SelectionDevice, WatchedAdresses
+        AppState, CoreGameDevice, DebuggingDevice, EmulationDevice, SelectionDevice, WatchedAdresses
     };
 use eframe::egui::{Context};
 
@@ -26,7 +26,7 @@ impl EmulationDevice {
                     ui.add_space(10.0);
                 });
                 if ui.button("🐛 Open Debug Panel").clicked() {
-                    AppState::DebugingHub(self.into())
+                    AppState::DebuggingHub(self.into())
                 } else {
                     AppState::EmulationHub(self)
                 }
@@ -35,7 +35,7 @@ impl EmulationDevice {
     }
 }
 
-impl From<EmulationDevice> for DebugingDevice {
+impl From<EmulationDevice> for DebuggingDevice {
     fn from(original: EmulationDevice) -> Self {
         original
             .core_game
@@ -65,8 +65,8 @@ impl From<SelectionDevice> for EmulationDevice {
     }
 }
 
-impl From<DebugingDevice> for EmulationDevice {
-    fn from(original: DebugingDevice) -> Self {
+impl From<DebuggingDevice> for EmulationDevice {
+    fn from(original: DebuggingDevice) -> Self {
         original
             .core_game
             .global_is_debug
