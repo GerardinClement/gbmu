@@ -3,9 +3,9 @@
 
 pub mod debbuger {
 
-    use crate::gui::{DebugCommandQueries, DebugResponse, DebugingDevice};
+    use crate::gui::{DebugCommandQueries, DebugResponse, DebuggingDevice};
 
-    pub fn update_info_struct(game: &mut DebugingDevice) {
+    pub fn update_info_struct(game: &mut DebuggingDevice) {
         let count = 0;
         while let Ok(debug) = game.core_game.debug_response_receiver.try_recv() {
             match debug {
@@ -37,7 +37,7 @@ pub mod debbuger {
         }
     }
 
-    impl DebugingDevice {
+    impl DebuggingDevice {
         pub fn execute_instruction(&self, instr: u8) {
             let _ = self
                 .core_game
