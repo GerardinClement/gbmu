@@ -1,6 +1,3 @@
-#![allow(unused_variables)]
-#![allow(dead_code)]
-
 use crate::cpu::registers::Registers;
 
 #[derive(Debug)]

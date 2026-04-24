@@ -1,5 +1,3 @@
-#![allow(unreachable_code)]
-
 use crate::gameboy::GameBoy;
 use crate::gui::{DebugCommandQueries, DebugResponse, KeyInput, WatchedAdresses};
 use crate::mmu::mbc::Mbc;

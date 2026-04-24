@@ -1,6 +1,3 @@
-#![allow(unused_variables)]
-#![allow(dead_code)]
-
 use crate::cpu::Cpu;
 use crate::cpu::block_prefix;
 use crate::cpu::conditions::Cond;
@@ -8,9 +5,7 @@ use crate::cpu::registers::{R8, R16};
 use crate::cpu::utils;
 use crate::mmu::mbc::Mbc;
 
-const R16STK_MASK: u8 = 0b00110000;
 const TGT3_MASK: u8 = 0b00111000;
-const COND_MASK: u8 = 0b00011000;
 const FIRST_3_BITS_MASK: u8 = 0b11100000;
 const LAST_3_BITS_MASK: u8 = 0b00000111;
 

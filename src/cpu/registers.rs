@@ -1,6 +1,3 @@
-#![allow(unused_variables)]
-#![allow(dead_code)]
-
 use crate::cpu::conditions::Cond;
 use crate::cpu::flags_registers::FlagsRegister;
 use crate::mmu::mbc::Mbc;
@@ -103,10 +100,6 @@ impl Default for Registers {
 }
 
 impl Registers {
-    pub fn get_flags(&self) -> FlagsRegister {
-        self.f.clone()
-    }
-
     pub fn get_flags_u8(&self) -> u8 {
         u8::from(self.f.clone())
     }
@@ -273,6 +266,7 @@ impl Registers {
         self.set_half_carry_flag(false);
     }
 
+    /*
     pub fn shift_left(&mut self, target: R8) {
         let r8 = self.get_r8_value(target);
         let outgoing_bit = (r8 & 0b10000000) >> 7;
@@ -313,6 +307,7 @@ impl Registers {
         self.set_half_carry_flag(false);
         self.set_carry_flag(false);
     }
+    */
 
     pub fn set_zero_flag(&mut self, value: bool) {
         self.f.set_zero(value);
@@ -368,10 +363,6 @@ impl Registers {
 
     pub fn get_h(&self) -> u8 {
         self.r8[R8::H as usize]
-    }
-
-    pub fn get_l(&self) -> u8 {
-        self.r8[R8::L as usize]
     }
 
     pub fn get_af(&self) -> u16 {
