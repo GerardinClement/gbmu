@@ -117,4 +117,15 @@ impl LcdControl {
         self.obj_enable = value & OBJ_ENABLE_MASK != 0;
         self.bg_window_enable = value & BG_WINDOW_ENABLE_MASK != 0;
     }
-}
+
+    pub fn to_byte(&self) -> u8 {
+        self.ppu_enable as u8 * PPU_ENABLE_MASK +
+        self.window_tile_map_area  as u8 * WINDOW_TILE_MAP_MASK +
+        self.window_enable  as u8 * WINDOW_ENABLE_MASK +
+        self.bg_window_tile_data_area  as u8 * BG_WINDOW_TILE_DATA_MASK +
+        self.bg_tile_map_area  as u8 * BG_TILE_MAP_MASK +
+        self.obj_size_8x16  as u8 * OBJ_SIZE_MASK +
+        self.obj_enable as u8 * OBJ_ENABLE_MASK +
+        self.bg_window_enable as u8 * BG_WINDOW_ENABLE_MASK
+    }
+} 
