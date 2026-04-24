@@ -323,21 +323,21 @@ impl<T: Mbc> Ppu<T> {
         self.read_tile_data(tile_address)
     }
 
-    fn get_right_pixel(&self, old_pixel: &Pixel, color: Color, priority: bool) -> Option<Pixel> {
-        // Deal with sprite/background priority
+    // fn get_right_pixel(&self, old_pixel: &Pixel, color: Color, priority: bool) -> Option<Pixel> {
+    //     // Deal with sprite/background priority
 
-        if old_pixel.get_is_sprite() {
-            return None
-        }
+    //     if old_pixel.get_is_sprite() {
+    //         return None
+    //     }
 
-        let color_index = old_pixel.get_color_index();
+    //     let color_index = old_pixel.get_color_index();
 
-        if priority && color_index != 0 {
-            return None
-        }
+    //     if priority && color_index != 0 {
+    //         return None
+    //     }
 
-        Some(Pixel::new(color, true, color_index))
-    }
+    //     Some(Pixel::new(color, true, color_index))
+    // }
 
     fn apply_sprite_palette(&self, color_index: u8, palette_attribute: bool) -> Color {
         let palette_addr = if palette_attribute { OBP1_ADDR } else { OBP0_ADDR };
@@ -366,57 +366,57 @@ impl<T: Mbc> Ppu<T> {
         sprites.into_iter().map(| (_, s) | s).collect()
     }
 
-    fn render_sprites(&self, mut pixels: Vec<Pixel>) -> Vec<Pixel> {
-        /*
-            Apply sprites above background
-            respect:
-                - priority
-                - flip X/Y
-                - palettes
-                - transparency
-        */
+    // fn render_sprites(&self, mut pixels: Vec<Pixel>) -> Vec<Pixel> {
+    //     /*
+    //         Apply sprites above background
+    //         respect:
+    //             - priority
+    //             - flip X/Y
+    //             - palettes
+    //             - transparency
+    //     */
 
-        let height: u8 = if self.lcd_control.is_obj_size_8x16() { 16 } else { 8 };
+    //     let height: u8 = if self.lcd_control.is_obj_size_8x16() { 16 } else { 8 };
 
-        // sort by X then OAM order (hardware behavior)
-        let sorted_sprites = self.sort_sprites_by_x();
+    //     // sort by X then OAM order (hardware behavior)
+    //     let sorted_sprites = self.sort_sprites_by_x();
 
-        for sprite in sorted_sprites {
-            if !self.lcd_control.is_obj_enabled() {
-                continue;
-            }
+    //     for sprite in sorted_sprites {
+    //         if !self.lcd_control.is_obj_enabled() {
+    //             continue;
+    //         }
 
-            let (priority, y_flip, x_flip, palette_attribute) = self.extract_attributes(sprite.attributes);
+    //         let (priority, y_flip, x_flip, palette_attribute) = self.extract_attributes(sprite.attributes);
 
-            // sprite coordinates are shifted: Y - 16, X - 8
-            let sprite_top: i16 = sprite.y as i16 - 16;
-            let sprite_line = (self.ly as i16 - sprite_top) as usize;
+    //         // sprite coordinates are shifted: Y - 16, X - 8
+    //         let sprite_top: i16 = sprite.y as i16 - 16;
+    //         let sprite_line = (self.ly as i16 - sprite_top) as usize;
 
-            let actual_sprite_line = if y_flip { (height as usize - 1) - sprite_line } else { sprite_line };
-            let tile = self.get_sprite_tile(height, sprite, actual_sprite_line);
+    //         let actual_sprite_line = if y_flip { (height as usize - 1) - sprite_line } else { sprite_line };
+    //         let tile = self.get_sprite_tile(height, sprite, actual_sprite_line);
 
-            for pixel_x in 0..8 {
-                let screen_x = (sprite.x - 8 + pixel_x) as i16;
+    //         for pixel_x in 0..8 {
+    //             let screen_x = (sprite.x - 8 + pixel_x) as i16;
                     
-                if !(0..160).contains(&screen_x) {
-                    continue;
-                }
+    //             if !(0..160).contains(&screen_x) {
+    //                 continue;
+    //             }
 
-                let actual_pixel_x = if x_flip { 7 - pixel_x } else { pixel_x };
-                let color_index = self.get_pixel_color_index(tile, actual_pixel_x as usize, actual_sprite_line % 8); // % 8 to handle 8x16
+    //             let actual_pixel_x = if x_flip { 7 - pixel_x } else { pixel_x };
+    //             let color_index = self.get_pixel_color_index(tile, actual_pixel_x as usize, actual_sprite_line % 8); // % 8 to handle 8x16
 
-                // 0 = transparency for sprites 
-                if color_index == 0 { continue; }
+    //             // 0 = transparency for sprites 
+    //             if color_index == 0 { continue; }
                     
-                let color = self.apply_sprite_palette(color_index, palette_attribute);
+    //             let color = self.apply_sprite_palette(color_index, palette_attribute);
 
-                if let Some(new_pixel) = self.get_right_pixel(&pixels[screen_x as usize], color, priority) {
-                    pixels[screen_x as usize] = new_pixel;
-                }
-            }
-        }
-        pixels
-    }
+    //             if let Some(new_pixel) = self.get_right_pixel(&pixels[screen_x as usize], color, priority) {
+    //                 pixels[screen_x as usize] = new_pixel;
+    //             }
+    //         }
+    //     }
+    //     pixels
+    // }
 
 
     fn mode_oam_search(&mut self) -> bool {
@@ -432,7 +432,7 @@ impl<T: Mbc> Ppu<T> {
     fn mode_pixel_transfer(&mut self, image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
         if self.ly < WIN_SIZE_Y as u8 {
             let mut pixels = self.render_background();
-            pixels = self.render_sprites(pixels);
+            // pixels = self.render_sprites(pixels);
 
             {
                 let mut frame = image.lock().unwrap();
@@ -446,6 +446,7 @@ impl<T: Mbc> Ppu<T> {
         }
 
         self.lcd_status.update_ppu_mode(PpuMode::HBlank);
+
         false
     }
 
