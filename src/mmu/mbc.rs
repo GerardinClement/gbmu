@@ -73,6 +73,7 @@ fn map_ram_banks(rom_image: &[u8]) -> Result<Vec<[u8; RAM_BANK_SIZE]>, String> {
 
 impl Mbc for Mbc1 {
     fn new(rom_image: &[u8]) -> Result<Self, String> {
+        println!("Mbc1");
         let banks = map_rom_into_bank(rom_image)?;
         let ram_banks = map_ram_banks(rom_image)?;
         if ram_banks.iter().count() > 4 {
@@ -189,6 +190,7 @@ impl Mbc for Mbc2 {
     }
 
     fn new(rom_image: &[u8]) -> Result<Self, String> where Self: Sized {
+        println!("Mbc2");
         let rom_banks = map_rom_into_bank(rom_image)?;
         Ok(Mbc2{
             rom_banks,
@@ -213,6 +215,7 @@ impl Default for RomOnly {
 
 impl Mbc for RomOnly{
     fn new(rom_image: &[u8]) -> Result<Self, String> {
+        println!("Mbc2");
         let mut bank = [0; ONLY_ROM_SIZE];
         let end = min(ONLY_ROM_SIZE, rom_image.len());
         bank[..end].copy_from_slice(&rom_image[..end]);
@@ -307,6 +310,7 @@ impl Mbc for Mbc3 {
         
     }
     fn new(rom_image: &[u8]) -> Result<Self, String> where Self: Sized {
+        println!("Mbc3");
         let rom_banks = map_rom_into_bank(rom_image)?;
         let ram_banks = map_ram_banks(rom_image)?;
 
@@ -339,6 +343,7 @@ pub struct Mbc5 {
 
 impl Mbc for Mbc5 {
     fn new(rom_image: &[u8]) -> Result<Self, String> where Self: Sized {
+        println!("Mbc5");
         let rom_banks = map_rom_into_bank(rom_image)?;
         let ram_banks = map_ram_banks(rom_image)?;
 
