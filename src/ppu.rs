@@ -582,17 +582,21 @@ impl<T: Mbc> Ppu<T> {
         if !self.lcd_control.is_ppu_enabled() {
             return false;
         }
-
+     
+        self.fetch_data_from_mmu();
         self.dots += cycles;
 
         if self.wy == self.ly { self.wy_equal_ly_condition_met = true; }
 
-        match self.lcd_status.get_ppu_mode() {
+        let was_updated = match self.lcd_status.get_ppu_mode() {
             PpuMode::OamSearch => self.mode_oam_search(),
             PpuMode::PixelTransfer => self.mode_pixel_transfer(image),
             PpuMode::HBlank => self.mode_hblank(),
             PpuMode::VBlank => self.mode_vblank(),
-        }
+        };
+
+        self.write_data_to_mmu();
+        was_updated
     }
 
     fn check_lyc_equals_ly(&mut self) {
@@ -610,28 +614,26 @@ impl<T: Mbc> Ppu<T> {
         }
     }
 
-    pub fn update_registers(&mut self) {
-        self.lyc = self.bus.read().unwrap().read_byte(LYC_ADDR);
-        self.scy = self.bus.read().unwrap().read_byte(SCY_ADDR);
-        self.scx = self.bus.read().unwrap().read_byte(SCX_ADDR);
-        self.wy = self.bus.read().unwrap().read_byte(WY_ADDR);
-        self.wx = self.bus.read().unwrap().read_byte(WX_ADDR);
+    pub fn fetch_data_from_mmu(&mut self) {
+        let bus = self.bus.read().unwrap();
+        self.lcd_control.update_from_byte(bus.read_byte(LCD_CONTROL_ADDR));
+        self.lcd_status.update_from_byte(bus.read_byte(STAT_ADDR));
+        self.scy = bus.read_byte(SCY_ADDR);
+        self.scx = bus.read_byte(SCX_ADDR);
+        self.lyc = bus.read_byte(LYC_ADDR);
+        self.wy = bus.read_byte(WY_ADDR);
+        self.wx = bus.read_byte(WX_ADDR);
+    }
 
-        // LCDC control the whole PPU's behavior
-        self.lcd_control
-            .update_from_byte(self.bus.read().unwrap().read_byte(LCD_CONTROL_ADDR));
-        
-        // STAT is an hybrid register, some bits are controlled by PPU and other by CPU
-
-        // Write internal state in memory
-        let stat_byte = self.lcd_status.struct_to_byte();
-        self.bus.write().unwrap().write_byte(STAT_ADDR, stat_byte);
-
-        // Read state from memory to get the modifications made by CPU
-        let stat_from_mmu = self.bus.read().unwrap().read_byte(STAT_ADDR);
-        self.lcd_status.update_from_byte(stat_from_mmu);
-
-        // Current line
-        self.bus.write().unwrap().write_byte(LY_ADDR, self.ly);
+    pub fn write_data_to_mmu(&mut self) {
+        let mut bus = self.bus.write().unwrap();
+        bus.write_byte(LCD_CONTROL_ADDR, self.lcd_control.to_byte());
+        bus.write_byte(STAT_ADDR, self.lcd_status.struct_to_byte());
+        bus.write_byte(SCY_ADDR, self.scy);
+        bus.write_byte(SCX_ADDR, self.scx);
+        bus.write_byte(LYC_ADDR, self.lyc);
+        bus.write_byte(WY_ADDR, self.wy);
+        bus.write_byte(WX_ADDR, self.wx);
+        bus.write_byte(LY_ADDR, self.ly);
     }
 }
