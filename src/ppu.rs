@@ -501,8 +501,6 @@ impl<T: Mbc> Ppu<T> {
         self.fetch_data_from_mmu();
         self.dots += cycles;
 
-        match self.lcd_status.get_ppu_mode() {
-
         let was_updated = match self.lcd_status.get_ppu_mode() {
             PpuMode::OamSearch => self.mode_oam_search(),
             PpuMode::PixelTransfer => self.mode_pixel_transfer(image),
