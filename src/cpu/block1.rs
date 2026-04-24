@@ -1,14 +1,7 @@
-#![allow(unused_variables)]
-#![allow(dead_code)]
-
 use crate::cpu::Cpu;
 use crate::cpu::registers::R8;
 use crate::cpu::utils;
 use crate::mmu::mbc::Mbc;
-
-const R16_MASK: u8 = 0b00110000;
-const R8_MASK: u8 = 0b00111000;
-const COND_MASK: u8 = 0b00011000;
 
 const INSTRUCTIONS_BLOCK1: [u8; 2] = [
     0b01000000, // LD r8, r8

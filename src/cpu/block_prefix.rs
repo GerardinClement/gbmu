@@ -1,18 +1,12 @@
-#![allow(unused_variables)]
-#![allow(dead_code)]
-
 use crate::cpu::Cpu;
 use crate::cpu::block_prefix;
 use crate::cpu::registers::R8;
 use crate::cpu::utils;
 use crate::mmu::mbc::Mbc;
 
-const R8_MASK: u8 = 0b00000111;
 const B3_MASK: u8 = 0b00111000;
 const MIDDLE_3_BITS_MASK: u8 = 0b00111000;
 const FIRST_2_BITS_MASK: u8 = 0b11000000;
-
-const RST_VEC: [u8; 8] = [0x00, 0x08, 0x10, 0x18, 0x20, 0x28, 0x30, 0x38];
 
 const INSTRUCTIONS_BLOCK_PREFIX1: [u8; 8] = [
     0b00000000, //rlc r8

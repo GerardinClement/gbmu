@@ -121,7 +121,7 @@ fn step_button(ui: &mut Ui) -> bool {
     ui.button("Next Step").clicked()
 }
 
-fn get_registers(ui: &mut Ui, Debugging_data: &DebuggingDataIn) -> bool {
+fn get_registers(ui: &mut Ui, debuging_data: &DebuggingDataIn) -> bool {
     // Button to refresh registers
     let refresh_button_is_clicked = ui
         .horizontal(|ui| ui.button("🔄 Refresh Registers").clicked())
@@ -143,12 +143,12 @@ fn get_registers(ui: &mut Ui, Debugging_data: &DebuggingDataIn) -> bool {
             ui.end_row();
 
             let registers_8bit = [
-                ("A", Debugging_data.registers.0),
-                ("B", Debugging_data.registers.1),
-                ("C", Debugging_data.registers.2),
-                ("D", Debugging_data.registers.3),
-                ("E", Debugging_data.registers.4),
-                ("H", Debugging_data.registers.5),
+                ("A", debuging_data.registers.0),
+                ("B", debuging_data.registers.1),
+                ("C", debuging_data.registers.2),
+                ("D", debuging_data.registers.3),
+                ("E", debuging_data.registers.4),
+                ("H", debuging_data.registers.5),
             ];
 
             for (name, value) in registers_8bit.iter() {
@@ -179,9 +179,9 @@ fn get_registers(ui: &mut Ui, Debugging_data: &DebuggingDataIn) -> bool {
 
             // 16-bit registers
             let registers_16bit = [
-                ("L", Debugging_data.registers.6 as u16),
-                ("HL", Debugging_data.registers.7),
-                ("SP", Debugging_data.registers.8),
+                ("L", debuging_data.registers.6 as u16),
+                ("HL", debuging_data.registers.7),
+                ("SP", debuging_data.registers.8),
             ];
 
             for (name, value) in registers_16bit.iter() {

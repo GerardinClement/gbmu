@@ -1,6 +1,3 @@
-#![allow(unused_variables)]
-#![allow(dead_code)]
-
 use crate::cpu::Cpu;
 use crate::cpu::conditions::Cond;
 use crate::cpu::registers::{R8, R16, R16Mem};

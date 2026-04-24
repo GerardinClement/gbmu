@@ -1,9 +1,6 @@
-#![allow(unreachable_code)]
-
 use crate::gameboy::GameBoy;
 use crate::gui::{DebugCommandQueries, DebugResponse, KeyInput, WatchedAdresses};
 use crate::mmu::mbc::Mbc;
-use crate::ppu;
 use std::sync::Mutex;
 use std::sync::{
     Arc,
@@ -20,7 +17,6 @@ pub struct GameApp<T: Mbc> {
     nb_next_intruction: u8,
     is_sending_registers: bool,
     watched_adress: WatchedAdresses,
-    image_to_change: Arc<Mutex<Vec<u8>>>,
 }
 
 impl<T: Mbc> GameApp<T> {
@@ -58,7 +54,6 @@ impl<T: Mbc> GameApp<T> {
             watched_adress: WatchedAdresses {
                 addresses_n_values: Vec::new(),
             },
-            image_to_change,
         })
     }
 
@@ -182,14 +177,5 @@ impl<T: Mbc> GameApp<T> {
         } else {
             self.gameboy.run_frame(keys_down)
         }
-    }
-
-    fn rgb_to_rgba(rgb_frame: &[u8]) -> Vec<u8> {
-        let mut rgba_frame = Vec::with_capacity(ppu::WIN_SIZE_X * ppu::WIN_SIZE_Y * 4);
-        for chunk in rgb_frame.chunks(3) {
-            rgba_frame.extend_from_slice(chunk);
-            rgba_frame.push(255);
-        }
-        rgba_frame
     }
 }

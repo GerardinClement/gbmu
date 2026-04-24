@@ -1,21 +1,15 @@
-#![allow(unused_variables)]
-#![allow(dead_code)]
-
 use std::sync::{Arc, RwLock};
 
 use std::sync::Mutex;
 
 use crate::cpu::Cpu;
-use crate::cpu::registers::{R8, Registers};
+use crate::cpu::registers::R8;
 use crate::gui::KeyInput;
 use crate::mmu::mbc::Mbc;
 use crate::mmu::Mmu;
 use crate::ppu::Ppu;
 
 const FRAME_CYCLES: u32 = 70224;
-const WIN_SIZE_X: usize = 160; // Window size in X direction
-const WIN_SIZE_Y: usize = 144; // Window size in Y direction
-const VBLANK_SIZE: usize = 10; // VBlank size in lines
 
 pub struct GameBoy<T: Mbc> {
     pub cpu: Cpu<T>,
@@ -94,10 +88,13 @@ impl<T: Mbc>  GameBoy<T> {
         bus.write_byte(0xFFFF, 0x00);
     }
 
-    pub fn run_frame(&mut self, key_input: &KeyInput) -> bool {
+    pub fn run_frame(&mut self, _key_input: &KeyInput) -> bool {
         let mut cycles_elapsed = 0;
 
         while cycles_elapsed < FRAME_CYCLES {
+
+            // TODO : use key input and update it on tick timers
+
             // 1. Tick Timers
             self.bus.write().unwrap().tick_timers();
 

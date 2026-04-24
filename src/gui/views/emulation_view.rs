@@ -1,5 +1,5 @@
 use crate::gui::{
-        AppState, CoreGameDevice, CoreGameOptions, DebuggingDevice, EmulationAppOptions, EmulationDevice, SelectionDevice, WatchedAdresses
+        AppState, CoreGameDevice, CoreGameOptions, DebuggingDevice, EmulationDevice, SelectionDevice, WatchedAdresses
     };
 use eframe::egui::{Context};
 
@@ -12,10 +12,11 @@ impl EmulationDevice {
         let debut = Instant::now();
         self.core_game.update_and_size_image(ctx);
         let duration = debut.elapsed();
-        //println!("update and size image: Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
         let input = self.core_game.capture_input(ctx);
 
-        self.core_game.input_sender.send(input);
+        let _send_return = self.core_game.input_sender.blocking_send(input);
+        
+        // TODO Manage Error
 
         eframe::egui::CentralPanel::default()
             .show(ctx, |ui| {
