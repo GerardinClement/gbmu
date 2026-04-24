@@ -578,6 +578,11 @@ impl<T: Mbc> Ppu<T> {
 
     pub fn tick(&mut self, cycles: u32,  image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
         self.update_registers();
+
+        if !self.lcd_control.is_ppu_enabled() {
+            return false;
+        }
+
         self.dots += cycles;
 
         if self.wy == self.ly { self.wy_equal_ly_condition_met = true; }
