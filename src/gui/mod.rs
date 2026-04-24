@@ -101,6 +101,18 @@ pub struct KeyInput{
     pub right_pushed: bool,
 }
 
+impl Into<bool> for &KeyInput {
+    fn into(self) -> bool {
+        self.a_pushed ||
+        self.b_pushed ||
+        self.select_pushed ||
+        self.start_pushed ||
+        self.up_pushed ||
+        self.down_pushed ||
+        self.left_pushed ||
+        self.right_pushed 
+    }
+}
 
 pub struct KeyMaping{
     pub a: Key,
