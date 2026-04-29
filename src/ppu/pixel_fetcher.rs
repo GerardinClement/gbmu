@@ -124,7 +124,7 @@ impl PixelFetcher {
         } else {
             (
                 ((scx / 8) as usize + self.fetcher_x as usize) & 0x1F, // mask to keep the 5 lowest bits
-                ((ly as usize + scy as usize) / 8) & 0xFF,
+                (((ly as usize + scy as usize) & 0xFF) / 8) as usize,
             )
         };
 
