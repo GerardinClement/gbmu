@@ -8,6 +8,7 @@ use std::sync::Mutex;
 use crate::cpu::Cpu;
 use crate::cpu::registers::{R8, Registers};
 use crate::gui::KeyInput;
+use crate::mmu::interrupt::Interrupt;
 use crate::mmu::mbc::Mbc;
 use crate::mmu::Mmu;
 use crate::ppu::Ppu;
@@ -94,10 +95,45 @@ impl<T: Mbc>  GameBoy<T> {
         bus.write_byte(0xFFFF, 0x00);
     }
 
+    pub fn manage_input(&mut self, key_input: &KeyInput) {
+        if key_input.into() {
+            let mut bus = self.bus.write().unwrap();
+            bus.interrupts_request(Interrupt::Joypad);
+        }
+
+        let bus = self.bus.read().unwrap();
+        let mut p1_joypad = bus.read_byte(0xFF00);
+        drop(bus);
+
+        let (slcted_buttons, slcted_pad) = {
+            (p1_joypad & 0b0010_0000 == 0, p1_joypad & 0b0001_0000 == 0)
+        };
+
+        p1_joypad &= 0b0011_0000;
+        if slcted_pad {
+            if key_input.down_pushed    { p1_joypad &= 0b1111_0111; }
+            if key_input.up_pushed      { p1_joypad &= 0b1111_1011; }
+            if key_input.left_pushed    { p1_joypad &= 0b1111_1101; }
+            if key_input.right_pushed   { p1_joypad &= 0b1111_1110; }
+        }
+
+        if slcted_buttons {
+            if key_input.start_pushed   { p1_joypad &= 0b1111_0111; }
+            if key_input.select_pushed  { p1_joypad &= 0b1111_1011; }
+            if key_input.b_pushed       { p1_joypad &= 0b1111_1101; }
+            if key_input.a_pushed       { p1_joypad &= 0b1111_1110; }
+        }
+        let mut bus = self.bus.write().unwrap();
+        bus.write_byte(0xFF00, p1_joypad);
+    }
+
     pub fn run_frame(&mut self, key_input: &KeyInput) -> bool {
         let mut cycles_elapsed = 0;
 
+
         while cycles_elapsed < FRAME_CYCLES {
+            self.manage_input(key_input);
+
             // 1. Tick Timers
             self.bus.write().unwrap().tick_timers();
 
