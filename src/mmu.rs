@@ -78,13 +78,13 @@ impl<T: Mbc> Mmu<T> {
     pub fn new(rom_image: &[u8]) -> Result<Self, String> {
         
        Ok(Mmu {
-            data: [0; 0x10000],
+            data: [0xFF; 0x10000],
             cart: T::new(rom_image)?,
             interrupts: InterruptController::new(),
             timers: Timers::default(),
             oam: Oam::default(),
             boot_enable: false,
-            boot_rom: [0; 0x0100],
+            boot_rom: [0xFF; 0x0100],
         })
     }
 
