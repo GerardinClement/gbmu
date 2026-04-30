@@ -140,10 +140,11 @@ impl<T: Mbc> Mmu<T> {
             }
             MemoryRegion::Timers => self.timers.write_byte(addr, val),
             MemoryRegion::Io => {
+                // The CPU can only change the bits 4 and 5. The emulator use set_joypad_inputs instead of write.
                 if addr == 0xFF00 {
                     let current_inputs = self.data[0xFF00] & 0x0F;
-                    let selection_bits = val & 0x30;
-                    self.data[0xFF00] = 0xC0 | selection_bits | current_inputs;
+                    let selection_bits = val & 0b0011_0000;
+                    self.data[0xFF00] = 0b1100_0000 | selection_bits | current_inputs;
                 } else {
                     self.data[addr as usize] = val;
                 }
