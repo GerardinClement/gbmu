@@ -114,7 +114,7 @@ impl Into<bool> for &KeyInput {
     }
 }
 
-pub struct KeyMaping{
+pub struct KeyMapping{
     pub a: Key,
     pub b: Key,
     pub select: Key,
@@ -125,9 +125,9 @@ pub struct KeyMaping{
     pub right: Key,
 }
 
-impl Default for KeyMaping {
+impl Default for KeyMapping {
     fn default() -> Self {
-        KeyMaping {
+        KeyMapping {
             a: Key::J,
             b: Key::K,
             select: Key::N,
@@ -274,10 +274,10 @@ pub struct CoreGameDevice {
     pub sized_image: Option<SizedTexture>,
     pub global_is_debug: Arc<AtomicBool>,
     texture_handler: Option<TextureHandle>,
-    key_mapping: KeyMaping,
+    key_mapping: KeyMapping,
 }
 
-impl KeyMaping {
+impl KeyMapping {
     pub fn generate_key_input(&self, keys_down: HashSet<Key>) -> KeyInput {
         KeyInput {
             a_pushed: keys_down.contains(&self.a),
@@ -359,7 +359,7 @@ impl CoreGameDevice {
             actual_image,
             global_is_debug,
             sized_image: None,
-            key_mapping: KeyMaping::default(),
+            key_mapping: KeyMapping::default(),
         }
     }
 }
