@@ -100,8 +100,11 @@ impl<T: Mbc>  GameBoy<T> {
             let mut bus = self.bus.write().unwrap();
             bus.interrupts_request(Interrupt::Joypad);
         }
+
         let bus = self.bus.read().unwrap();
         let mut p1_joypad = bus.read_byte(0xFF00);
+        drop(bus);
+
         let (slcted_buttons, slcted_pad) = {
             (p1_joypad & 0b0010_0000 == 0, p1_joypad & 0b0001_0000 == 0)
         };
