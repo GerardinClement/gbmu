@@ -134,8 +134,8 @@ impl Default for KeyMapping {
             start: Key::M,
             up: Key::W,
             down: Key::S,
-            left: Key::D,
-            right: Key::A,
+            left: Key::A,
+            right: Key::D,
         }
     }
 }
