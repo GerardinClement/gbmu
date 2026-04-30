@@ -134,7 +134,7 @@ impl<T: Mbc>  GameBoy<T> {
         }
 
         let mut bus = self.bus.write().unwrap();
-        bus.write_byte(0xFF00, p1_joypad);
+        bus.set_joypad_inputs( p1_joypad);
     }
 
 

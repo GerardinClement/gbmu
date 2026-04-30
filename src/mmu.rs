@@ -138,8 +138,15 @@ impl<T: Mbc> Mmu<T> {
 
                 self.data[mirror as usize] = val;
             }
-            MemoryRegion::Timers => {
-                self.timers.write_byte(addr, val);
+            MemoryRegion::Timers => self.timers.write_byte(addr, val),
+            MemoryRegion::Io => {
+                if addr == 0xFF00 {
+                    let current_inputs = self.data[0xFF00] & 0x0F;
+                    let selection_bits = val & 0x30;
+                    self.data[0xFF00] = 0xC0 | selection_bits | current_inputs;
+                } else {
+                    self.data[addr as usize] = val;
+                }
             }
             MemoryRegion::Oam => self.oam.write(addr, val),
             MemoryRegion::Unusable => {}
@@ -175,6 +182,10 @@ impl<T: Mbc> Mmu<T> {
 
     pub fn get_boot_enable(&self) -> bool {
         self.boot_enable
+    }
+
+    pub fn set_joypad_inputs(&mut self, stat: u8) {
+        self.data[0xFF00] = (self.data[0xFF00] & 0xF0) | (stat & 0x0F);
     }
 }
 
