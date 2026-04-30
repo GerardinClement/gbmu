@@ -223,7 +223,7 @@ async fn launch_game(
         app.simulate_boot_rom_effect()
     }
 
-    let input = KeyInput::default();
+    let mut input = KeyInput::default();
 
     loop {
         time::sleep(TokioDuration::from_millis(1)).await;
@@ -231,11 +231,12 @@ async fn launch_game(
         // du multitask dans le cpu
         // Cela permet de checker si la tache n'a pas ete annule
 
-
-        if let Ok(input) = input_receiver.try_recv(){
-            let input = input;
+        while let Ok(new_input) = input_receiver.try_recv(){
+            input = new_input;
         }
+
         let buffer_was_updated = app.update(&input);
+
         if buffer_was_updated {
             updated_image_boolean.store(true, Ordering::Relaxed);
         }
