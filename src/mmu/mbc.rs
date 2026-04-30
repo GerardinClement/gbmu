@@ -5,13 +5,13 @@ const ONLY_ROM_SIZE: usize = 0xC000;
 const ROM_BANK_SIZE: usize = 0x4000;
 const RAM_BANK_SIZE: usize = 0x2000;
 
-pub trait Mbc: Default{
+pub trait Mbc {
     fn new(rom_image: &[u8]) -> Result<Self, String> where Self: Sized;
     fn read(&self, addr: u16) -> u8;
     fn write(&mut self, addr: u16, val: u8);
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub  struct Mbc1 {
     banks: Vec<[u8; ROM_BANK_SIZE]>,
     ram_gate_register: bool, // If ramg is set to 0b1010 -> 
@@ -58,6 +58,7 @@ fn map_rom_into_bank(rom_image: &[u8]) -> Result<Vec<[u8; ROM_BANK_SIZE]>, Strin
             data
         }).collect();
     let supposed_rom_bank_size = get_rom_bank_size(rom_image)?;
+    println!("rom banks count {}", banks.len());
     if banks.iter().count() != supposed_rom_bank_size {
         return Err(
             format!("Inconsistent Rom Header : size must be : {}", supposed_rom_bank_size)
@@ -68,11 +69,13 @@ fn map_rom_into_bank(rom_image: &[u8]) -> Result<Vec<[u8; ROM_BANK_SIZE]>, Strin
 
 fn map_ram_banks(rom_image: &[u8]) -> Result<Vec<[u8; RAM_BANK_SIZE]>, String> {
     let supposed_ram_bank_size = get_ram_bank_size(rom_image)?;
+    println!("rom banks count {}", supposed_ram_bank_size);
     Ok(vec![[0u8; RAM_BANK_SIZE]; supposed_ram_bank_size])
 }
 
 impl Mbc for Mbc1 {
     fn new(rom_image: &[u8]) -> Result<Self, String> {
+        println!("rom detected is Mbc1");
         let banks = map_rom_into_bank(rom_image)?;
         let ram_banks = map_ram_banks(rom_image)?;
         if ram_banks.iter().count() > 4 {
@@ -109,6 +112,7 @@ impl Mbc for Mbc1 {
                 ]
             },
             0xA000..0xC000 => {
+                println!("read to ram");
                 if self.ram_gate_register {
                     self.ram_banks[
                         self.mode_register as usize * self.bank_register_2 as usize
@@ -128,8 +132,9 @@ impl Mbc for Mbc1 {
             0x4000..0x6000 => self.bank_register_2 = val & 0b11,
             0x6000..0x8000 => self.mode_register = (val & 0b1) == 0b1,
             0xA000..0xC000 => {
+                println!("write to ram");
                 if self.ram_gate_register {
-                self.ram_banks[
+                    self.ram_banks[
                         self.mode_register as usize * self.bank_register_2 as usize
                     ][addr as usize - 0xA000] = val
                 }
@@ -139,7 +144,6 @@ impl Mbc for Mbc1 {
     }
 }
 
-#[derive(Default)]
 pub struct Mbc2 {
     rom_banks: Vec<[u8; ROM_BANK_SIZE]>,
     ram_gate_register: bool,
@@ -189,6 +193,7 @@ impl Mbc for Mbc2 {
     }
 
     fn new(rom_image: &[u8]) -> Result<Self, String> where Self: Sized {
+        println!("rom detected is Mbc2");
         let rom_banks = map_rom_into_bank(rom_image)?;
         Ok(Mbc2{
             rom_banks,
@@ -203,16 +208,9 @@ pub struct RomOnly {
     bank: [u8; ONLY_ROM_SIZE],
 }
 
-impl Default for RomOnly {
-    fn default() -> Self {
-        RomOnly {
-            bank: [0; ONLY_ROM_SIZE] 
-        }
-    }
-}
-
 impl Mbc for RomOnly{
     fn new(rom_image: &[u8]) -> Result<Self, String> {
+        println!("rom detected is romonly");
         let mut bank = [0; ONLY_ROM_SIZE];
         let end = min(ONLY_ROM_SIZE, rom_image.len());
         bank[..end].copy_from_slice(&rom_image[..end]);
@@ -233,7 +231,6 @@ impl Mbc for RomOnly{
     }
 }
 
-#[derive(Default)]
 pub struct Mbc3 {
     rtc_register: u8,
     ram_timer_enable: bool,
@@ -326,7 +323,6 @@ impl Mbc for Mbc3 {
     }
 }
 
-#[derive(Default)]
 pub struct Mbc5 {
     ram_gate_enable: bool,
     rom_bank_register: u16,
