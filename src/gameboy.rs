@@ -97,44 +97,22 @@ impl<T: Mbc>  GameBoy<T> {
 
 
     pub fn manage_input(&mut self, key_input: &KeyInput) {
-        let old_p1_joypad = {
-            let bus = self.bus.read().unwrap();
-            bus.read_byte(0xFF00)
-        };
 
-        // reset joypad
-        let mut p1_joypad = old_p1_joypad | 0x0F;
+        let mut dpad = 0x0F;
+        if key_input.down_pushed    { dpad &= 0b1111_0111; }
+        if key_input.up_pushed      { dpad &= 0b1111_1011; }
+        if key_input.left_pushed    { dpad &= 0b1111_1101; }
+        if key_input.right_pushed   { dpad &= 0b1111_1110; }
 
-        let (selected_buttons, selected_pad) = {
-            (
-                p1_joypad & 0b0010_0000 == 0,
-                p1_joypad & 0b0001_0000 == 0
-            )
-        }; // Bits 5 and 4
+        let mut buttons = 0x0F;
+        if key_input.start_pushed   { buttons &= 0b1111_0111; }
+        if key_input.select_pushed  { buttons &= 0b1111_1011; }
+        if key_input.b_pushed       { buttons &= 0b1111_1101; }
+        if key_input.a_pushed       { buttons &= 0b1111_1110; }
 
-        if selected_pad {
-            if key_input.down_pushed    { p1_joypad &= 0b1111_0111; }
-            if key_input.up_pushed      { p1_joypad &= 0b1111_1011; }
-            if key_input.left_pushed    { p1_joypad &= 0b1111_1101; }
-            if key_input.right_pushed   { p1_joypad &= 0b1111_1110; }
-        }
-
-        if selected_buttons {
-            if key_input.start_pushed   { p1_joypad &= 0b1111_0111; }
-            if key_input.select_pushed  { p1_joypad &= 0b1111_1011; }
-            if key_input.b_pushed       { p1_joypad &= 0b1111_1101; }
-            if key_input.a_pushed       { p1_joypad &= 0b1111_1110; }
-        }
-
-        let transition_detected = (old_p1_joypad & !p1_joypad) & 0x0F != 0;
-
-        if transition_detected {
-            let mut bus = self.bus.write().unwrap();
-            bus.interrupts_request(Interrupt::Joypad);
-        }
 
         let mut bus = self.bus.write().unwrap();
-        bus.set_joypad_inputs( p1_joypad);
+        bus.update_keys(dpad, buttons);
     }
 
 
