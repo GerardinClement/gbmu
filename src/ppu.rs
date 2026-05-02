@@ -576,7 +576,7 @@ impl<T: Mbc> Ppu<T> {
         false
     }
 
-    pub fn tick(&mut self, cycles: u32,  image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
+    pub fn tick(&mut self, image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
         self.fetch_data_from_mmu();
 
         if !self.lcd_control.is_ppu_enabled() {
@@ -586,7 +586,7 @@ impl<T: Mbc> Ppu<T> {
             return false;
         }
 
-        self.dots += cycles;
+        self.dots += 1;
 
         if self.wy == self.ly { self.wy_equal_ly_condition_met = true; }
 
