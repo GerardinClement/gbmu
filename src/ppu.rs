@@ -596,7 +596,7 @@ impl<T: Mbc> Ppu<T> {
     }
 
     pub fn tick(&mut self, image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
-        self.fetch_data_from_mmu();
+        self.read_lcd_status();
 
         if !self.read_lcdc().is_ppu_enabled() {
             self.ly = 0;
@@ -640,7 +640,7 @@ impl<T: Mbc> Ppu<T> {
         }
     }
 
-    pub fn fetch_data_from_mmu(&mut self) {
+    pub fn read_lcd_status(&mut self) {
         let bus = self.bus.read().unwrap();
         self.lcd_status.update_from_byte(bus.read_byte(STAT_ADDR));
     }
