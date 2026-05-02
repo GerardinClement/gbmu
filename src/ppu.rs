@@ -339,7 +339,7 @@ impl<T: Mbc> Ppu<T> {
             self.oam_search();
 
             self.lcd_status.update_ppu_mode(PpuMode::PixelTransfer);
-            self.write_stat_to_mmu(self.lcd_status.struct_to_byte());
+            self.write_stat_to_mmu();
         }
 
         false
@@ -507,7 +507,7 @@ impl<T: Mbc> Ppu<T> {
         if self.x == 160 {
             // self.render_sprites(image);
             self.lcd_status.update_ppu_mode(PpuMode::HBlank);
-            self.write_stat_to_mmu(self.lcd_status.struct_to_byte());
+            self.write_stat_to_mmu();
         }
 
         false
@@ -526,7 +526,7 @@ impl<T: Mbc> Ppu<T> {
             }
 
             self.ly += 1;
-            self.write_ly_to_mmu(self.ly);
+            self.write_ly_to_mmu();
 
             self.check_lyc_equals_ly();
 
@@ -542,14 +542,14 @@ impl<T: Mbc> Ppu<T> {
 
             if self.ly >= WIN_SIZE_Y as u8 {
                 self.lcd_status.update_ppu_mode(PpuMode::VBlank);
-                self.write_stat_to_mmu(self.lcd_status.struct_to_byte());
+                self.write_stat_to_mmu();
 
                 self.bus.write().unwrap().interrupts_request(Interrupt::VBlank);
 
                 return true;
             } else {
                 self.lcd_status.update_ppu_mode(PpuMode::OamSearch);
-                self.write_stat_to_mmu(self.lcd_status.struct_to_byte());
+                self.write_stat_to_mmu();
             }
         }
         false
@@ -560,13 +560,13 @@ impl<T: Mbc> Ppu<T> {
             self.dots -= SCANLINE_DOTS;
 
             self.ly += 1;
-            self.write_ly_to_mmu(self.ly);
+            self.write_ly_to_mmu();
 
             self.check_lyc_equals_ly();
 
             if self.ly >= WIN_SIZE_Y as u8 + VBLANK_SIZE as u8 {
                 self.ly = 0;
-                self.write_ly_to_mmu(self.ly);
+                self.write_ly_to_mmu();
                
                 self.check_lyc_equals_ly();
 
@@ -582,7 +582,7 @@ impl<T: Mbc> Ppu<T> {
                 self.wy_equal_ly_condition_met = false;
 
                 self.lcd_status.update_ppu_mode(PpuMode::OamSearch);
-                self.write_stat_to_mmu(self.lcd_status.struct_to_byte());
+                self.write_stat_to_mmu();
             }
         }
         false
@@ -593,11 +593,11 @@ impl<T: Mbc> Ppu<T> {
 
         if !self.lcd_control.is_ppu_enabled() {
             self.ly = 0;
-            self.write_ly_to_mmu(self.ly);
+            self.write_ly_to_mmu();
 
             self.dots = 0;
             self.lcd_status.update_ppu_mode(PpuMode::HBlank);
-            self.write_stat_to_mmu(self.lcd_status.struct_to_byte());
+            self.write_stat_to_mmu();
             return false;
         }
 
@@ -624,9 +624,9 @@ impl<T: Mbc> Ppu<T> {
         */
         let lyc_match = self.ly == self.lyc;
         self.lcd_status.set_lyc_equals_ly(lyc_match);
-        self.write_stat_to_mmu(self.lcd_status.struct_to_byte());
+        self.write_stat_to_mmu();
         
-        if lyc_match && self.lcd_status.get_lyc_equals_ly() {
+        if self.lcd_status.get_lyc_equals_ly() {
             self.bus.write().unwrap().interrupts_request(Interrupt::LcdStat);
         }
     }
@@ -643,13 +643,13 @@ impl<T: Mbc> Ppu<T> {
     }
 
 
-    fn write_ly_to_mmu(&mut self, ly: u8) {
+    fn write_ly_to_mmu(&mut self) {
         let mut bus = self.bus.write().unwrap();
-        bus.write_byte(LY_ADDR, ly);
+        bus.write_byte(LY_ADDR, self.ly);
     }
 
-    fn write_stat_to_mmu(&mut self, stat: u8) {
+    fn write_stat_to_mmu(&mut self) {
         let mut bus = self.bus.write().unwrap();
-        bus.write_byte(STAT_ADDR, stat);
+        bus.write_byte(STAT_ADDR, self.lcd_status.struct_to_byte());
     }
 }
