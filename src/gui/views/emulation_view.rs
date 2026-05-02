@@ -1,5 +1,5 @@
 use crate::gui::{
-        AppState, CoreGameDevice, DebugingDevice, EmulationDevice, SelectionDevice, WatchedAdresses
+        AppState, CoreGameDevice, CoreGameOptions, DebuggingDevice, EmulationDevice, SelectionDevice, WatchedAdresses
     };
 use eframe::egui::{Context};
 
@@ -15,9 +15,9 @@ impl EmulationDevice {
         //println!("update and size image: Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
         let input = self.core_game.capture_input(ctx);
 
-        self.core_game.input_sender.send(input);
+        let _ = self.core_game.input_sender.send(input);
 
-        eframe::egui::CentralPanel::default()
+        egui::CentralPanel::default()
             .show(ctx, |ui| {
                 ui.vertical_centered(|ui| {
                     if let Some(texture) = self.core_game.sized_image {
@@ -26,7 +26,7 @@ impl EmulationDevice {
                     ui.add_space(10.0);
                 });
                 if ui.button("🐛 Open Debug Panel").clicked() {
-                    AppState::DebugingHub(self.into())
+                    AppState::DebuggingHub(self.into())
                 } else {
                     AppState::EmulationHub(self)
                 }
@@ -35,7 +35,7 @@ impl EmulationDevice {
     }
 }
 
-impl From<EmulationDevice> for DebugingDevice {
+impl From<EmulationDevice> for DebuggingDevice {
     fn from(original: EmulationDevice) -> Self {
         original
             .core_game
@@ -59,14 +59,18 @@ impl From<EmulationDevice> for DebugingDevice {
 
 impl From<SelectionDevice> for EmulationDevice {
     fn from(original: SelectionDevice) -> Self {
-        let path = original.path;
-        let core_game = CoreGameDevice::new(path);
+        let rom_path = original.path;
+        let options = CoreGameOptions {
+            rom_path,
+            boot_rom: true,
+        };
+        let core_game = CoreGameDevice::new(options);
         EmulationDevice { core_game }
     }
 }
 
-impl From<DebugingDevice> for EmulationDevice {
-    fn from(original: DebugingDevice) -> Self {
+impl From<DebuggingDevice> for EmulationDevice {
+    fn from(original: DebuggingDevice) -> Self {
         original
             .core_game
             .global_is_debug

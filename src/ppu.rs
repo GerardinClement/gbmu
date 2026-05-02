@@ -6,9 +6,14 @@ mod lcd_control;
 mod lcd_status;
 mod pixel;
 mod pixel_fifo;
+mod obj_piso;
+mod pixel_fetcher;
+mod oam_fetcher;
 
 use std::sync::Mutex;
+use std::sync::{Arc, RwLock};
 
+use crate::mmu::mbc::Mbc;
 use crate::mmu::MemoryRegion;
 use crate::mmu::Mmu;
 use crate::mmu::oam::Sprite;
@@ -19,7 +24,9 @@ use crate::ppu::lcd_status::LcdStatus;
 use crate::ppu::lcd_status::PpuMode;
 use crate::ppu::pixel::Pixel;
 use crate::ppu::pixel_fifo::PixelFifo;
-use std::sync::{Arc, RwLock};
+use crate::ppu::obj_piso::ObjPiso;
+use crate::ppu::pixel_fetcher::PixelFetcher;
+use crate::ppu::oam_fetcher::OamFetcher;
 
 pub const WIN_SIZE_X: usize = 160; // Window size in X direction
 pub const WIN_SIZE_Y: usize = 144; // Window size in Y direction
@@ -43,9 +50,9 @@ const PIXEL_TRANSFER_DOTS: u32 = 172; // can change between 172 and 289, to hand
 const HBLANK_DOTS: u32 = 204; // can change between 87 and 204, to handle later
 const SCANLINE_DOTS: u32 = 456; // always 456
 
-#[derive(Default)]
-pub struct Ppu {
-    pub bus: Arc<RwLock<Mmu>>,
+pub struct Ppu<T: Mbc> {
+    pub bus: Arc<RwLock<Mmu<T>>>,
+    pub dots: u32,
     lcd_control: LcdControl,
     lcd_status: LcdStatus, // LCD Status register
     scx: u8,               // Scroll X
@@ -56,15 +63,25 @@ pub struct Ppu {
     ly: u8,
     lyc: u8,
     x: usize,
+    pixel_fetcher: PixelFetcher,
+    oam_fetcher: OamFetcher,
     bg_fifo: PixelFifo, // Background pixel FIFO
+    obj_piso: ObjPiso, // Objects (sprites) PISO
     visible_sprites: [Option<Sprite>; 10],
-    pub dots: u32,
+    pixels_to_discard: u8, // Required in order to prevent the SCX misalignment bug
+    use_window: bool, // Required for BG FIFO in order to know if the window is activated midline
+    wx_at_window_start: u8, // Required to handle the WX hardware glitch
+    is_wx_glitch_happened: bool, // Required to handle the WX hardware glitch
+    fetching_sprite: bool, // pixel fetcher and pixel shifter need to be paused while oam fetcher is called
+    current_sprite_to_fetch: Option<usize>,
+    wy_equal_ly_condition_met: bool,
 }
 
-impl Ppu {
-    pub fn new(bus: Arc<RwLock<Mmu>>) -> Self {
+impl<T: Mbc> Ppu<T> {
+    pub fn new(bus: Arc<RwLock<Mmu<T>>>) -> Self {
         Ppu {
             bus,
+            dots: 0,
             lcd_control: LcdControl::default(),
             lcd_status: LcdStatus::new(),
             scx: 0x00,
@@ -75,11 +92,21 @@ impl Ppu {
             ly: 0x00,
             lyc: 0x00,
             x: 0,
+            pixel_fetcher: PixelFetcher::default(),
+            oam_fetcher: OamFetcher::default(),
             bg_fifo: PixelFifo::default(),
+            obj_piso: ObjPiso::default(),
             visible_sprites: [None; 10],
-            dots: 0,
+            pixels_to_discard: 0,
+            use_window: false,
+            wx_at_window_start: 0x00,
+            is_wx_glitch_happened: false,
+            fetching_sprite: false,
+            current_sprite_to_fetch: None,
+            wy_equal_ly_condition_met: false,
         }
     }
+
 
     pub fn display_vram(&self) {
         for i in 0..0x2000 {
@@ -94,6 +121,7 @@ impl Ppu {
             }
         }
     }
+
 
     pub fn display_tiles_data(&self) {
         println!("Tile Data Area:");
@@ -112,6 +140,7 @@ impl Ppu {
         }
     }
 
+
     pub fn display_tile_map_area(&self, tile_map_address: u16) {
         println!("Tile Map Area at 0x{tile_map_address:04X}:");
         for y in 0..32 {
@@ -128,7 +157,16 @@ impl Ppu {
         }
     }
 
+
     pub fn get_pixel_color_index(&self, tile_data: [u8; 16], x: usize, y: usize) -> u8 {
+        /*
+            Every tile is 8x8 pixels, 2 bits/pixels
+            Every line is 2 bytes:
+                - low weight bit (LSB)
+                - heavy weight bit (MSB)
+            The final pixel is (MSB << 1) | LSB
+        */
+
         let pixel_x = x % 8;
         let pixel_y = y % 8;
 
@@ -140,9 +178,7 @@ impl Ppu {
         let lsb_bit = (lsb_byte >> bit_index) & 1;
         let msb_bit = (msb_byte >> bit_index) & 1;
 
-        let color_index = (msb_bit << 1) | lsb_bit;
-
-        color_index
+        (msb_bit << 1) | lsb_bit
     }
 
     pub fn read_tile_data(&self, tile_address: u16) -> [u8; 16] {
@@ -170,6 +206,7 @@ impl Ppu {
         frame
     }
 
+
     fn set_pixel_color(&self, frame: &mut [u8], offset: usize, color: Color) {
         let color_rgb = color.to_rgb();
         frame[offset] = color_rgb[0];
@@ -177,7 +214,15 @@ impl Ppu {
         frame[offset + 2] = color_rgb[2];
     }
 
+
     fn get_tile_address(&self, y: usize, x: usize, use_window: bool) -> u16 {
+        /*
+            The Game Boy has 2 tilemaps (BG and Windows)
+            and 2 addressing modes for tiles:
+                - 0x8000 (unsigned index)
+                - 0x8800/0x9000 (signed index)
+        */
+
         let tilemap_base: std::ops::Range<u16> = if use_window {
             self.lcd_control.window_tile_map_area()
         } else {
@@ -191,7 +236,9 @@ impl Ppu {
             .unwrap()
             .read_byte(tilemap_base.start + offset);
         match self.lcd_control.bg_window_tile_data_area() {
+            // Unsigned mode: simple multiplication
             lcd_control::TILE_DATA_1 => 0x8000 + (tile_number as u16) * 16,
+            // Signed mode: tile_number is interpreted as i8 ([-128;127]), base = 0x9000
             lcd_control::TILE_DATA_0 => {
                 let base = 0x9000u16;
                 let offset = (tile_number as i8) as i16 * 16;
@@ -201,7 +248,10 @@ impl Ppu {
         }
     }
 
+
     fn oam_search(&mut self) {
+        // Select max 10 visible sprites on the scanline
+
         let height:u8 = if self.lcd_control.is_obj_size_8x16() {
             16
         } else {
@@ -210,9 +260,16 @@ impl Ppu {
         let mmu = self.bus.read().unwrap();
         let oam  = mmu.get_oam();
         let mut i: usize = 0;
-        for sprite in &oam.sprites {
+        for (oam_index, sprite) in oam.sprites.iter().enumerate() {
             if sprite.is_visible(self.ly, height) {
-                self.visible_sprites[i] = Some(*sprite);
+
+                let mut s = *sprite;
+
+                s.oam_index = oam_index as u8;
+
+
+                self.visible_sprites[i] = Some(s);
+
                 i += 1;
                 if i >= 10 {
                     break;
@@ -229,48 +286,6 @@ impl Ppu {
         Color::from_index(index)
     }
 
-    fn render_background(&self) -> Vec<Pixel> {
-        let mut pixels = Vec::new();
-        let ly = self.ly as usize; // line to render
-        let default_color = self.apply_background_palette(0);
-
-        for x in 0..WIN_SIZE_X {
-            if !self.lcd_control.is_bg_window_enabled() {
-                pixels.push(Pixel::new(default_color, false, 0));
-                continue;
-            }
-
-            let use_window = self.lcd_control.is_window_enabled()
-                && (ly >= self.wy as usize)
-                && (x + 7 >= self.wx as usize);
-
-            let (bg_x, bg_y) = if use_window {
-                let win_x = x + 7 - self.wx as usize;
-                let win_y = self.wly as usize;
-                (win_x % 256, win_y % 256)
-            } else {
-                (
-                    (x + self.scx as usize) % 256,
-                    (ly + self.scy as usize) % 256,
-                )
-            };
-
-            let tile_x = bg_x / 8;
-            let tile_y = bg_y / 8;
-            let tile_address = self.get_tile_address(tile_y, tile_x, use_window);
-            let tile = self.read_tile_data(tile_address);
-            let pixel_x = bg_x % 8;
-            let pixel_y = bg_y % 8;
-
-            let color_index = self.get_pixel_color_index(tile, pixel_x, pixel_y);
-            let color = self.apply_background_palette(color_index);
-            let pixel = Pixel::new(color, false, color_index);
-            
-            pixels.push(pixel);
-        }
-
-        pixels
-    }
 
     fn extract_attributes(&self, attributes: u8) -> (bool, bool, bool, bool) {
         (
@@ -289,19 +304,6 @@ impl Ppu {
         self.read_tile_data(tile_address)
     }
 
-    fn get_right_pixel(&self, old_pixel: &Pixel, color: Color, priority: bool) -> Option<Pixel> {
-        if old_pixel.get_is_sprite() {
-            return None
-        }
-
-        let color_index = old_pixel.get_color_index();
-
-        if priority && color_index != 0 {
-            return None
-        }
-
-        Some(Pixel::new(color, true, color_index))
-    }
 
     fn apply_sprite_palette(&self, color_index: u8, palette_attribute: bool) -> Color {
         let palette_addr = if palette_attribute { OBP1_ADDR } else { OBP0_ADDR };
@@ -330,45 +332,6 @@ impl Ppu {
         sprites.into_iter().map(| (_, s) | s).collect()
     }
 
-    fn render_sprites(&self, mut pixels: Vec<Pixel>) -> Vec<Pixel> {
-        let height: u8 = if self.lcd_control.is_obj_size_8x16() { 16 } else { 8 };
-
-        let sorted_sprites = self.sort_sprites_by_x();
-       for sprite in sorted_sprites {
-            if !self.lcd_control.is_obj_enabled() {
-                continue;
-            }
-
-            let (priority, y_flip, x_flip, palette_attribute) = self.extract_attributes(sprite.attributes);
-
-            let sprite_top: i16 = sprite.y as i16 - 16;
-            let sprite_line = (self.ly as i16 - sprite_top) as usize;
-
-            let actual_sprite_line = if y_flip { (height as usize - 1) - sprite_line } else { sprite_line };
-            let tile = self.get_sprite_tile(height, sprite, actual_sprite_line);
-
-            for pixel_x in 0..8 {
-                let screen_x = (sprite.x - 8 + pixel_x) as i16;
-                    
-                if screen_x < 0 || screen_x >= 160 {
-                    continue;
-                }
-
-                let actual_pixel_x = if x_flip { 7 - pixel_x } else { pixel_x };
-                let color_index = self.get_pixel_color_index(tile, actual_pixel_x as usize, actual_sprite_line % 8); // % 8 to handle 8x16
-                    
-                if color_index == 0 { continue; }
-                    
-                let color = self.apply_sprite_palette(color_index, palette_attribute);
-
-                if let Some(new_pixel) = self.get_right_pixel(&pixels[screen_x as usize], color, priority) {
-                    pixels[screen_x as usize] = new_pixel;
-                }
-            }
-        }
-        pixels
-    }
-
 
     fn mode_oam_search(&mut self) -> bool {
         if self.dots >= OAM_DOTS {
@@ -377,42 +340,201 @@ impl Ppu {
 
             self.lcd_status.update_ppu_mode(PpuMode::PixelTransfer);
         }
+
         false
     }
 
-    fn mode_pixel_transfer(&mut self, image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
-        if self.ly < WIN_SIZE_Y as u8 {
-            let mut pixels = self.render_background();
-            pixels = self.render_sprites(pixels);
+    fn handle_window_switch(&mut self, use_window: bool) {
+        // check if window is activated in the middle of scanline
+        if !self.use_window && use_window {
+            self.pixel_fetcher.reset_for_window();
+            self.bg_fifo.clear();
 
-            {
-                let mut frame = image.lock().unwrap();
+            self.wx_at_window_start = self.wx;
+            self.pixels_to_discard = 0;
+        }
+
+        self.use_window = use_window;
+
+        // check wx glitch
+        if self.use_window && self.wx != self.wx_at_window_start
+            && self.x + 7 >= self.wx as usize
+            && !self.is_wx_glitch_happened {
+                let glitched_pixel = Pixel::new_bg(self.apply_background_palette(0),  0);
+
+                self.bg_fifo.push(glitched_pixel);
+                self.is_wx_glitch_happened = true;
+        }
+    }
+
+    fn push_pixel_to_screen(&mut self, frame: &mut [u8], use_window: bool) {
+        if let Some(bg_pixel) = self.bg_fifo.pop() {
+            if self.pixels_to_discard > 0 {
+                self.pixels_to_discard -= 1;
+            } else {
+                let obj_pixel = self.obj_piso.shift_out();
+
+                let bg_color_index: u8;
+                let bg_color: Color;
+
+                // If BG is disabled, color 0 everywhere
+                if !self.lcd_control.is_bg_window_enabled() {
+                    bg_color_index = 0;
+                    bg_color = self.apply_background_palette(0);
+                }
+                else {
+                    bg_color_index = bg_pixel.get_color_index();
+                    bg_color = *bg_pixel.get_color();
+                }
+
+                let obj_color_index = obj_pixel.get_color_index();
+
+                let final_color = if obj_color_index == 0 {
+                    bg_color
+                } else {
+                    let priority = obj_pixel.get_priority();
+
+                    if priority && bg_color_index != 0 {
+                        bg_color
+                    } else {
+                        *obj_pixel.get_color()
+                    }
+                };
+
                 let ly = self.ly as usize;
 
-                for (x, p) in pixels.into_iter().enumerate() {
-                    let offset = (ly * WIN_SIZE_X + x) * 3; // * 3 for each pixels (3 bytes (RGB))
-                    self.set_pixel_color(&mut frame, offset, *p.get_color());
-                }
+                let offset = (ly * WIN_SIZE_X + self.x) * 3; // * 3 for each pixels (3 bytes (RGB))
+                self.set_pixel_color(frame, offset, final_color);
+
+                self.x += 1;
             }
         }
 
-        self.lcd_status.update_ppu_mode(PpuMode::HBlank);
+    }
+
+
+    fn step_pixel_fetcher(&mut self, use_window: bool) {
+        let tile_pixels = self.pixel_fetcher.tick(&self.bus, &self.bg_fifo, self.ly, self.scx, self.scy, self.wly, &self.lcd_control, use_window);
+
+        if let Some(pixels) = tile_pixels {
+            for pixel in pixels {
+                self.bg_fifo.push(pixel);
+            }
+        }
+    }
+
+
+    fn step_oam_fetcher(&mut self) {
+        let height:u8 = if self.lcd_control.is_obj_size_8x16() {
+            16
+        } else {
+            8
+        };
+
+        if self.fetching_sprite {
+            if let Some(index) = self.current_sprite_to_fetch {
+                if let Some(sprite) = self.visible_sprites[index] {
+                    self.fetching_sprite = !self.oam_fetcher.tick(
+                        &self.bus,
+                        &sprite,
+                        &mut self.obj_piso,
+                        self.ly,
+                        &self.lcd_control,
+                        height,
+                        self.x,
+                    );
+
+
+                    if !self.fetching_sprite {
+                        self.visible_sprites[index] = None;
+                    }
+                }
+            };
+        }
+        else {
+            if !self.lcd_control.is_obj_enabled() { return; }
+
+            for (index, sprite_opt) in self.visible_sprites.iter_mut().enumerate() {
+                if let Some(sprite) = sprite_opt {
+
+                    if sprite.x as usize <= self.x + 8 {
+                        let spritex = sprite.x;
+                        let selfx = self.x;
+
+                        self.current_sprite_to_fetch = Some(index);
+                        self.pixel_fetcher.reset_to_state_1();
+                        self.fetching_sprite = !self.oam_fetcher.tick(
+                            &self.bus,
+                            sprite,
+                            &mut self.obj_piso,
+                            self.ly,
+                            &self.lcd_control,
+                            height,
+                            self.x,
+                        );
+
+                        if !self.fetching_sprite {
+                            *sprite_opt = None;
+                        }
+
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+
+    fn mode_pixel_transfer(&mut self, image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
+        if self.ly < WIN_SIZE_Y as u8 {
+            // let mut pixels = self.render_background();
+            let use_window = self.lcd_control.is_window_enabled()
+                && self.wy_equal_ly_condition_met
+                && (self.x + 7 >= self.wx as usize);
+
+
+            self.step_oam_fetcher();
+
+            if !self.fetching_sprite {
+                self.step_pixel_fetcher(use_window);
+                let mut frame = image.lock().unwrap();
+                self.handle_window_switch(use_window);
+                self.push_pixel_to_screen(&mut frame, use_window);
+            }
+        }
+
+        if self.x == 160 {
+            // self.render_sprites(image);
+            self.lcd_status.update_ppu_mode(PpuMode::HBlank);
+        }
+
         false
     }
 
+
     fn mode_hblank(&mut self) -> bool {
+        // End of scanline -> next one after 456 dots
+
         if self.dots >= SCANLINE_DOTS {
             self.dots -= SCANLINE_DOTS;
-
             if self.lcd_control.is_window_enabled()
                 && self.ly >= self.wy
                 && self.wx <= 166 {
-
                 self.wly += 1;
             }
-            
+
             self.ly += 1;
             self.check_lyc_equals_ly();
+
+            // reset for newline
+            // TODO proper reset function
+            self.x = 0;
+            self.bg_fifo.clear();
+            self.obj_piso.reset();
+            self.pixel_fetcher.reset_for_scanline();
+            self.pixels_to_discard = self.scx % 8;
+            self.use_window = false;
+            self.is_wx_glitch_happened = false;
 
             if self.ly >= WIN_SIZE_Y as u8 {
                 self.lcd_status.update_ppu_mode(PpuMode::VBlank);
@@ -438,6 +560,15 @@ impl Ppu {
                 self.check_lyc_equals_ly();
 
                 self.wly = 0;
+                // TODO proper reset function
+                self.x = 0;
+                self.bg_fifo.clear();
+                self.obj_piso.reset();
+                self.pixel_fetcher.reset_for_scanline();
+                self.pixels_to_discard = self.scx % 8;
+                self.use_window = false;
+                self.is_wx_glitch_happened = false;
+                self.wy_equal_ly_condition_met = false;
 
                 self.lcd_status.update_ppu_mode(PpuMode::OamSearch);
             }
@@ -446,18 +577,37 @@ impl Ppu {
     }
 
     pub fn tick(&mut self, cycles: u32,  image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
-        self.update_registers();
+        self.fetch_data_from_mmu();
+
+        if !self.lcd_control.is_ppu_enabled() {
+            self.ly = 0;
+            self.dots = 0;
+            self.lcd_status.update_ppu_mode(PpuMode::HBlank);
+            return false;
+        }
+
         self.dots += cycles;
 
-        match self.lcd_status.get_ppu_mode() {
+        if self.wy == self.ly { self.wy_equal_ly_condition_met = true; }
+
+        let was_updated = match self.lcd_status.get_ppu_mode() {
             PpuMode::OamSearch => self.mode_oam_search(),
             PpuMode::PixelTransfer => self.mode_pixel_transfer(image),
             PpuMode::HBlank => self.mode_hblank(),
             PpuMode::VBlank => self.mode_vblank(),
-        }
+        };
+
+        self.write_data_to_mmu();
+        was_updated
     }
 
     fn check_lyc_equals_ly(&mut self) {
+        /*
+            LYC == LY is an hardware condition:
+                - update a flag in STAT
+                - can trigger a LCD STAT interrupt
+            It's used by many games to synchronize with scanline
+        */
         let lyc_match = self.ly == self.lyc;
         self.lcd_status.set_lyc_equals_ly(lyc_match);
         
@@ -466,21 +616,26 @@ impl Ppu {
         }
     }
 
-    pub fn update_registers(&mut self) {
-        self.lyc = self.bus.read().unwrap().read_byte(LYC_ADDR);
-        self.scy = self.bus.read().unwrap().read_byte(SCY_ADDR);
-        self.scx = self.bus.read().unwrap().read_byte(SCX_ADDR);
-        self.wy = self.bus.read().unwrap().read_byte(WY_ADDR);
-        self.wx = self.bus.read().unwrap().read_byte(WX_ADDR);
-        self.lcd_control
-            .update_from_byte(self.bus.read().unwrap().read_byte(LCD_CONTROL_ADDR));
+    pub fn fetch_data_from_mmu(&mut self) {
+        let bus = self.bus.read().unwrap();
+        self.lcd_control.update_from_byte(bus.read_byte(LCD_CONTROL_ADDR));
+        self.lcd_status.update_from_byte(bus.read_byte(STAT_ADDR));
+        self.scy = bus.read_byte(SCY_ADDR);
+        self.scx = bus.read_byte(SCX_ADDR);
+        self.lyc = bus.read_byte(LYC_ADDR);
+        self.wy = bus.read_byte(WY_ADDR);
+        self.wx = bus.read_byte(WX_ADDR);
+    }
 
-        let stat_byte = self.lcd_status.struct_to_byte();
-        self.bus.write().unwrap().write_byte(STAT_ADDR, stat_byte);
-
-        let stat_from_mmu = self.bus.read().unwrap().read_byte(STAT_ADDR);
-        self.lcd_status.update_from_byte(stat_from_mmu);
-
-        self.bus.write().unwrap().write_byte(LY_ADDR, self.ly);
+    pub fn write_data_to_mmu(&mut self) {
+        let mut bus = self.bus.write().unwrap();
+        bus.write_byte(LCD_CONTROL_ADDR, self.lcd_control.to_byte());
+        bus.write_byte(STAT_ADDR, self.lcd_status.struct_to_byte());
+        bus.write_byte(SCY_ADDR, self.scy);
+        bus.write_byte(SCX_ADDR, self.scx);
+        bus.write_byte(LYC_ADDR, self.lyc);
+        bus.write_byte(WY_ADDR, self.wy);
+        bus.write_byte(WX_ADDR, self.wx);
+        bus.write_byte(LY_ADDR, self.ly);
     }
 }

@@ -5,11 +5,12 @@
 mod common;
 mod views;
 
-use crate::{
-    ppu,
-};
-use eframe::egui::{InputState, Key, TextureHandle};
-use eframe::egui::{load::SizedTexture, vec2, ColorImage, Context, Image, TextureOptions};
+use std::path::{Path, PathBuf};
+use egui_file_dialog::{FileDialog, Filter};
+use crate::mmu::mbc::{Mbc1, Mbc2, Mbc3, RomOnly};
+use crate::ppu;
+use eframe::egui::{Key, TextureHandle};
+use eframe::egui::{load::SizedTexture, vec2, ColorImage, Context, TextureOptions};
 use std::collections::HashSet;
 
 use std::sync::atomic::Ordering;
@@ -17,36 +18,76 @@ use std::sync::atomic::Ordering;
 use std::time::Instant;
 
 #[derive(Default)]
-pub struct MyApp {
+pub struct GraphicalApp {
     app_state: AppState,
 }
 
 use crate::app::GameApp;
 pub mod themes;
 use eframe::egui;
-use tokio::time::{self, Duration as TokioDuration, Instant as TokioInstant};
+use tokio::time::{self, Duration as TokioDuration};
 use std::sync::Mutex;
 use std::fs;
-use std::process;
-use tokio::sync::mpsc::{Receiver, Sender, channel};
+use std::process; use tokio::sync::mpsc::{Receiver, Sender, channel};
 use tokio::task::JoinHandle;
 
 
 use std::sync::{Arc, atomic::AtomicBool};
 
-impl eframe::App for MyApp {
+impl eframe::App for GraphicalApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let debut = Instant::now();
         self.app_state = match std::mem::replace(&mut self.app_state, AppState::Default) {
             AppState::StartingHub(device) => device.starting_view(ctx, _frame),
             AppState::SelectionHub(device) => device.selection_view(ctx, _frame),
             AppState::EmulationHub(device) => device.emulation_view(ctx, _frame),
-            AppState::DebugingHub(device) => device.debug_view(ctx, _frame),
+            AppState::DebuggingHub(device) => device.debug_view(ctx, _frame),
             AppState::Default => unreachable!(),
         };
         let duration = debut.elapsed();
         //println!("egui : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
         ctx.request_repaint();
+    }
+
+    fn ui(&mut self, _ui: &mut egui::Ui, _frame: &mut eframe::Frame) {}
+}
+
+pub struct EmulationAppOptions {
+    rom_path: String,
+    boot_rom: bool,
+}
+
+pub struct CoreGameOptions {
+    rom_path: String,
+    boot_rom: bool,
+}
+
+impl From<EmulationAppOptions> for CoreGameOptions {
+    fn from(value: EmulationAppOptions) -> Self {
+        Self {
+            rom_path: value.rom_path,
+            boot_rom: value.boot_rom,
+        }
+    }
+}
+
+impl EmulationAppOptions {
+    pub fn new(rom_path: String, boot_rom: bool) -> Self{
+        Self {
+            rom_path, boot_rom
+        }
+    }
+}
+
+impl GraphicalApp {
+    pub fn create_emulation_app(options: EmulationAppOptions) -> Self {
+        Self {
+            app_state: AppState::EmulationHub(
+                EmulationDevice {
+                    core_game: CoreGameDevice::new(options.into())
+                }
+            )
+        }
     }
 }
 
@@ -65,6 +106,18 @@ pub struct KeyInput{
     pub right_pushed: bool,
 }
 
+impl Into<bool> for &KeyInput {
+    fn into(self) -> bool {
+        self.a_pushed ||
+        self.b_pushed ||
+        self.select_pushed ||
+        self.start_pushed ||
+        self.up_pushed ||
+        self.down_pushed ||
+        self.left_pushed ||
+        self.right_pushed 
+    }
+}
 
 pub struct KeyMaping{
     pub a: Key,
@@ -97,7 +150,7 @@ pub enum AppState {
     StartingHub(StartingHubDevice),
     SelectionHub(SelectionDevice),
     EmulationHub(EmulationDevice),
-    DebugingHub(DebugingDevice),
+    DebuggingHub(DebuggingDevice),
     Default,
 }
 
@@ -116,24 +169,64 @@ fn read_rom(rom_path: String) -> Vec<u8> {
     }
 }
 
+pub enum AnyGameApp {
+    OnlyRom(GameApp<RomOnly>),
+    Mbc1(GameApp<Mbc1>),
+    Mbc2(GameApp<Mbc2>),
+    Mbc3(GameApp<Mbc3>),
+}
+
+impl AnyGameApp {
+    pub fn update(&mut self, keys_down: &KeyInput) ->  bool {
+        match self {
+            AnyGameApp::OnlyRom(g) => g.update(keys_down),
+            AnyGameApp::Mbc1(g)=> g.update(keys_down),
+            AnyGameApp::Mbc2(g)=> g.update(keys_down),
+            AnyGameApp::Mbc3(g)=> g.update(keys_down),
+        }
+    }
+
+    pub fn simulate_boot_rom_effect(&mut self) {
+        match self {
+            AnyGameApp::OnlyRom(g) => g.simulate_boot_rom_effect(),
+            AnyGameApp::Mbc1(g)=> g.simulate_boot_rom_effect(),
+            AnyGameApp::Mbc2(g)=> g.simulate_boot_rom_effect(),
+            AnyGameApp::Mbc3(g)=> g.simulate_boot_rom_effect(),
+        }
+    }
+}
+
 
 async fn launch_game(
     rom_path: String,
+    boot_rom: bool,
     mut input_receiver: Receiver<KeyInput>,
     updated_image_boolean: Arc<AtomicBool>,
     command_query_receiver: Receiver<DebugCommandQueries>,
     debug_response_sender: Sender<DebugResponse>,
     global_is_debug: Arc<AtomicBool>,
     image_to_change: Arc<Mutex<Vec<u8>>>,
-) {
+) -> Result<(), String> {
     let rom_data: Vec<u8> = read_rom(rom_path);
-    let mut app = GameApp::new(
-        rom_data,
-        command_query_receiver,
-        debug_response_sender,
-        global_is_debug,
-        image_to_change,
-    );
+    let code = rom_data[0x0147];
+    let mut app = match code {
+            0x00 | 0x08 | 0x09 => Ok(AnyGameApp::OnlyRom(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change, boot_rom)?)),
+            0x01 | 0x02 | 0x03 => Ok(AnyGameApp::Mbc1(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change, boot_rom)?)),
+            0x05 | 0x06 => Ok(AnyGameApp::Mbc2(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change, boot_rom)?)),
+            0x0F | 0x10 | 0x11 | 0x12 | 0x13 => Ok(AnyGameApp::Mbc3(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change, boot_rom)?)),
+        /*
+            0x0B | 0x0C | 0x0D => Ok(todo!()), // MMM01 pas dans le sujet
+            0x19 | 0x1A | 0x1B | 0x1C | 0x1D | 0x1E => Ok(todo!()), // Mbc5
+            0x20 => Ok(todo!()), // Mbc6
+            0x22 => Ok(todo!()),// MBC7+SENSOR+RUMBLE+RAM+BATTERY
+        */
+            _ => Err("Unmanaged cartridge type")
+
+    }?;
+
+    if !boot_rom {
+        app.simulate_boot_rom_effect()
+    }
 
     let input = KeyInput::default();
 
@@ -142,22 +235,15 @@ async fn launch_game(
         // Ceci pourra etre enleve quand on fera
         // du multitask dans le cpu
         // Cela permet de checker si la tache n'a pas ete annule
-        println!("this is going.");
-        let debut = TokioInstant::now();
 
 
         if let Ok(input) = input_receiver.try_recv(){
             let input = input;
         }
         let buffer_was_updated = app.update(&input);
-        let duration = debut.elapsed();
-        //println!("update app: Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
-        let debut = TokioInstant::now();
         if buffer_was_updated {
             updated_image_boolean.store(true, Ordering::Relaxed);
         }
-        let duration = debut.elapsed();
-        //println!("sending : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
     }
 }
 
@@ -184,7 +270,7 @@ pub struct WatchedAdresses {
 }
 
 pub struct CoreGameDevice {
-    pub handler: JoinHandle<()>,
+    pub handler: JoinHandle<Result<(), String>>,
     pub input_sender: Sender<KeyInput>,
     pub updated_image_boolean: Arc<AtomicBool>,
     pub command_query_sender: Sender<DebugCommandQueries>,
@@ -251,7 +337,7 @@ impl CoreGameDevice {
 
     }
 
-    fn new(path: String) -> Self {
+    fn new(options: CoreGameOptions) -> Self {
         let (input_sender, input_receiver) = channel::<KeyInput>(1);
         let updated_image_boolean = Arc::new(AtomicBool::new(false));
         let (command_query_sender, command_query_receiver) = channel::<DebugCommandQueries>(1);
@@ -264,7 +350,8 @@ impl CoreGameDevice {
             command_query_sender,
             debug_response_receiver,
             handler: tokio::spawn(launch_game(
-                path,
+                options.rom_path,
+                options.boot_rom,
                 input_receiver,
                 updated_image_boolean.clone(),
                 command_query_receiver,
@@ -284,8 +371,10 @@ impl CoreGameDevice {
 
 pub struct SelectionDevice {
     path: String,
-    files: Vec<String>,
+    files: Vec<String>, 
     selected_file: Option<usize>,
+    file_dialog: FileDialog,
+    picked_file: Option<PathBuf>,
 }
 
 impl Default for SelectionDevice {
@@ -294,6 +383,12 @@ impl Default for SelectionDevice {
             path: String::from("./"),
             files: Vec::<String>::default(),
             selected_file: None,
+            picked_file: None,
+            file_dialog: FileDialog::new()
+            .default_size([600.0, 400.0])
+            .set_file_icon("🎮", Filter::new(|path: &Path| path.extension().unwrap_or_default() == "gb"))
+            .add_file_filter("GameBoy ROMS", Filter::new(|path: &Path| path.extension().unwrap_or_default() == "gb"))
+            .default_file_filter("GameBoy ROMS")
         }
     }
 }
@@ -302,7 +397,7 @@ pub struct EmulationDevice {
     pub core_game: CoreGameDevice,
 }
 
-pub struct DebugingDevice {
+pub struct DebuggingDevice {
     pub core_game: CoreGameDevice,
     /*
     Info stored for the GUI to use them;

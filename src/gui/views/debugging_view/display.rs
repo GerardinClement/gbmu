@@ -1,17 +1,17 @@
 use crate::gui::common::display_game;
 
 use eframe::egui::{
-    Align, Button, Color32, Context, DragValue, Grid, Layout, RichText, ScrollArea, SidePanel,
+    Align, Button, Color32, Context, DragValue, Grid, Layout, RichText, ScrollArea, SidePanel, Panel,
     TextEdit, Ui,
 };
 
-use super::{DebugingDataIn, DebugingDataOut};
+use super::{DebuggingDataIn, DebuggingDataOut};
 
 pub fn display_interface(
     ctx: &Context,
     _frame: &mut eframe::Frame,
-    data: DebugingDataIn,
-) -> DebugingDataOut {
+    data: DebuggingDataIn,
+) -> DebuggingDataOut {
     let (
         close_btn_clicked,
         step_mode_btn_clkd,
@@ -21,10 +21,10 @@ pub fn display_interface(
         nb_instruction_requested,
         hex_string,
         register_new_addr,
-    ): (bool, bool, bool, bool, bool, u8, String, bool) = SidePanel::right("debug_panel")
+    ): (bool, bool, bool, bool, bool, u8, String, bool) = Panel::right("debug_panel")
         .resizable(true)
-        .default_width(400.0)
-        .min_width(300.0)
+        .default_size(400.0)
+        .min_size(300.0)
         .show(ctx, |ui| {
             ScrollArea::vertical()
                 .show(ui, |ui| {
@@ -96,7 +96,7 @@ pub fn display_interface(
         display_game(sized_texture, ctx);
     }
 
-    DebugingDataOut {
+    DebuggingDataOut {
         step_clicked: stp_btn_clkd,
         step_mode_clicked: step_mode_btn_clkd,
         close_btn_clicked,
@@ -121,7 +121,7 @@ fn step_button(ui: &mut Ui) -> bool {
     ui.button("Next Step").clicked()
 }
 
-fn get_registers(ui: &mut Ui, debuging_data: &DebugingDataIn) -> bool {
+fn get_registers(ui: &mut Ui, debugging_data: &DebuggingDataIn) -> bool {
     // Button to refresh registers
     let refresh_button_is_clicked = ui
         .horizontal(|ui| ui.button("🔄 Refresh Registers").clicked())
@@ -143,12 +143,12 @@ fn get_registers(ui: &mut Ui, debuging_data: &DebugingDataIn) -> bool {
             ui.end_row();
 
             let registers_8bit = [
-                ("A", debuging_data.registers.0),
-                ("B", debuging_data.registers.1),
-                ("C", debuging_data.registers.2),
-                ("D", debuging_data.registers.3),
-                ("E", debuging_data.registers.4),
-                ("H", debuging_data.registers.5),
+                ("A", debugging_data.registers.0),
+                ("B", debugging_data.registers.1),
+                ("C", debugging_data.registers.2),
+                ("D", debugging_data.registers.3),
+                ("E", debugging_data.registers.4),
+                ("H", debugging_data.registers.5),
             ];
 
             for (name, value) in registers_8bit.iter() {
@@ -179,9 +179,9 @@ fn get_registers(ui: &mut Ui, debuging_data: &DebugingDataIn) -> bool {
 
             // 16-bit registers
             let registers_16bit = [
-                ("L", debuging_data.registers.6 as u16),
-                ("HL", debuging_data.registers.7),
-                ("SP", debuging_data.registers.8),
+                ("L", debugging_data.registers.6 as u16),
+                ("HL", debugging_data.registers.7),
+                ("SP", debugging_data.registers.8),
             ];
 
             for (name, value) in registers_16bit.iter() {
@@ -207,7 +207,7 @@ fn get_registers(ui: &mut Ui, debuging_data: &DebugingDataIn) -> bool {
     refresh_button_is_clicked
 }
 
-fn get_next_instructions(ui: &mut Ui, data: &DebugingDataIn) -> (u8, bool) {
+fn get_next_instructions(ui: &mut Ui, data: &DebuggingDataIn) -> (u8, bool) {
     // Input section
     let instruction_requested_tuple = ui
         .group(|ui| {
@@ -219,7 +219,7 @@ fn get_next_instructions(ui: &mut Ui, data: &DebugingDataIn) -> (u8, bool) {
                 ui.add(
                     DragValue::new(&mut nb_instructions)
                         .speed(1.0)
-                        .clamp_range(0..=255)
+                        .range(0..=255)
                         .prefix("Dec: "),
                 );
 
@@ -315,7 +315,7 @@ fn get_next_instructions(ui: &mut Ui, data: &DebugingDataIn) -> (u8, bool) {
     instruction_requested_tuple
 }
 
-fn watch_address(ui: &mut Ui, data: &DebugingDataIn) -> (String, bool) {
+fn watch_address(ui: &mut Ui, data: &DebuggingDataIn) -> (String, bool) {
     let mut hex_string = data.hex_string.clone();
     // Input section with better layout
     let register_new_addr: bool = ui

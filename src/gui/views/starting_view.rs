@@ -9,7 +9,7 @@ impl StartingHubDevice {
         ctx: &eframe::egui::Context,
         _frame: &mut eframe::Frame,
     ) -> AppState {
-        CentralPanel::default()
+        egui::CentralPanel::default()
             .show(ctx, |ui| {
                 ctx.set_visuals(get_dark_theme_visual());
                 ui.with_layout(Layout::centered_and_justified(Direction::TopDown), |ui| {

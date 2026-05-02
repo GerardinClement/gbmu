@@ -1,5 +1,6 @@
 mod app;
 
+mod cli;
 mod cpu;
 mod debugger;
 mod gameboy;
@@ -7,10 +8,14 @@ mod gui;
 mod mmu;
 mod ppu;
 
-use gui::MyApp;
+use gui::GraphicalApp;
+
+use crate::{cli::EmulatorArguments, gui::EmulationAppOptions};
 
 #[tokio::main]
 async fn main() {
+    let arguments = EmulatorArguments::get();
+
     let options = eframe::NativeOptions {
         viewport: eframe::egui::ViewportBuilder::default()
             .with_inner_size([1280.0, 720.0])
@@ -18,9 +23,20 @@ async fn main() {
             .with_resizable(true),
         ..Default::default()
     };
+
+    let app = if let Some(rom_path) = arguments.rom_path {
+        let options = EmulationAppOptions::new(
+            rom_path,
+            arguments.boot_rom
+        );
+        GraphicalApp::create_emulation_app(options)
+    } else {
+        GraphicalApp::default()
+    };
+
     let _ = eframe::run_native(
         "egui Demo",
         options,
-        Box::new(|_cc| Ok(Box::new(MyApp::default()))),
+        Box::new(|_cc| Ok(Box::new(app))),
     );
 }

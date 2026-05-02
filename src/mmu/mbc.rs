@@ -1,91 +1,385 @@
 use std::cmp::min;
 
+use chrono::{Local, DateTime};
+const ONLY_ROM_SIZE: usize = 0xC000;
 const ROM_BANK_SIZE: usize = 0x4000;
+const RAM_BANK_SIZE: usize = 0x2000;
+
+pub trait Mbc {
+    fn new(rom_image: &[u8]) -> Result<Self, String> where Self: Sized;
+    fn read(&self, addr: u16) -> u8;
+    fn write(&mut self, addr: u16, val: u8);
+}
 
 #[derive(Clone)]
-pub struct Mbc {
-    banks: Vec<[u8; 0x4000]>,
-    current: usize,
+pub  struct Mbc1 {
+    banks: Vec<[u8; ROM_BANK_SIZE]>,
+    ram_gate_register: bool, // If ramg is set to 0b1010 -> 
+    bank_register_1: u8,
+    bank_register_2: u8,
+    mode_register: bool,
+    ram_banks: Vec<[u8; RAM_BANK_SIZE]>,
 }
 
-impl Mbc {
-    pub fn new(rom_image: &[u8]) -> Self {
-        let mut banks = Vec::new();
-        let mut offset = 0;
-
-        while offset < rom_image.len() {
-            let mut bank = [0u8; ROM_BANK_SIZE];
-
-            let end = min(offset + ROM_BANK_SIZE, rom_image.len());
-            let len = end - offset;
-
-            bank[..len].copy_from_slice(&rom_image[offset..end]);
-            banks.push(bank);
-            offset += ROM_BANK_SIZE;
-        }
-        if banks.len() < 2 {
-            banks.resize(2, [0u8; ROM_BANK_SIZE]);
-        }
-
-        Mbc { banks, current: 1 }
+fn get_rom_bank_size(rom: &[u8]) -> Result<usize, String>{
+    let code = rom[0x148];
+    match code {
+        0 => Ok(2),
+        1 => Ok(4),
+        2 => Ok(8),
+        3 => Ok(16),
+        4 => Ok(32),
+        5 => Ok(64),
+        6 => Ok(128),
+        7 => Ok(256),
+        8 => Ok(512),
+        _ => Err(format!("Rom size code can't be {}", code))
     }
+}
 
-    pub fn read(&self, addr: u16) -> u8 {
-        let i = addr as usize;
+fn get_ram_bank_size(rom: &[u8]) -> Result<usize, String>{
+    let code = rom[0x149];
+    match code {
+        0 => Ok(0),
+        1 => Ok(0),
+        2 => Ok(1),
+        3 => Ok(4),
+        4 => Ok(16),
+        5 => Ok(8),
+        _ => Err(format!("Ram size code can't be {}", code)),
+    }
+}
 
-        if i < ROM_BANK_SIZE {
-            self.banks[0][i]
+fn map_rom_into_bank(rom_image: &[u8]) -> Result<Vec<[u8; ROM_BANK_SIZE]>, String> {
+    let banks: Vec<[u8; ROM_BANK_SIZE]> = rom_image .chunks_exact(ROM_BANK_SIZE)
+        .map(|slice|{
+            let mut data = [0; ROM_BANK_SIZE];
+            data.copy_from_slice(&slice);
+            data
+        }).collect();
+    let supposed_rom_bank_size = get_rom_bank_size(rom_image)?;
+    println!("rom banks count {}", banks.len());
+    if banks.iter().count() != supposed_rom_bank_size {
+        return Err(
+            format!("Inconsistent Rom Header : size must be : {}", supposed_rom_bank_size)
+        );
+    }
+    Ok(banks)
+}
+
+fn map_ram_banks(rom_image: &[u8]) -> Result<Vec<[u8; RAM_BANK_SIZE]>, String> {
+    let supposed_ram_bank_size = get_ram_bank_size(rom_image)?;
+    println!("rom banks count {}", supposed_ram_bank_size);
+    Ok(vec![[0u8; RAM_BANK_SIZE]; supposed_ram_bank_size])
+}
+
+impl Mbc for Mbc1 {
+    fn new(rom_image: &[u8]) -> Result<Self, String> {
+        println!("rom detected is Mbc1");
+        let banks = map_rom_into_bank(rom_image)?;
+        let ram_banks = map_ram_banks(rom_image)?;
+        if ram_banks.iter().count() > 4 {
+            Err(
+                format!("Supposed ram bank size can't be more than 4 in mbc1 cartridge.")
+            )
         } else {
-            let off = i - ROM_BANK_SIZE;
+            Ok(Mbc1 {
+                banks,
+                ram_gate_register: false,
+                bank_register_1: 0b1,
+                bank_register_2: 0b0,
+                mode_register: false,
+                ram_banks,
+            })
+        }
 
-            self.banks[self.current][off]
+    }
+
+    fn read(&self, addr: u16) -> u8 {
+        match addr {
+            0x0000..0x4000 => {
+                if self.mode_register {
+                    self.banks[0][addr as usize]
+                } else {
+                    self.banks[(self.bank_register_2 << 5) as usize][addr as usize]
+                }
+            },
+            0x4000..0x8000 => {
+                self.banks[
+                    ((self.bank_register_2 << 5) + self.bank_register_1) as usize
+                ][
+                    addr as usize - ROM_BANK_SIZE as usize
+                ]
+            },
+            0xA000..0xC000 => {
+                println!("read to ram");
+                if self.ram_gate_register {
+                    self.ram_banks[
+                        self.mode_register as usize * self.bank_register_2 as usize
+                    ][addr as usize - 0xA000]
+                } else {
+                    0
+                }
+            },
+            _ => unreachable!()
         }
     }
 
-    pub fn write(&mut self, addr: u16, val: u8) {}
-
-    pub fn bank_count(&self) -> usize {
-        self.banks.len()
+    fn write(&mut self, addr: u16, val: u8) {
+        match addr {
+            0x0000..0x2000 => self.ram_gate_register = (val & 0b1010) == 0b1010,
+            0x2000..0x4000 => self.bank_register_1 = val & 0b11111,
+            0x4000..0x6000 => self.bank_register_2 = val & 0b11,
+            0x6000..0x8000 => self.mode_register = (val & 0b1) == 0b1,
+            0xA000..0xC000 => {
+                println!("write to ram");
+                if self.ram_gate_register {
+                    self.ram_banks[
+                        self.mode_register as usize * self.bank_register_2 as usize
+                    ][addr as usize - 0xA000] = val
+                }
+            },
+            _ => unreachable!()
+        }
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::Mbc;
+pub struct Mbc2 {
+    rom_banks: Vec<[u8; ROM_BANK_SIZE]>,
+    ram_gate_register: bool,
+    rom_bank_register: u8,
+    ram_banks: Vec<[u8; RAM_BANK_SIZE]>,
+}
 
-    #[test]
-    fn small_rom_creates_two_banks() {
-        let data = vec![0xAA; 100]; // 100 bytes
-        let mbc = Mbc::new(&data);
-
-        // Should have at least two banks
-        assert_eq!(mbc.banks.len(), 2);
-        // First bank begins with your data...
-        for i in 0..100 {
-            assert_eq!(mbc.banks[0][i], 0xAA);
+impl Mbc for Mbc2 {
+    fn read(&self, addr: u16) -> u8 {
+        match addr {
+            0x0000..0x4000 => {
+                self.rom_banks[0][addr as usize]
+            },
+            0x4000..0x8000 => {
+                self.rom_banks[self.rom_bank_register as usize][(addr - 0x4000) as usize]
+            },
+            0xA000..0xC000 => {
+                if self.ram_gate_register {
+                    self.ram_banks[0][(addr & 0b1111_1111) as usize]
+                } else {
+                    0
+                }
+            }
+            _ => unreachable!()
         }
-        // ...and the rest of bank 0 is zero
-        for i in 100..0x4000 {
-            assert_eq!(mbc.banks[0][i], 0);
-        }
-        // Bank 1 is entirely zeros
-        assert!(mbc.banks[1].iter().all(|&b| b == 0));
     }
 
-    #[test]
-    fn multi_bank_rom_splits_correctly() {
-        // Create 20 KiB of incrementing bytes: 0,1,2,…,19999
-        let data: Vec<u8> = (0..20_480).map(|i| (i % 256) as u8).collect();
-        let mbc = Mbc::new(&data);
+    fn write(&mut self, addr: u16, val: u8) {
+        match addr {
+            0x0000..0x4000 => {
+                if addr & 0b1_0000_0000 == 0b1_0000_0000 {
+                    self.ram_gate_register = val & 0b1010 == 0b1010
+                } else {
+                    let new_value = val & 0b1111;
+                    self.rom_bank_register = (new_value == 0) as u8 + new_value;
+                }
+            },
+            0x4000..0x8000 => { }, // do nothing 
+            0xA000..0xC000 => { 
+                if self.ram_gate_register {
+                    self.ram_banks[0][(addr & 0b1111_1111) as usize] = val;
+                }
 
-        assert_eq!(mbc.banks.len(), 2);
-        // First bank matches bytes 0..16384
-        for i in 0..0x4000 {
-            assert_eq!(mbc.banks[0][i], (i % 256) as u8);
+            },
+            _ => unreachable!()
         }
-        // Second bank matches bytes 16384..20480
-        for i in 0..(20_480 - 0x4000) {
-            assert_eq!(mbc.banks[1][i], ((i + 0x4000) % 256) as u8);
+    }
+
+    fn new(rom_image: &[u8]) -> Result<Self, String> where Self: Sized {
+        println!("rom detected is Mbc2");
+        let rom_banks = map_rom_into_bank(rom_image)?;
+        Ok(Mbc2{
+            rom_banks,
+            ram_gate_register: false,
+            rom_bank_register: 0b0001,
+            ram_banks: vec![[0; RAM_BANK_SIZE]; 1],
+        })
+    }
+}
+
+pub struct RomOnly {
+    bank: [u8; ONLY_ROM_SIZE],
+}
+
+impl Mbc for RomOnly{
+    fn new(rom_image: &[u8]) -> Result<Self, String> {
+        println!("rom detected is romonly");
+        let mut bank = [0; ONLY_ROM_SIZE];
+        let end = min(ONLY_ROM_SIZE, rom_image.len());
+        bank[..end].copy_from_slice(&rom_image[..end]);
+        Ok(RomOnly {
+            bank
+        })
+    }
+
+    fn read(&self, addr: u16) -> u8 {
+        self.bank[addr as usize]
+    }
+
+    fn write(&mut self, addr: u16, val: u8) {
+        if (0xA000..0xC000).contains(&addr) {
+            self.bank[addr as usize] = val
+        }
+
+    }
+}
+
+pub struct Mbc3 {
+    rtc_register: u8,
+    ram_timer_enable: bool,
+    rom_bank_nb: u8,
+    ram_rtc_select: u8,
+    latch_clock_data: u8,
+    latched_time_value: Option<DateTime<Local>>,
+    rom_banks: Vec<[u8; ROM_BANK_SIZE]>,
+    ram_banks: Vec<[u8; RAM_BANK_SIZE]>,
+}
+
+impl Mbc3 {
+    fn get_time_value(&self, rtc_select: &u8) -> u8 {
+        let time = if let Some(latched_time) = &self.latched_time_value {
+            latched_time.clone()
+        } else {
+            self.get_actual_time()
+        };
+
+        match rtc_select {
+            0x08 => todo!(), // where the days start from ? 
+            0x09 => todo!(), // where the days start from ? 
+            0x0A => todo!(), // where the days start from ? 
+            0x0B => todo!(), // where the days start from ? 
+            0x0C => todo!(),
+            _ => 0, // In case the rtc_select data is trash
+        }
+    }
+
+    fn get_actual_time(&self) -> DateTime<Local> {
+        Local::now()
+    }
+}
+
+impl Mbc for Mbc3 {
+    fn read(&self, addr: u16) -> u8 {
+        match addr {
+            0x0000..0x4000 => self.rom_banks[0][addr as usize],
+            0x4000..0x8000 => self.rom_banks[self.rom_bank_nb as usize][(addr - 0x4000) as usize],
+            0xA000..0xC000 => {
+                if (0x00..0x07).contains(&self.ram_rtc_select) {
+                    self.ram_banks[self.ram_rtc_select as usize][(addr - 0xA000) as usize]
+                } else {
+                    self.get_time_value(&self.ram_rtc_select)
+                }
+            },
+            _ => unreachable!(),
+        }
+    }
+    fn write(&mut self, addr: u16, val: u8) {
+        match addr {
+            0x0000..0x2000 => self.ram_timer_enable = val == 0b1010,
+            0x2000..0x4000 => self.rom_bank_nb = (val != 0) as u8 * val + (val == 0) as u8,
+            0x4000..0x6000 => self.ram_rtc_select = val,
+            0x6000..0x8000 => {
+                if self.latch_clock_data == 0b00 && val == 0b01 {
+                    self.latched_time_value = Some(self.get_actual_time());
+                } else {
+                    self.latched_time_value = None;
+                }
+            },
+            0xA000..0xC000 => {
+                self.ram_banks[
+                    self.ram_rtc_select as usize
+                ][
+                    (addr - 0xA000) as usize
+                ] = val;
+            }
+            _ => unreachable!(),
+        }
+        
+    }
+    fn new(rom_image: &[u8]) -> Result<Self, String> where Self: Sized {
+        let rom_banks = map_rom_into_bank(rom_image)?;
+        let ram_banks = map_ram_banks(rom_image)?;
+
+        Ok(
+            Mbc3 {
+                rom_banks,
+                ram_banks,
+                rtc_register: 0,
+                ram_timer_enable: false,
+                rom_bank_nb: 0,
+                ram_rtc_select: 0,
+                latched_time_value: None,
+                latch_clock_data: 0,
+
+            }
+        )
+    }
+}
+
+pub struct Mbc5 {
+    ram_gate_enable: bool,
+    rom_bank_register: u16,
+    ram_bank_register: u8,
+    ramble: bool,
+    rom_banks: Vec<[u8; ROM_BANK_SIZE]>,
+    ram_banks: Vec<[u8; RAM_BANK_SIZE]>,
+    
+}
+
+impl Mbc for Mbc5 {
+    fn new(rom_image: &[u8]) -> Result<Self, String> where Self: Sized {
+        let rom_banks = map_rom_into_bank(rom_image)?;
+        let ram_banks = map_ram_banks(rom_image)?;
+
+        Ok(
+            Mbc5 {
+                rom_banks,
+                ram_banks,
+                ram_gate_enable: false,
+                rom_bank_register: 0,
+                ram_bank_register: 0,
+                ramble: false,
+            }
+        )
+    }
+    fn read(&self, addr: u16) -> u8 {
+        match addr {
+            0x0000..0x4000 => self.rom_banks[0][addr as usize],
+            0x4000..0x8000 => {
+                self.rom_banks[
+                    (self.rom_bank_register - 0x4000) as usize
+                ][
+                    (addr  - 0x4000) as usize
+                ]
+            },
+            0xA000..0xC000 => {
+                self.ram_banks[
+                    self.ram_bank_register as usize
+                ][
+                    (addr - 0xA000) as usize
+                ]
+            },
+            _ => unreachable!(),
+        }
+    }
+    fn write(&mut self, addr: u16, val: u8) {
+        match addr {
+            0x0000..0x2000 => self.ram_gate_enable = val == 0b0000_1010,
+            0x2000..0x3000 => self.rom_bank_register = self.rom_bank_register & 0x100 + val as u16,
+            0x3000..0x4000 => self.rom_bank_register = self.rom_bank_register & 0x0FF + val as u16 & 0x01 * 0x100,
+            0x4000..0x6000 => {
+                self.ram_bank_register = val & 0x0F;
+                self.ramble = (val & 0x10) != 0;
+            }
+            _ => unreachable!(),
         }
     }
 }
+

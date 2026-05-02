@@ -64,9 +64,9 @@ impl MemoryRegion {
     }
 }
 
-pub struct Mmu {
+pub struct Mmu<T: Mbc> {
     data: [u8; 0x10000], // 0xFFFF (65535) + 1 = 0x10000 (65536)
-    cart: Mbc,
+    cart: T,
     interrupts: InterruptController,
     timers: Timers,
     oam: Oam,
@@ -74,19 +74,18 @@ pub struct Mmu {
     boot_rom: [u8; 0x0100]
 }
 
-impl Mmu {
-    pub fn new(rom_image: &[u8]) -> Self {
-        let mmu = Mmu {
-            data: [0; 0x10000],
-            cart: Mbc::new(rom_image),
+impl<T: Mbc> Mmu<T> {
+    pub fn new(rom_image: &[u8]) -> Result<Self, String> {
+        
+       Ok(Mmu {
+            data: [0xFF; 0x10000],
+            cart: T::new(rom_image)?,
             interrupts: InterruptController::new(),
             timers: Timers::default(),
             oam: Oam::default(),
             boot_enable: false,
-            boot_rom: [0; 0x0100],
-        };
-
-       mmu
+            boot_rom: [0xFF; 0x0100],
+        })
     }
 
     pub fn load_boot_rom(&mut self, boot_rom: [u8; 0x0100]) {
@@ -109,7 +108,7 @@ impl Mmu {
         }
 
         match MemoryRegion::from(addr) {
-            MemoryRegion::Mbc => self.cart.read(addr),
+            MemoryRegion::Mbc | MemoryRegion::ERam => self.cart.read(addr),
             MemoryRegion::Timers => self.timers.read_byte(addr),
             MemoryRegion::Mram => {
                 let mirror = addr - 0x2000;
@@ -133,7 +132,7 @@ impl Mmu {
         }
 
         match MemoryRegion::from(addr) {
-            MemoryRegion::Mbc => self.cart.write(addr, val),
+            MemoryRegion::Mbc | MemoryRegion::ERam => self.cart.write(addr, val),
             MemoryRegion::Mram => {
                 let mirror = addr - 0x2000;
 
@@ -173,23 +172,28 @@ impl Mmu {
     pub fn get_oam(&self) -> &Oam {
         &self.oam
     }
-}
 
-impl Default for Mmu {
-    fn default() -> Self {
-        Mmu::new(&[])
+    pub fn get_boot_enable(&self) -> bool {
+        self.boot_enable
     }
 }
 
-// In mmu.rs
+impl<T: Mbc> Default for Mmu<T> {
+    fn default() -> Self {
+        Mmu::<T>::new(&[]).expect("This is not suppose to happen")
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use crate::mmu::mbc::RomOnly;
+
     use super::{MemoryRegion, Mmu};
 
     #[test]
     fn mmu_routes_reads_and_writes() {
         let rom = vec![0x12, 0x34, 0x56, 0x78];
-        let mut mmu = Mmu::new(&rom);
+        let mut mmu = Mmu::<RomOnly>::new(&rom).unwrap();
 
         // Reading from ROM region gives you the first bank data
         assert_eq!(mmu.read_byte(0x0000), 0x12);
@@ -218,7 +222,7 @@ mod tests {
     // MRAM ECHO RAM
     #[test]
     fn echo_ram_mirror() {
-        let mut mmu = Mmu::new(&[]);
+        let mut mmu = Mmu::<RomOnly>::new(&[]).unwrap();
 
         // Write to Work RAM (0xC000) and read from Echo RAM (0xE000)
         mmu.write_byte(0xC000, 0xAA);
@@ -232,7 +236,7 @@ mod tests {
     // UNUSABLE REGION
     #[test]
     fn unusable_region_behavior() {
-        let mut mmu = Mmu::new(&[]);
+        let mut mmu = Mmu::<RomOnly>::new(&[]).unwrap();
 
         // Unusable region reads back as 0xFF
         let base = 0xFEA0;
