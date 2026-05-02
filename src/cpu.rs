@@ -144,7 +144,7 @@ impl<T: Mbc> Cpu<T> {
             return 4;
         }
         if self.handle_ime_state() == StepStatus::Halted {
-            return 5;
+            return 20;
         }
 
         let instruction_byte = self.bus.read().unwrap().read_byte(self.pc);
@@ -161,7 +161,7 @@ impl<T: Mbc> Cpu<T> {
             return 4;
         }
         if self.handle_ime_state() == StepStatus::Halted {
-            return 5;
+            return 20;
         }
 
         let tick_to_wait = self.execute_instruction(instruction);
