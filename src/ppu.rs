@@ -524,6 +524,11 @@ impl<T: Mbc> Ppu<T> {
             }
 
             self.ly += 1;
+
+            let mut bus = self.bus.write().unwrap();
+            bus.write_byte(LY_ADDR, self.ly);
+            drop(bus);
+
             self.check_lyc_equals_ly();
 
             // reset for newline
@@ -552,11 +557,20 @@ impl<T: Mbc> Ppu<T> {
     fn mode_vblank(&mut self) -> bool {
         if self.dots >= SCANLINE_DOTS {
             self.dots -= SCANLINE_DOTS;
+
             self.ly += 1;
+            let mut bus = self.bus.write().unwrap();
+            bus.write_byte(LY_ADDR, self.ly);
+            drop(bus);
+
             self.check_lyc_equals_ly();
 
             if self.ly >= WIN_SIZE_Y as u8 + VBLANK_SIZE as u8 {
                 self.ly = 0;
+                let mut bus = self.bus.write().unwrap();
+                bus.write_byte(LY_ADDR, self.ly);
+                drop(bus);
+
                 self.check_lyc_equals_ly();
 
                 self.wly = 0;
@@ -581,6 +595,10 @@ impl<T: Mbc> Ppu<T> {
 
         if !self.lcd_control.is_ppu_enabled() {
             self.ly = 0;
+            let mut bus = self.bus.write().unwrap();
+            bus.write_byte(LY_ADDR, self.ly);
+            drop(bus);
+
             self.dots = 0;
             self.lcd_status.update_ppu_mode(PpuMode::HBlank);
             return false;
@@ -630,6 +648,7 @@ impl<T: Mbc> Ppu<T> {
     pub fn write_data_to_mmu(&mut self) {
         let mut bus = self.bus.write().unwrap();
         bus.write_byte(STAT_ADDR, self.lcd_status.struct_to_byte());
-        bus.write_byte(LY_ADDR, self.ly);
+        bus.write_byte(LYC_ADDR, self.lyc);
+        // bus.write_byte(LY_ADDR, self.ly);
     }
 }
