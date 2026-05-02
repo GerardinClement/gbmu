@@ -1,14 +1,14 @@
 use crate::gui::common::display_game;
 
 use eframe::egui::{
-    Align, Button, Color32, Context, DragValue, Grid, Layout, RichText, ScrollArea, SidePanel, Panel,
+    Align, Button, Color32, DragValue, Grid, Layout, RichText, ScrollArea, Panel,
     TextEdit, Ui,
 };
 
 use super::{DebuggingDataIn, DebuggingDataOut};
 
 pub fn display_interface(
-    ctx: &Context,
+    ui: &mut egui::Ui,
     _frame: &mut eframe::Frame,
     data: DebuggingDataIn,
 ) -> DebuggingDataOut {
@@ -25,7 +25,7 @@ pub fn display_interface(
         .resizable(true)
         .default_size(400.0)
         .min_size(300.0)
-        .show(ctx, |ui| {
+        .show_inside(ui, |ui| {
             ScrollArea::vertical()
                 .show(ui, |ui| {
                     let close_button_is_clicked: bool = ui
@@ -93,7 +93,7 @@ pub fn display_interface(
         .inner;
 
     if let Some(sized_texture) = data.sized_texture {
-        display_game(sized_texture, ctx);
+        display_game(sized_texture, ui);
     }
 
     DebuggingDataOut {

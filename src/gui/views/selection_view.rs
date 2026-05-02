@@ -11,10 +11,10 @@ enum OutState {
 impl SelectionDevice {
     pub fn selection_view(
         mut self,
-        ctx: &eframe::egui::Context,
+        ui: &mut egui::Ui,
         _frame: &mut eframe::Frame,
     ) -> AppState {
-        self.display(ctx, _frame);
+        self.display(ui, _frame);
         let next_state = self.next_state();
         self.update_view(next_state)
     }
@@ -36,8 +36,8 @@ impl SelectionDevice {
         }
     }
 
-    fn display(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
+    fn display(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        egui::CentralPanel::default().show_inside(ui, |ui| {
 
             if ui.button("Pick file").clicked() {
                 self.file_dialog.pick_file();
@@ -46,7 +46,7 @@ impl SelectionDevice {
 
             // Update the dialog
             
-            self.file_dialog.update(ctx);
+            self.file_dialog.update(ui.ctx());
             if let Some(path) = self.file_dialog.take_picked() {
                 self.path = path.into_os_string().into_string().unwrap();
             }

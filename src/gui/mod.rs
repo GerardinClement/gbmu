@@ -10,7 +10,7 @@ use egui_file_dialog::{FileDialog, Filter};
 use crate::mmu::mbc::{Mbc1, Mbc2, Mbc3, RomOnly};
 use crate::ppu;
 use eframe::egui::{Key, TextureHandle};
-use eframe::egui::{load::SizedTexture, vec2, ColorImage, Context, TextureOptions};
+use eframe::egui::{load::SizedTexture, vec2, ColorImage, TextureOptions};
 use std::collections::HashSet;
 
 use std::sync::atomic::Ordering;
@@ -35,21 +35,22 @@ use tokio::task::JoinHandle;
 use std::sync::{Arc, atomic::AtomicBool};
 
 impl eframe::App for GraphicalApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {}
+
+    fn ui(&mut self, _ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let debut = Instant::now();
         self.app_state = match std::mem::replace(&mut self.app_state, AppState::Default) {
-            AppState::StartingHub(device) => device.starting_view(ctx, _frame),
-            AppState::SelectionHub(device) => device.selection_view(ctx, _frame),
-            AppState::EmulationHub(device) => device.emulation_view(ctx, _frame),
-            AppState::DebuggingHub(device) => device.debug_view(ctx, _frame),
+            AppState::StartingHub(device) => device.starting_view(_ui, _frame),
+            AppState::SelectionHub(device) => device.selection_view(_ui, _frame),
+            AppState::EmulationHub(device) => device.emulation_view(_ui, _frame),
+            AppState::DebuggingHub(device) => device.debug_view(_ui, _frame),
             AppState::Default => unreachable!(),
         };
         let duration = debut.elapsed();
         //println!("egui : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
-        ctx.request_repaint();
+        _ui.ctx().request_repaint();
     }
-
-    fn ui(&mut self, _ui: &mut egui::Ui, _frame: &mut eframe::Frame) {}
 }
 
 pub struct EmulationAppOptions {
@@ -306,7 +307,7 @@ impl Drop for CoreGameDevice {
 
 impl CoreGameDevice {
 
-    pub fn update_and_size_image(&mut self, ctx: &Context) {
+    pub fn update_and_size_image(&mut self, ui: &mut egui::Ui) {
         if  self.updated_image_boolean.load(Ordering::Relaxed) {
             
             let loaded_image;
@@ -317,7 +318,7 @@ impl CoreGameDevice {
             if let Some(th) = &mut self.texture_handler {
                 th.set(loaded_image, TextureOptions::NEAREST);
             } else {
-                self.texture_handler = Some(ctx.load_texture("gb_frame", loaded_image, TextureOptions::NEAREST));
+                self.texture_handler = Some(ui.ctx().load_texture("gb_frame", loaded_image, TextureOptions::NEAREST));
             }
             if let Some(th) = &self.texture_handler {
                 let scaled_size = vec2(ppu::WIN_SIZE_X as f32 * 4., ppu::WIN_SIZE_Y as f32 * 4.);
@@ -328,8 +329,8 @@ impl CoreGameDevice {
         }
     }
 
-    pub fn capture_input(&self, ctx: &Context) -> KeyInput {
-        let keys_down= ctx.input(|i| {
+    pub fn capture_input(&self, ui: &mut egui::Ui) -> KeyInput {
+        let keys_down= ui.ctx().input(|i| {
             i.keys_down.clone()
         });
         self.key_mapping.generate_key_input(keys_down)
