@@ -386,8 +386,8 @@ impl Default for SelectionDevice {
             picked_file: None,
             file_dialog: FileDialog::new()
             .default_size([600.0, 400.0])
-            .set_file_icon("🎮", Filter::new(|path: &Path| path.extension().unwrap_or_default() == "gb"))
-            .add_file_filter("GameBoy ROMS", Filter::new(|path: &Path| path.extension().unwrap_or_default() == "gb"))
+            .set_file_icon("🎮", Filter::new(|path: &Path| path.extension().unwrap_or_default() == "gb" || path.extension().unwrap_or_default() == "gbc"))
+            .add_file_filter("GameBoy ROMS", Filter::new(|path: &Path| path.extension().unwrap_or_default() == "gb" || path.extension().unwrap_or_default() == "gbc"))
             .default_file_filter("GameBoy ROMS")
         }
     }
