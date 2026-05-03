@@ -541,6 +541,15 @@ impl<T: Mbc> Ppu<T> {
         false
     }
 
+    fn reset_hvblank(&mut self) {
+        self.x = 0;
+        self.bg_fifo.clear();
+        self.obj_piso.reset();
+        self.pixel_fetcher.reset_for_scanline();       
+        self.pixels_to_discard = self.read_scx() % 8;
+        self.use_window = false;
+        self.is_wx_glitch_happened = false;
+    }
 
     fn mode_hblank(&mut self) -> bool {
         // End of scanline -> next one after 456 dots
@@ -562,18 +571,7 @@ impl<T: Mbc> Ppu<T> {
 
             self.check_lyc_equals_ly();
 
-            // reset for newline
-            // TODO proper reset function
-            self.x = 0;
-            self.bg_fifo.clear();
-            self.obj_piso.reset();
-            self.pixel_fetcher.reset_for_scanline();
-
-            let scx = self.read_scx();
-
-            self.pixels_to_discard = scx % 8;
-            self.use_window = false;
-            self.is_wx_glitch_happened = false;
+            self.reset_hvblank();
 
             if self.ly >= WIN_SIZE_Y as u8 {
                 self.lcd_status.update_ppu_mode(PpuMode::VBlank);
@@ -606,17 +604,9 @@ impl<T: Mbc> Ppu<T> {
                 self.check_lyc_equals_ly();
 
                 self.wly = 0;
-                // TODO proper reset function
-                self.x = 0;
-                self.bg_fifo.clear();
-                self.obj_piso.reset();
-                self.pixel_fetcher.reset_for_scanline();
 
-                let scx = self.read_scx();
+                self.reset_hvblank();
 
-                self.pixels_to_discard = scx % 8;
-                self.use_window = false;
-                self.is_wx_glitch_happened = false;
                 self.wy_equal_ly_condition_met = false;
 
                 self.lcd_status.update_ppu_mode(PpuMode::OamSearch);
