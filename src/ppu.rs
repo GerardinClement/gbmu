@@ -72,6 +72,8 @@ pub struct Ppu<T: Mbc> {
     oam_scan_index: u8, // index scanned sprites in OAM Search
     visible_sprites_count: u8,
     current_obj_height: u8,
+    lcd_was_enabled: bool, // for the LCD on/off quirk. We need to detect if the ppu is on for the first time since it was off.
+    is_first_scanline_after_lcd_on: bool, // for the LCD on/off quirk. If first scanline since the ppu is on, the cycle is shorter.
 }
 
 impl<T: Mbc> Ppu<T> {
@@ -99,6 +101,8 @@ impl<T: Mbc> Ppu<T> {
             oam_scan_index: 0,
             visible_sprites_count: 0,
             current_obj_height: 0,
+            lcd_was_enabled: false,
+            is_first_scanline_after_lcd_on: false,
         }
     }
 
@@ -550,6 +554,7 @@ impl<T: Mbc> Ppu<T> {
         self.pixels_to_discard = self.read_scx() % 8;
         self.use_window = false;
         self.is_wx_glitch_happened = false;
+        self.is_first_scanline_after_lcd_on = false;
     }
 
     fn advance_to_next_scanline(&mut self) {
@@ -573,8 +578,14 @@ impl<T: Mbc> Ppu<T> {
 
     // End of scanline
     fn mode_hblank(&mut self) -> bool {
-        if self.dots >= SCANLINE_DOTS {
-            self.dots -= SCANLINE_DOTS;
+        let scanline_dots = if self.is_first_scanline_after_lcd_on {
+            SCANLINE_DOTS - 16
+        } else {
+            SCANLINE_DOTS
+        };
+
+        if self.dots >= scanline_dots {
+            self.dots -= scanline_dots;
             
             self.advance_to_next_scanline();
 
@@ -638,18 +649,29 @@ impl<T: Mbc> Ppu<T> {
         false
     }
 
+    fn reset_when_ppu_disabled(&mut self) {
+        self.ly = 0;
+        self.internal_ly = 0;
+        self.write_ly_to_mmu();
+
+        self.dots = 0;
+        self.lcd_status.update_ppu_mode(PpuMode::HBlank);
+        self.write_stat_to_mmu();
+
+        self.lcd_was_enabled = false;
+    }
+
     pub fn tick(&mut self, image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
         self.read_lcd_status();
 
         if !self.read_lcdc().is_ppu_enabled() {
-            self.ly = 0;
-            self.internal_ly = 0;
-            self.write_ly_to_mmu();
-
-            self.dots = 0;
-            self.lcd_status.update_ppu_mode(PpuMode::HBlank);
-            self.write_stat_to_mmu();
+            self.reset_when_ppu_disabled();
             return false;
+        }
+
+        if !self.lcd_was_enabled {
+            self.is_first_scanline_after_lcd_on = true;
+            self.lcd_was_enabled = true;
         }
 
         self.dots += 1;
