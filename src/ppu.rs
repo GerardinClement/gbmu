@@ -32,7 +32,6 @@ pub const WIN_SIZE_X: usize = 160; // Window size in X direction
 pub const WIN_SIZE_Y: usize = 144; // Window size in Y direction
 pub const VBLANK_SIZE: usize = 10; // VBlank size in lines
 const VRAM: MemoryRegion = MemoryRegion::Vram; // Start of VRAM
-const OAM: MemoryRegion = MemoryRegion::Oam; // Start of OAM
 const LY_ADDR: u16 = 0xFF44; // LCDC Y-Coordinate
 const LYC_ADDR: u16 = 0xFF45; // LY Compare
 const STAT_ADDR: u16 = 0xFF41; // LCDC Status
@@ -56,6 +55,7 @@ pub struct Ppu<T: Mbc> {
     lcd_status: LcdStatus, // LCD Status register
     wly: u8,               // Window internal line counter
     ly: u8,
+    internal_ly: u8, // needed for the ly=153 quirk
     x: usize,
     pixel_fetcher: PixelFetcher,
     oam_fetcher: OamFetcher,
@@ -82,6 +82,7 @@ impl<T: Mbc> Ppu<T> {
             lcd_status: LcdStatus::new(),
             wly: 0x00,
             ly: 0x00,
+            internal_ly: 0x00,
             x: 0,
             pixel_fetcher: PixelFetcher::default(),
             oam_fetcher: OamFetcher::default(),
@@ -541,7 +542,7 @@ impl<T: Mbc> Ppu<T> {
         false
     }
 
-    fn reset_hvblank(&mut self) {
+    fn reset_for_new_scanline(&mut self) {
         self.x = 0;
         self.bg_fifo.clear();
         self.obj_piso.reset();
@@ -551,27 +552,31 @@ impl<T: Mbc> Ppu<T> {
         self.is_wx_glitch_happened = false;
     }
 
-    fn mode_hblank(&mut self) -> bool {
-        // End of scanline -> next one after 456 dots
+    fn advance_to_next_scanline(&mut self) {
+        let wy = self.read_wy();
+        let wx = self.read_wx();
 
+        if self.read_lcdc().is_window_enabled()
+            && self.ly >= wy
+            && wx <= 166 {
+            self.wly += 1;
+        }
+
+        self.ly += 1;
+        self.internal_ly += 1;
+        self.write_ly_to_mmu();
+
+        self.check_lyc_equals_ly();
+
+        self.reset_for_new_scanline();
+    }
+
+    // End of scanline
+    fn mode_hblank(&mut self) -> bool {
         if self.dots >= SCANLINE_DOTS {
             self.dots -= SCANLINE_DOTS;
             
-            let wy = self.read_wy();
-            let wx = self.read_wx();
-
-            if self.read_lcdc().is_window_enabled()
-                && self.ly >= wy
-                && wx <= 166 {
-                self.wly += 1;
-            }
-
-            self.ly += 1;
-            self.write_ly_to_mmu();
-
-            self.check_lyc_equals_ly();
-
-            self.reset_hvblank();
+            self.advance_to_next_scanline();
 
             if self.ly >= WIN_SIZE_Y as u8 {
                 self.lcd_status.update_ppu_mode(PpuMode::VBlank);
@@ -588,31 +593,48 @@ impl<T: Mbc> Ppu<T> {
         false
     }
 
+    fn handle_ly153_quirk(&mut self) {
+        self.ly = 0;
+        self.write_ly_to_mmu();
+        self.check_lyc_equals_ly();
+    }
+
+    fn end_frame(&mut self) {
+        self.internal_ly = 0;
+        self.ly = 0;
+        self.write_ly_to_mmu();
+        
+        self.wly = 0;
+        self.reset_for_new_scanline();
+        self.wy_equal_ly_condition_met = false;
+
+        self.lcd_status.update_ppu_mode(PpuMode::OamSearch);
+        self.write_stat_to_mmu();
+    }
+
+    fn advance_vblank_scanline(&mut self) {
+        self.internal_ly += 1;
+        self.ly = self.internal_ly;
+        self.write_ly_to_mmu();
+        self.check_lyc_equals_ly();
+    }
+
+    // End of frame
     fn mode_vblank(&mut self) -> bool {
+        if self.internal_ly == 153 && self.dots == 4 {
+            self.handle_ly153_quirk();
+        }
+
         if self.dots >= SCANLINE_DOTS {
             self.dots -= SCANLINE_DOTS;
 
-            self.ly += 1;
-            self.write_ly_to_mmu();
-
-            self.check_lyc_equals_ly();
-
-            if self.ly >= WIN_SIZE_Y as u8 + VBLANK_SIZE as u8 {
-                self.ly = 0;
-                self.write_ly_to_mmu();
-               
-                self.check_lyc_equals_ly();
-
-                self.wly = 0;
-
-                self.reset_hvblank();
-
-                self.wy_equal_ly_condition_met = false;
-
-                self.lcd_status.update_ppu_mode(PpuMode::OamSearch);
-                self.write_stat_to_mmu();
+            if self.internal_ly == 153 {
+                self.end_frame();
+            } else {
+                self.advance_vblank_scanline();
             }
         }
+            
         false
     }
 
@@ -621,6 +643,7 @@ impl<T: Mbc> Ppu<T> {
 
         if !self.read_lcdc().is_ppu_enabled() {
             self.ly = 0;
+            self.internal_ly = 0;
             self.write_ly_to_mmu();
 
             self.dots = 0;
