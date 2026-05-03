@@ -114,7 +114,7 @@ impl Into<bool> for &KeyInput {
     }
 }
 
-pub struct KeyMaping{
+pub struct KeyMapping{
     pub a: Key,
     pub b: Key,
     pub select: Key,
@@ -125,17 +125,17 @@ pub struct KeyMaping{
     pub right: Key,
 }
 
-impl Default for KeyMaping {
+impl Default for KeyMapping {
     fn default() -> Self {
-        KeyMaping {
+        KeyMapping {
             a: Key::J,
             b: Key::K,
             select: Key::N,
             start: Key::M,
             up: Key::W,
             down: Key::S,
-            left: Key::D,
-            right: Key::A,
+            left: Key::A,
+            right: Key::D,
         }
     }
 }
@@ -223,7 +223,7 @@ async fn launch_game(
         app.simulate_boot_rom_effect()
     }
 
-    let input = KeyInput::default();
+    let mut input = KeyInput::default();
 
     loop {
         time::sleep(TokioDuration::from_millis(1)).await;
@@ -231,11 +231,12 @@ async fn launch_game(
         // du multitask dans le cpu
         // Cela permet de checker si la tache n'a pas ete annule
 
-
-        if let Ok(input) = input_receiver.try_recv(){
-            let input = input;
+        while let Ok(new_input) = input_receiver.try_recv(){
+            input = new_input;
         }
+
         let buffer_was_updated = app.update(&input);
+
         if buffer_was_updated {
             updated_image_boolean.store(true, Ordering::Relaxed);
         }
@@ -274,10 +275,10 @@ pub struct CoreGameDevice {
     pub sized_image: Option<SizedTexture>,
     pub global_is_debug: Arc<AtomicBool>,
     texture_handler: Option<TextureHandle>,
-    key_mapping: KeyMaping,
+    key_mapping: KeyMapping,
 }
 
-impl KeyMaping {
+impl KeyMapping {
     pub fn generate_key_input(&self, keys_down: HashSet<Key>) -> KeyInput {
         KeyInput {
             a_pushed: keys_down.contains(&self.a),
@@ -359,7 +360,7 @@ impl CoreGameDevice {
             actual_image,
             global_is_debug,
             sized_image: None,
-            key_mapping: KeyMaping::default(),
+            key_mapping: KeyMapping::default(),
         }
     }
 }

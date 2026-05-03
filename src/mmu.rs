@@ -71,7 +71,9 @@ pub struct Mmu<T: Mbc> {
     timers: Timers,
     oam: Oam,
     boot_enable: bool,
-    boot_rom: [u8; 0x0100]
+    boot_rom: [u8; 0x0100],
+    dpad_state: u8, // for joypad
+    button_state: u8, // for joypad
 }
 
 impl<T: Mbc> Mmu<T> {
@@ -85,6 +87,8 @@ impl<T: Mbc> Mmu<T> {
             oam: Oam::default(),
             boot_enable: false,
             boot_rom: [0xFF; 0x0100],
+            dpad_state: 0x0F,
+            button_state: 0x0F,
         })
     }
 
@@ -109,11 +113,28 @@ impl<T: Mbc> Mmu<T> {
 
         match MemoryRegion::from(addr) {
             MemoryRegion::Mbc | MemoryRegion::ERam => self.cart.read(addr),
-            MemoryRegion::Timers => self.timers.read_byte(addr),
             MemoryRegion::Mram => {
                 let mirror = addr - 0x2000;
 
                 self.data[mirror as usize]
+            }
+            MemoryRegion::Timers => self.timers.read_byte(addr),
+            MemoryRegion::Io => {
+                if addr == 0xFF00 {
+                    let selection = self.data[0xFF00] & 0b0011_0000;
+                    let mut result = 0x0F;
+
+                    if selection & 0b0001_0000 == 0 {
+                        result &= self.dpad_state;
+                    }
+                    if selection & 0b0010_0000 == 0 {
+                        result &= self.button_state;
+                    }
+
+                    0b1100_0000 | selection | result
+                } else {
+                    self.data[addr as usize]
+                }
             }
             MemoryRegion::Oam => self.oam.read(addr),
             MemoryRegion::Unusable => 0xFF,
@@ -138,8 +159,18 @@ impl<T: Mbc> Mmu<T> {
 
                 self.data[mirror as usize] = val;
             }
-            MemoryRegion::Timers => {
-                self.timers.write_byte(addr, val);
+            MemoryRegion::Timers => self.timers.write_byte(addr, val),
+            MemoryRegion::Io => {
+                // The CPU can only change the bits 4 and 5. The emulator use methods to write into the memory.
+                if addr == 0xFF00 {
+                    let selection_bits = val & 0b0011_0000;
+                    let current_inputs = self.data[0xFF00] & 0x0F;
+                    self.data[0xFF00] = 0b1100_0000 | selection_bits | current_inputs;
+
+                    self.update_joypad_register();
+                } else {
+                    self.data[addr as usize] = val;
+                }
             }
             MemoryRegion::Oam => self.oam.write(addr, val),
             MemoryRegion::Unusable => {}
@@ -175,6 +206,31 @@ impl<T: Mbc> Mmu<T> {
 
     pub fn get_boot_enable(&self) -> bool {
         self.boot_enable
+    }
+
+    fn update_joypad_register(&mut self) {
+        let mut new_inputs = 0x0F;
+        let selection = self.data[0xFF00] & 0b0011_0000;
+
+        if selection & 0b0001_0000 == 0 {
+            new_inputs &= self.dpad_state;
+        }
+        if selection & 0b0010_0000 == 0 {
+            new_inputs &= self.button_state;
+        }
+
+        let old_inputs = self.data[0xFF00] & 0x0F;
+        if (old_inputs & !new_inputs) & 0x0F != 0 {
+            self.interrupts_request(Interrupt::Joypad);
+        }
+
+        self.data[0xFF00] = 0xC0 | selection | new_inputs;
+    }
+
+    pub fn update_keys(&mut self, dpad: u8, buttons: u8) {
+        self.dpad_state = dpad;
+        self.button_state = buttons;
+        self.update_joypad_register();
     }
 }
 
