@@ -7,4 +7,3 @@ pub fn display_game(texture: SizedTexture, ui: &mut egui::Ui,) {
         });
     });
 }
-
