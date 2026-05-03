@@ -69,6 +69,9 @@ pub struct Ppu<T: Mbc> {
     fetching_sprite: bool, // pixel fetcher and pixel shifter need to be paused while oam fetcher is called
     current_sprite_to_fetch: Option<usize>,
     wy_equal_ly_condition_met: bool,
+    oam_scan_index: u8, // index scanned sprites in OAM Search
+    visible_sprites_count: u8,
+    current_obj_height: u8,
 }
 
 impl<T: Mbc> Ppu<T> {
@@ -92,6 +95,9 @@ impl<T: Mbc> Ppu<T> {
             fetching_sprite: false,
             current_sprite_to_fetch: None,
             wy_equal_ly_condition_met: false,
+            oam_scan_index: 0,
+            visible_sprites_count: 0,
+            current_obj_height: 0,
         }
     }
 
@@ -322,10 +328,35 @@ impl<T: Mbc> Ppu<T> {
 
 
     fn mode_oam_search(&mut self) -> bool {
-        if self.dots >= OAM_DOTS {
+        if self.dots == 1 {
+            self.oam_scan_index = 0;
+            self.visible_sprites_count = 0;
             self.visible_sprites = [None; 10];
-            self.oam_search();
+            self.current_obj_height = if self.read_lcdc().is_obj_size_8x16() {
+                16
+            } else {
+                8
+            };
+        }
 
+        if self.dots % 2 == 0 && self.oam_scan_index < 40 {
+            let mmu = self.bus.read().unwrap();
+            let oam = mmu.get_oam();
+
+            let mut sprite = oam.sprites[self.oam_scan_index as usize];
+
+            if sprite.is_visible(self.ly, self.current_obj_height)
+                && self.visible_sprites_count < 10 {
+                sprite.oam_index = self.oam_scan_index;
+
+                self.visible_sprites[self.visible_sprites_count as usize] = Some(sprite);
+
+                self.visible_sprites_count += 1;
+            }
+            self.oam_scan_index += 1;
+        }
+
+        if self.dots >= OAM_DOTS {
             self.lcd_status.update_ppu_mode(PpuMode::PixelTransfer);
             self.write_stat_to_mmu();
         }
