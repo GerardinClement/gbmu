@@ -168,6 +168,13 @@ impl<T: Mbc> Mmu<T> {
                     self.data[0xFF00] = 0b1100_0000 | selection_bits | current_inputs;
 
                     self.update_joypad_register();
+                } else if addr == 0xFF41 { // STAT register
+                    let current_val = self.data[0xFF41 as usize];
+
+                    // We keep 0-2 (PPU), we take 3-6 of CPU (val), bit 7 is always 1
+                    self.data[addr as usize] = (val & 0b0111_1000) | (current_val & 0b0000_0111) | 0x80;
+                } else if addr == 0xFF44 {
+                    // Do nothing, read-only
                 } else if addr == 0xFF46 {
                     self.data[addr as usize] = val;
 
@@ -239,6 +246,14 @@ impl<T: Mbc> Mmu<T> {
         self.dpad_state = dpad;
         self.button_state = buttons;
         self.update_joypad_register();
+    }
+
+    pub fn set_stat_byte_from_ppu(&mut self, val: u8) {
+        self.data[0xFF41] = val;
+    }
+
+    pub fn set_ly_from_ppu(&mut self, val: u8) {
+        self.data[0xFF44] = val;
     }
 }
 
