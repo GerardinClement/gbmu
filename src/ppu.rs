@@ -362,8 +362,7 @@ impl<T: Mbc> Ppu<T> {
         }
 
         if self.dots >= OAM_DOTS {
-            self.lcd_status.update_ppu_mode(PpuMode::PixelTransfer);
-            self.write_stat_to_mmu();
+            self.update_ppu_mode(PpuMode::PixelTransfer);
         }
 
         false
@@ -539,8 +538,7 @@ impl<T: Mbc> Ppu<T> {
         }
 
         if self.x == 160 {
-            self.lcd_status.update_ppu_mode(PpuMode::HBlank);
-            self.write_stat_to_mmu();
+            self.update_ppu_mode(PpuMode::HBlank);
         }
 
         false
@@ -590,15 +588,13 @@ impl<T: Mbc> Ppu<T> {
             self.advance_to_next_scanline();
 
             if self.ly >= WIN_SIZE_Y as u8 {
-                self.lcd_status.update_ppu_mode(PpuMode::VBlank);
-                self.write_stat_to_mmu();
+                self.update_ppu_mode(PpuMode::VBlank);
 
                 self.bus.write().unwrap().interrupts_request(Interrupt::VBlank);
 
                 return true;
             } else {
-                self.lcd_status.update_ppu_mode(PpuMode::OamSearch);
-                self.write_stat_to_mmu();
+                self.update_ppu_mode(PpuMode::OamSearch);
             }
         }
         false
@@ -619,8 +615,7 @@ impl<T: Mbc> Ppu<T> {
         self.reset_for_new_scanline();
         self.wy_equal_ly_condition_met = false;
 
-        self.lcd_status.update_ppu_mode(PpuMode::OamSearch);
-        self.write_stat_to_mmu();
+        self.update_ppu_mode(PpuMode::OamSearch);
     }
 
     fn advance_vblank_scanline(&mut self) {
@@ -655,8 +650,7 @@ impl<T: Mbc> Ppu<T> {
         self.write_ly_to_mmu();
 
         self.dots = 0;
-        self.lcd_status.update_ppu_mode(PpuMode::HBlank);
-        self.write_stat_to_mmu();
+        self.update_ppu_mode(PpuMode::HBlank);
 
         self.lcd_was_enabled = false;
     }
@@ -706,7 +700,12 @@ impl<T: Mbc> Ppu<T> {
         }
     }
 
-    pub fn read_lcd_status(&mut self) {
+    fn update_ppu_mode(&mut self, mode: PpuMode) {
+        self.lcd_status.update_ppu_mode(mode);
+        self.write_stat_to_mmu();
+    }
+
+    fn read_lcd_status(&mut self) {
         let bus = self.bus.read().unwrap();
         self.lcd_status.update_from_byte(bus.read_byte(STAT_ADDR));
     }
