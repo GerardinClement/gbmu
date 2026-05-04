@@ -168,6 +168,14 @@ impl<T: Mbc> Mmu<T> {
                     self.data[0xFF00] = 0b1100_0000 | selection_bits | current_inputs;
 
                     self.update_joypad_register();
+                } else if addr == 0xFF46 {
+                    self.data[addr as usize] = val;
+
+                    let src_addr = (val as u16) << 8;
+                    for i in 0..160 {
+                        let byte = self.read_byte(src_addr + i);
+                        self.oam.write(0xFE00 + i, byte);
+                    }
                 } else {
                     self.data[addr as usize] = val;
                 }
