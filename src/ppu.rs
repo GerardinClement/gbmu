@@ -12,6 +12,7 @@ mod oam_fetcher;
 
 use std::sync::Mutex;
 use std::sync::{Arc, RwLock};
+use std::thread::current;
 
 use crate::mmu::mbc::Mbc;
 use crate::mmu::MemoryRegion;
@@ -74,6 +75,7 @@ pub struct Ppu<T: Mbc> {
     current_obj_height: u8,
     lcd_was_enabled: bool, // for the LCD on/off quirk. We need to detect if the ppu is on for the first time since it was off.
     is_first_scanline_after_lcd_on: bool, // for the LCD on/off quirk. If first scanline since the ppu is on, the cycle is shorter.
+    stat_interrupt_line: bool,
 }
 
 impl<T: Mbc> Ppu<T> {
@@ -103,6 +105,7 @@ impl<T: Mbc> Ppu<T> {
             current_obj_height: 0,
             lcd_was_enabled: false,
             is_first_scanline_after_lcd_on: false,
+            stat_interrupt_line: false,
         }
     }
 
@@ -653,10 +656,12 @@ impl<T: Mbc> Ppu<T> {
         self.update_ppu_mode(PpuMode::HBlank);
 
         self.lcd_was_enabled = false;
+        self.stat_interrupt_line = false;
     }
 
     pub fn tick(&mut self, image: &mut Arc<Mutex<Vec<u8>>>) -> bool {
         self.read_lcd_status();
+        self.check_lyc_equals_ly();
 
         if !self.read_lcdc().is_ppu_enabled() {
             self.reset_when_ppu_disabled();
@@ -681,6 +686,8 @@ impl<T: Mbc> Ppu<T> {
             PpuMode::VBlank => self.mode_vblank(),
         };
 
+        self.evaluate_stat_interrupt();
+
         was_updated
     }
 
@@ -695,9 +702,9 @@ impl<T: Mbc> Ppu<T> {
         self.lcd_status.set_lyc_equals_ly(lyc_match);
         self.write_stat_to_mmu();
         
-        if self.lcd_status.get_lyc_equals_ly() {
-            self.bus.write().unwrap().interrupts_request(Interrupt::LcdStat);
-        }
+        // if self.lcd_status.get_lyc_equals_ly() {
+        //     self.bus.write().unwrap().interrupts_request(Interrupt::LcdStat);
+        // }
     }
 
     fn update_ppu_mode(&mut self, mode: PpuMode) {
@@ -705,9 +712,24 @@ impl<T: Mbc> Ppu<T> {
         self.write_stat_to_mmu();
     }
 
+    fn evaluate_stat_interrupt(&mut self) {
+        let current_line = self.lcd_status.stat_interrupt_line();
+
+        if !self.stat_interrupt_line && current_line {
+            self.bus.write().unwrap().interrupts_request(Interrupt::LcdStat);
+        }
+
+        self.stat_interrupt_line = current_line;
+    }
+
+
     fn read_lcd_status(&mut self) {
-        let bus = self.bus.read().unwrap();
-        self.lcd_status.update_from_byte(bus.read_byte(STAT_ADDR));
+        let stat_byte = {
+            let bus = self.bus.read().unwrap();
+            bus.read_byte(STAT_ADDR)
+        };
+
+        self.lcd_status.update_from_byte(stat_byte);
     }
 
     fn read_scy(&self) -> u8 {
@@ -744,11 +766,11 @@ impl<T: Mbc> Ppu<T> {
 
     fn write_ly_to_mmu(&mut self) {
         let mut bus = self.bus.write().unwrap();
-        bus.write_byte(LY_ADDR, self.ly);
+        bus.set_ly_from_ppu(self.ly);
     }
 
     fn write_stat_to_mmu(&mut self) {
         let mut bus = self.bus.write().unwrap();
-        bus.write_byte(STAT_ADDR, self.lcd_status.struct_to_byte());
+        bus.set_stat_byte_from_ppu(self.lcd_status.struct_to_byte());
     }
 }

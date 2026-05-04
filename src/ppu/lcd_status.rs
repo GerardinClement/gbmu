@@ -79,6 +79,9 @@ impl LcdStatus {
         // Bits 1-0: PPU mode
         stat |= self.ppu_mode as u8;
 
+        // Always at 1
+        stat |= 0b1000_0000;
+
         stat
     }
 
@@ -89,5 +92,23 @@ impl LcdStatus {
         self.mode_0_int_select = (value & 0b0000_1000) != 0;
 
         // Bits 2, 1, 0 are read-only
+    }
+
+    pub fn stat_interrupt_line(&self) -> bool {
+        let mut line = false;
+        if self.lyc_int_select && self.lyc_equals_ly {
+            line = true;
+        }
+        if self.mode_2_int_select && self.ppu_mode == PpuMode::OamSearch {
+            line = true;
+        }
+        if self.mode_1_int_select && self.ppu_mode == PpuMode::VBlank {
+            line = true;
+        }
+        if self.mode_0_int_select && self.ppu_mode == PpuMode::HBlank {
+            line = true;
+        }
+
+        line
     }
 }
