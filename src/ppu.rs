@@ -369,6 +369,7 @@ impl<T: Mbc> Ppu<T> {
         if self.dots >= OAM_DOTS {
             let sorted = self.sort_sprites_by_x();
             self.visible_sprites = [None; 10];
+
             for (i, sprite) in sorted.into_iter().enumerate() {
                 self.visible_sprites[i] = Some(sprite);
             }
@@ -541,14 +542,13 @@ impl<T: Mbc> Ppu<T> {
                 && self.wy_equal_ly_condition_met
                 && (self.x + 7 >= wx as usize);
 
-
             self.step_oam_fetcher();
 
             if !self.fetching_sprite {
+                self.step_pixel_fetcher(use_window);
                 if self.stall_dots > 0 {
                     self.stall_dots -= 1;
                 } else {
-                    self.step_pixel_fetcher(use_window);
                     let mut frame = image.lock().unwrap();
                     self.handle_window_switch(use_window);
                     self.push_pixel_to_screen(&mut frame, use_window);
@@ -572,6 +572,7 @@ impl<T: Mbc> Ppu<T> {
         self.use_window = false;
         self.is_wx_glitch_happened = false;
         self.is_first_scanline_after_lcd_on = false;
+        self.stall_dots = 0;
     }
 
     fn advance_to_next_scanline(&mut self) {
