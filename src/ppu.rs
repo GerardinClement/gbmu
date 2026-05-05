@@ -367,6 +367,12 @@ impl<T: Mbc> Ppu<T> {
         }
 
         if self.dots >= OAM_DOTS {
+            let sorted = self.sort_sprites_by_x();
+            self.visible_sprites = [None; 10];
+            for (i, sprite) in sorted.into_iter().enumerate() {
+                self.visible_sprites[i] = Some(sprite);
+            }
+
             self.update_ppu_mode(PpuMode::PixelTransfer);
         }
 
