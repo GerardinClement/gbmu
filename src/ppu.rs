@@ -76,6 +76,7 @@ pub struct Ppu<T: Mbc> {
     lcd_was_enabled: bool, // for the LCD on/off quirk. We need to detect if the ppu is on for the first time since it was off.
     is_first_scanline_after_lcd_on: bool, // for the LCD on/off quirk. If first scanline since the ppu is on, the cycle is shorter.
     stat_interrupt_line: bool,
+    stall_dots: u8, // to handle the sprite penalty in mode pixel transfer
 }
 
 impl<T: Mbc> Ppu<T> {
@@ -106,6 +107,7 @@ impl<T: Mbc> Ppu<T> {
             lcd_was_enabled: false,
             is_first_scanline_after_lcd_on: false,
             stat_interrupt_line: false,
+            stall_dots: 0,
         }
     }
 
@@ -477,9 +479,13 @@ impl<T: Mbc> Ppu<T> {
                         self.x,
                     );
 
-
                     if !self.fetching_sprite {
                         self.visible_sprites[index] = None;
+
+                        let remaining_pixels = self.bg_fifo.len() as u8;
+                        if remaining_pixels < 6 {
+                            self.stall_dots = 6 - remaining_pixels;
+                        }
                     }
                 }
             };
@@ -533,10 +539,14 @@ impl<T: Mbc> Ppu<T> {
             self.step_oam_fetcher();
 
             if !self.fetching_sprite {
-                self.step_pixel_fetcher(use_window);
-                let mut frame = image.lock().unwrap();
-                self.handle_window_switch(use_window);
-                self.push_pixel_to_screen(&mut frame, use_window);
+                if self.stall_dots > 0 {
+                    self.stall_dots -= 1;
+                } else {
+                    self.step_pixel_fetcher(use_window);
+                    let mut frame = image.lock().unwrap();
+                    self.handle_window_switch(use_window);
+                    self.push_pixel_to_screen(&mut frame, use_window);
+                }
             }
         }
 
