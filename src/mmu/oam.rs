@@ -131,6 +131,39 @@ impl Oam {
             self.write_corrupt_words_in_oam(corrupt_words, offset, i);
         }
     }
+
+    fn corrupt_words_if_read(&self, mut words: [u16; 4], prev_words: [u16; 4]) -> [u16; 4] {
+        let original_value = words[0];
+        let first_word_of_prev_row = prev_words[0];
+        let third_word_of_prev_row = prev_words[2];
+        words[0] = first_word_of_prev_row | (original_value & third_word_of_prev_row);
+
+        for i in 1..4 {
+            words[i as usize] = prev_words[i as usize];
+        }
+
+        words
+    }
+
+    pub fn trigger_oam_bug_read(&mut self, offset: u8) {
+        if offset < 8 { return; }
+
+        let prev_offset = offset - 8;
+        let mut words: [u16; 4] = [0; 4];
+        let mut prev_words: [u16; 4] = [0; 4];
+
+        for i in 0..4 {
+            words[i as usize] = self.read_word_raw(offset + (i * 2) as u8);
+            prev_words[i as usize] = self.read_word_raw(prev_offset + (i * 2) as u8);
+        }
+
+        let corrupt_words = self.corrupt_words_if_read(words, prev_words);
+
+        self.write_corrupt_words_in_oam(corrupt_words, offset - 8, 0);
+        for i in 0..4 {
+            self.write_corrupt_words_in_oam(corrupt_words, offset, i);
+        }
+    }
 }
 
 
