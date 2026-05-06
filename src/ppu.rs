@@ -339,6 +339,7 @@ impl<T: Mbc> Ppu<T> {
 
     fn mode_oam_search(&mut self) -> bool {
         if self.dots == 1 {
+            self.bus.write().unwrap().update_accessed_oam_row(0);
             self.oam_scan_index = 0;
             self.visible_sprites_count = 0;
             self.visible_sprites = [None; 10];
@@ -366,6 +367,11 @@ impl<T: Mbc> Ppu<T> {
             self.oam_scan_index += 1;
         }
 
+        // accessed_oam_row count in M-cycles
+        if self.dots % 4 == 0 {
+            self.bus.write().unwrap().update_accessed_oam_row(8);
+        }
+
         if self.dots >= OAM_DOTS {
             let sorted = self.sort_sprites_by_x();
             self.visible_sprites = [None; 10];
@@ -375,6 +381,7 @@ impl<T: Mbc> Ppu<T> {
             }
 
             self.update_ppu_mode(PpuMode::PixelTransfer);
+            self.bus.write().unwrap().update_accessed_oam_row(0xFF);
         }
 
         false
