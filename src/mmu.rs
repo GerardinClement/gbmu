@@ -7,27 +7,31 @@ pub mod interrupt;
 pub mod mbc;
 pub mod timers;
 pub mod oam;
+pub mod apu;
 
 use self::timers::Timers;
 use crate::mmu::interrupt::Interrupt;
 use crate::mmu::interrupt::InterruptController;
 use crate::mmu::mbc::Mbc;
 use crate::mmu::oam::Oam;
+use crate::mmu::apu::Apu;
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum MemoryRegion {
-    Mbc,             // 0x000-0x7FFF: read-only
-    Vram,            // 0x8000-0x9FFF
-    ERam,            // 0xA000-0xBFFF
-    Wram,            // 0xC000-0xDFFF
-    Mram,            // 0xE000-0xFDFF: mirror of C000-DDFF
-    Oam,             // 0xFE00-0xFE9F: Sprite Attribute Table
-    Unusable,        // 0xFEA0-0xFEFF
-    InterruptFlag,   // 0xFF0F: Interruption Flag: Inside IO
-    Timers,          // 0xFF04-0xFF07
-    Io,              // 0xFF00-0xFF7F
-    HRam,            // 0xFF80-0xFFFE
-    InterruptEnable, // 0xFFFF : Interruption Enable
+    Mbc,                // 0x000-0x7FFF: read-only
+    Vram,               // 0x8000-0x9FFF
+    ERam,               // 0xA000-0xBFFF
+    Wram,               // 0xC000-0xDFFF
+    Mram,               // 0xE000-0xFDFF: mirror of C000-DDFF
+    Oam,                // 0xFE00-0xFE9F: Sprite Attribute Table
+    Unusable,           // 0xFEA0-0xFEFF
+    InterruptFlag,      // 0xFF0F: Interruption Flag: Inside IO
+    Timers,             // 0xFF04-0xFF07
+    Audio,              // 0xFF10-0xFF26
+    Io,                 // 0xFF00-0xFF7F
+    HRam,               // 0xFF80-0xFFFE
+    InterruptEnable,    // 0xFFFF: Interruption Enable
+    WavePatternRam,     // 0xFF30-0xFF3F
 }
 
 impl MemoryRegion {
@@ -62,6 +66,8 @@ impl MemoryRegion {
             MemoryRegion::Io => 0xFF00,
             MemoryRegion::HRam => 0xFF80,
             MemoryRegion::InterruptEnable => 0xFFFF,
+            MemoryRegion::Audio => 0xFF10,
+            MemoryRegion::WavePatternRam => 0xFF30,
         }
     }
 }
@@ -72,6 +78,7 @@ pub struct Mmu<T: Mbc> {
     interrupts: InterruptController,
     timers: Timers,
     oam: RwLock<Oam>,
+    apu: Apu,
     boot_enable: bool,
     boot_rom: [u8; 0x0100],
     dpad_state: u8, // for joypad
@@ -83,8 +90,8 @@ pub struct Mmu<T: Mbc> {
 
 impl<T: Mbc> Mmu<T> {
     pub fn new(rom_image: &[u8]) -> Result<Self, String> {
-        
        Ok(Mmu {
+            apu: Apu::default(),
             data: [0xFF; 0x10000],
             cart: T::new(rom_image)?,
             interrupts: InterruptController::new(),
