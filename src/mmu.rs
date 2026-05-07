@@ -1,6 +1,8 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
+use std::sync::{RwLock, RwLockReadGuard};
+
 pub mod interrupt;
 pub mod mbc;
 pub mod timers;
@@ -69,11 +71,12 @@ pub struct Mmu<T: Mbc> {
     cart: T,
     interrupts: InterruptController,
     timers: Timers,
-    oam: Oam,
+    oam: RwLock<Oam>,
     boot_enable: bool,
     boot_rom: [u8; 0x0100],
     dpad_state: u8, // for joypad
     button_state: u8, // for joypad
+    accessed_oam_ram: u8 // for OAM Bug
 }
 
 impl<T: Mbc> Mmu<T> {
@@ -84,11 +87,12 @@ impl<T: Mbc> Mmu<T> {
             cart: T::new(rom_image)?,
             interrupts: InterruptController::new(),
             timers: Timers::default(),
-            oam: Oam::default(),
+            oam: RwLock::new(Oam::default()),
             boot_enable: false,
             boot_rom: [0xFF; 0x0100],
             dpad_state: 0x0F,
             button_state: 0x0F,
+            accessed_oam_ram: 0xFF, // 0xFF means we're not in OAM search mode
         })
     }
 
@@ -136,7 +140,13 @@ impl<T: Mbc> Mmu<T> {
                     self.data[addr as usize]
                 }
             }
-            MemoryRegion::Oam => self.oam.read(addr),
+            MemoryRegion::Oam => {
+                let mut oam = self.oam.write().unwrap();
+                if self.accessed_oam_ram != 0xFF {
+                    oam.trigger_oam_bug_read(self.accessed_oam_ram);
+                }
+                oam.read(addr)
+            },
             MemoryRegion::Unusable => 0xFF,
             MemoryRegion::InterruptFlag => self.interrupts.read_interrupt_flag(),
             MemoryRegion::InterruptEnable => self.interrupts.read_interrupt_enable(),
@@ -168,19 +178,34 @@ impl<T: Mbc> Mmu<T> {
                     self.data[0xFF00] = 0b1100_0000 | selection_bits | current_inputs;
 
                     self.update_joypad_register();
+                } else if addr == 0xFF41 { // STAT register
+                    let current_val = self.data[0xFF41 as usize];
+
+                    // We keep 0-2 (PPU), we take 3-6 of CPU (val), bit 7 is always 1
+                    self.data[addr as usize] = (val & 0b0111_1000) | (current_val & 0b0000_0111) | 0x80;
+                } else if addr == 0xFF44 {
+                    // Do nothing, read-only
                 } else if addr == 0xFF46 {
                     self.data[addr as usize] = val;
 
                     let src_addr = (val as u16) << 8;
                     for i in 0..160 {
                         let byte = self.read_byte(src_addr + i);
-                        self.oam.write(0xFE00 + i, byte);
+
+                        let mut oam = self.oam.write().unwrap();
+                        oam.write(0xFE00 + i, byte);
                     }
                 } else {
                     self.data[addr as usize] = val;
                 }
             }
-            MemoryRegion::Oam => self.oam.write(addr, val),
+            MemoryRegion::Oam => {
+                let mut oam = self.oam.write().unwrap();
+                if self.accessed_oam_ram != 0xFF {
+                    oam.trigger_oam_bug_write(self.accessed_oam_ram);
+                }
+                oam.write(addr, val)
+            },
             MemoryRegion::Unusable => {}
             MemoryRegion::InterruptFlag => self.interrupts.write_interrupt_flag(val),
             MemoryRegion::InterruptEnable => self.interrupts.write_interrupt_enable(val),
@@ -208,8 +233,8 @@ impl<T: Mbc> Mmu<T> {
         self.interrupts.request(interrupt);
     }
 
-    pub fn get_oam(&self) -> &Oam {
-        &self.oam
+    pub fn get_oam(&self) -> RwLockReadGuard<'_, Oam> {
+        self.oam.read().unwrap()
     }
 
     pub fn get_boot_enable(&self) -> bool {
@@ -239,6 +264,26 @@ impl<T: Mbc> Mmu<T> {
         self.dpad_state = dpad;
         self.button_state = buttons;
         self.update_joypad_register();
+    }
+
+    pub fn set_stat_byte_from_ppu(&mut self, val: u8) {
+        self.data[0xFF41] = val;
+    }
+
+    pub fn set_ly_from_ppu(&mut self, val: u8) {
+        self.data[0xFF44] = val;
+    }
+
+    pub fn update_accessed_oam_row(&mut self, val: u8) {
+        if val == 0 || val == 0xFF {
+            self.accessed_oam_ram = val;
+        } else {
+            self.accessed_oam_ram += val;
+        }
+    }
+
+    pub fn trigger_oam_bug_read_increase(&mut self, offset: u8) {
+        self.oam.write().unwrap().trigger_oam_bug_read_increase(offset);
     }
 }
 

@@ -106,6 +106,13 @@ impl LcdControl {
     pub fn is_bg_window_enabled(&self) -> bool {
         self.bg_window_enable
     }
+    
+    pub fn from_byte(byte: u8) -> Self {
+        let mut lcdc = Self::default();
+        lcdc.update_from_byte(byte);
+
+        lcdc
+    }
 
     pub fn update_from_byte(&mut self, value: u8) {
         self.ppu_enable = value & PPU_ENABLE_MASK != 0;

@@ -47,9 +47,13 @@ impl Oam {
 		Default::default()
 	}
 
-	pub fn read(&self, addr:u16) -> u8 {
-		let sprite = ((addr - OAM_BEGINNING) / 4) as usize;
-		let byte = ((addr - OAM_BEGINNING) % 4) as usize;
+	pub fn read(&self, addr: u16) -> u8 {
+        self.read_raw((addr - OAM_BEGINNING) as u8)
+	}
+
+	pub fn read_raw(&self, offset: u8) -> u8 {
+		let sprite = (offset / 4) as usize;
+		let byte = (offset % 4) as usize;
 
 		match byte {
 			0 => self.sprites[sprite].y,
@@ -60,9 +64,20 @@ impl Oam {
 		}
 	}
 
+    pub fn read_word_raw(&self, offset: u8) -> u16 {
+        let byte_1 = self.read_raw(offset);
+        let byte_2 = self.read_raw(offset + 1);
+
+        ((byte_1  as u16) << 8) | byte_2 as u16
+    }
+
 	pub fn write(&mut self, addr: u16, val: u8) {
-		let sprite = ((addr - OAM_BEGINNING) / 4) as usize;
-		let byte = ((addr - OAM_BEGINNING) % 4) as usize;
+        self.write_raw((addr - OAM_BEGINNING) as u8, val);
+	}
+
+	pub fn write_raw(&mut self, offset: u8, val: u8) {
+		let sprite = (offset / 4) as usize;
+		let byte = (offset % 4) as usize;
 
 		match byte {
 			0 => self.sprites[sprite].y = val,
@@ -72,6 +87,123 @@ impl Oam {
 			_ => (),
 		}
 	}
+
+    pub fn write_word_raw(&mut self, offset: u8, val_1: u8, val_2: u8) {
+        self.write_raw(offset, val_1);
+        self.write_raw(offset + 1, val_2);
+    }
+
+    fn corrupt_words_if_write(&self, mut words: [u16; 4], prev_words: [u16; 4]) -> [u16; 4] {
+        let original_value = words[0];
+        let first_word_of_prev_row = prev_words[0];
+        let third_word_of_prev_row = prev_words[2];
+        words[0] = ((original_value ^ third_word_of_prev_row) & (first_word_of_prev_row ^ third_word_of_prev_row)) ^ third_word_of_prev_row;
+
+        for i in 1..4 {
+            words[i as usize] = prev_words[i as usize];
+        }
+
+        words
+    }
+
+    fn write_corrupt_words_in_oam(&mut self, corrupt_words: [u16; 4], offset: u8, i: usize) {
+        let high_byte = (corrupt_words[i as usize] >> 8) as u8;
+        let low_byte = (corrupt_words[i as usize] & 0xFF) as u8;
+
+        self.write_word_raw(offset + (i * 2) as u8, high_byte, low_byte);
+    }
+
+    pub fn trigger_oam_bug_write(&mut self, offset: u8) {
+        if offset < 8 { return; }
+
+        let prev_offset = offset - 8;
+        let mut words: [u16; 4] = [0; 4];
+        let mut prev_words: [u16; 4] = [0; 4];
+
+        for i in 0..4 {
+            words[i as usize] = self.read_word_raw(offset + (i * 2) as u8);
+            prev_words[i as usize] = self.read_word_raw(prev_offset + (i * 2) as u8);
+        }
+
+        let corrupt_words = self.corrupt_words_if_write(words, prev_words);
+
+        for i in 0..4 {
+            self.write_corrupt_words_in_oam(corrupt_words, offset, i);
+        }
+    }
+
+    fn corrupt_words_if_read(&self, mut words: [u16; 4], prev_words: [u16; 4]) -> [u16; 4] {
+        let original_value = words[0];
+        let first_word_of_prev_row = prev_words[0];
+        let third_word_of_prev_row = prev_words[2];
+        words[0] = first_word_of_prev_row | (original_value & third_word_of_prev_row);
+
+        for i in 1..4 {
+            words[i as usize] = prev_words[i as usize];
+        }
+
+        words
+    }
+
+    pub fn trigger_oam_bug_read(&mut self, offset: u8) {
+        if offset < 8 { return; }
+
+        let prev_offset = offset - 8;
+        let mut words: [u16; 4] = [0; 4];
+        let mut prev_words: [u16; 4] = [0; 4];
+
+        for i in 0..4 {
+            words[i as usize] = self.read_word_raw(offset + (i * 2) as u8);
+            prev_words[i as usize] = self.read_word_raw(prev_offset + (i * 2) as u8);
+        }
+
+        let corrupt_words = self.corrupt_words_if_read(words, prev_words);
+
+        self.write_corrupt_words_in_oam(corrupt_words, offset - 8, 0);
+        for i in 0..4 {
+            self.write_corrupt_words_in_oam(corrupt_words, offset, i);
+        }
+    }
+
+    fn corrupt_words_if_read_increase(&self, words: [u16; 4], prev_words: [u16; 4],two_prev_words: [u16; 4]) -> u16 {
+        let first_word_two_prev_row = two_prev_words[0];
+        let first_word_prev_row = prev_words[0];
+        let first_word_actual_row = words[0];
+        let third_word_prev_row = prev_words[2];
+
+        (first_word_prev_row & (first_word_two_prev_row | first_word_actual_row | third_word_prev_row))
+            | (first_word_two_prev_row & first_word_actual_row & third_word_prev_row)
+    }
+
+    pub fn trigger_oam_bug_read_increase(&mut self, offset: u8) {
+        // 8 * 4 and 152 since it doesn't apply to the first 4 rows and the last row
+        if offset >= 32 && offset < 152 { 
+            let mut words: [u16; 4] = [0; 4];
+            let mut prev_words: [u16; 4] = [0; 4];
+            let mut two_prev_words: [u16; 4] = [0; 4];
+
+            for i in 0..4 {
+                words[i as usize] = self.read_word_raw(offset + (i * 2) as u8);
+                prev_words[i as usize] = self.read_word_raw((offset - 8) + (i * 2) as u8);
+                two_prev_words[i as usize] = self.read_word_raw((offset - 16) + (i * 2) as u8);
+            }
+
+            prev_words[0] = self.corrupt_words_if_read_increase(words, prev_words, two_prev_words);
+            
+            for i in 0..4 {
+                words[i] = prev_words[i];
+                two_prev_words[i] = prev_words[i];
+            }
+
+            self.write_corrupt_words_in_oam(prev_words, offset - 8, 0);
+            for i in 0..4 {
+                self.write_corrupt_words_in_oam(words, offset, i);
+                self.write_corrupt_words_in_oam(two_prev_words, offset - 16, i);
+            }
+        }
+
+        self.trigger_oam_bug_read(offset);
+    }
 }
 
 
