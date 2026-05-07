@@ -9,18 +9,13 @@ mod mmu;
 mod ppu;
 mod file;
 
-use std::process::exit;
-
 use gui::GraphicalApp;
-
-use file::GmbuFile;
 
 use crate::{cli::EmulatorArguments, gui::EmulationAppOptions};
 
 #[tokio::main]
 async fn main() {
 
-    let gbmu_file = GmbuFile::get_existing_or_new();
     
     let arguments = EmulatorArguments::get();
 

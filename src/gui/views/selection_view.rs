@@ -51,6 +51,7 @@ impl SelectionDevice {
                 self.path = path.into_os_string().into_string().unwrap();
             }
 
+
             // ui.vertical_centered(|ui| {
             //     ui.horizontal(|ui| {
             //         ui.label("Chemin: ");

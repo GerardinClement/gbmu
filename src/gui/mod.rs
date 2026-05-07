@@ -5,6 +5,7 @@
 mod common;
 mod views;
 
+use crate::file::GmbuFile;
 use std::path::{Path, PathBuf};
 use egui_file_dialog::{FileDialog, Filter};
 use crate::mmu::mbc::{Mbc1, Mbc2, Mbc3, RomOnly};
@@ -17,9 +18,9 @@ use std::sync::atomic::Ordering;
 
 use std::time::Instant;
 
-#[derive(Default)]
 pub struct GraphicalApp {
     app_state: AppState,
+    gmbu_file: GmbuFile
 }
 
 use crate::app::GameApp;
@@ -80,14 +81,29 @@ impl EmulationAppOptions {
     }
 }
 
+impl Default for GraphicalApp {
+    fn default() -> Self {
+        let file = GmbuFile::get_existing_or_new();
+
+        Self {
+            app_state: AppState::default(),
+            gmbu_file: file
+        }
+    }
+}
+
 impl GraphicalApp {
     pub fn create_emulation_app(options: EmulationAppOptions) -> Self {
+
+        let file = GmbuFile::get_existing_or_new();
+
         Self {
             app_state: AppState::EmulationHub(
                 EmulationDevice {
                     core_game: CoreGameDevice::new(options.into())
                 }
-            )
+            ),
+            gmbu_file: file
         }
     }
 }
