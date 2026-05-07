@@ -51,68 +51,6 @@ impl SelectionDevice {
                 self.path = path.into_os_string().into_string().unwrap();
             }
 
-
-            // ui.vertical_centered(|ui| {
-            //     ui.horizontal(|ui| {
-            //         ui.label("Chemin: ");
-            //         ui.text_edit_singleline(&mut self.path);
-            //         self.load_files();
-            //     });
-
-            //     ui.separator();
-
-            //     egui::ScrollArea::vertical()
-            //         .max_height(400.0)
-            //         .show(ui, |ui| {
-            //             if ui.button("..").clicked() {
-            //                 self.path.pop();
-            //                 while let Some(c) = self.path.pop() {
-            //                     if c == '/' {
-            //                         self.path.push('/');
-            //                         break;
-            //                     }
-            //                 }
-            //             }
-
-            //             for (i, file) in self.files.iter().enumerate() {
-            //                 if ui
-            //                     .selectable_label(self.selected_file == Some(i), file)
-            //                     .clicked()
-            //                 {
-            //                     self.selected_file = Some(i);
-            //                     let candidate = Path::new(&self.path).join(file);
-            //                     self.path.push_str(file);
-            //                     if candidate.is_dir() {
-            //                         self.path.push('/');
-            //                     }
-            //                 }
-            //             }
-            //         });
-            // });
         });
-    }
-
-    fn load_files(&mut self) {
-        self.files.clear();
-        self.selected_file = None;
-
-        // if let Ok(path) = Path::new(&self.path).read_dir() {
-            // for entry in path.flatten() {
-            //     let entry_as_path = entry.path();
-            //     let mut enterable = false;
-            //     if entry_as_path.is_dir() {
-            //         enterable = true;
-            //     }
-            //     if let Some(extension) = entry_as_path.extension()
-            //         && extension == "gb" {
-            //             enterable = true;
-            //         }
-            //     if enterable
-            //         && let Some(file_name) = entry.file_name().to_str() {
-            //             self.files.push(file_name.to_string());
-            //         }
-            // }
-            // self.files.sort();
-        // }
     }
 }

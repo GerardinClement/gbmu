@@ -64,7 +64,7 @@ impl From<SelectionDevice> for EmulationDevice {
             boot_rom: true,
         };
         let core_game = CoreGameDevice::new(options);
-        Self { core_game : core_game}
+        Self { core_game}
     }
 }
 
