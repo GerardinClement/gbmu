@@ -5,6 +5,7 @@ pub mod interrupt;
 pub mod mbc;
 pub mod timers;
 pub mod oam;
+pub mod apu;
 
 use self::timers::Timers;
 use crate::mmu::interrupt::Interrupt;
@@ -14,18 +15,19 @@ use crate::mmu::oam::Oam;
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum MemoryRegion {
-    Mbc,             // 0x000-0x7FFF: read-only
-    Vram,            // 0x8000-0x9FFF
-    ERam,            // 0xA000-0xBFFF
-    Wram,            // 0xC000-0xDFFF
-    Mram,            // 0xE000-0xFDFF: mirror of C000-DDFF
-    Oam,             // 0xFE00-0xFE9F: Sprite Attribute Table
-    Unusable,        // 0xFEA0-0xFEFF
-    InterruptFlag,   // 0xFF0F: Interruption Flag: Inside IO
-    Timers,          // 0xFF04-0xFF07
-    Io,              // 0xFF00-0xFF7F
-    HRam,            // 0xFF80-0xFFFE
-    InterruptEnable, // 0xFFFF : Interruption Enable
+    Mbc,                // 0x000-0x7FFF: read-only
+    Vram,               // 0x8000-0x9FFF
+    ERam,               // 0xA000-0xBFFF
+    Wram,               // 0xC000-0xDFFF
+    Mram,               // 0xE000-0xFDFF: mirror of C000-DDFF
+    Oam,                // 0xFE00-0xFE9F: Sprite Attribute Table
+    Unusable,           // 0xFEA0-0xFEFF
+    InterruptFlag,      // 0xFF0F: Interruption Flag: Inside IO
+    Timers,             // 0xFF04-0xFF07
+    Audio,              // 0xFF10-0xFF26
+    Io,                 // 0xFF00-0xFF7F
+    HRam,               // 0xFF80-0xFFFE
+    InterruptEnable,    // 0xFFFF : Interruption Enable
 }
 
 impl MemoryRegion {
@@ -40,6 +42,7 @@ impl MemoryRegion {
             0xFEA0..=0xFEFF => MemoryRegion::Unusable,
             0xFF04..=0xFF07 => MemoryRegion::Timers,
             0xFF0F => MemoryRegion::InterruptFlag,
+            0xFF10..=0xFF26 => MemoryRegion::Audio,
             0xFF00..=0xFF7F => MemoryRegion::Io,
             0xFF80..=0xFFFE => MemoryRegion::HRam,
             0xFFFF => MemoryRegion::InterruptEnable,
@@ -60,6 +63,7 @@ impl MemoryRegion {
             MemoryRegion::Io => 0xFF00,
             MemoryRegion::HRam => 0xFF80,
             MemoryRegion::InterruptEnable => 0xFFFF,
+            MemoryRegion::Audio => 0xFF10,
         }
     }
 }
@@ -69,6 +73,7 @@ pub struct Mmu<T: Mbc> {
     cart: T,
     interrupts: InterruptController,
     timers: Timers,
+    apu: Apu,
     oam: Oam,
     boot_enable: bool,
     boot_rom: [u8; 0x0100],
@@ -153,6 +158,7 @@ impl<T: Mbc> Mmu<T> {
         }
 
         match MemoryRegion::from(addr) {
+            MemoryRegion::Audio => self.apu.write(addr, val)
             MemoryRegion::Mbc | MemoryRegion::ERam => self.cart.write(addr, val),
             MemoryRegion::Mram => {
                 let mirror = addr - 0x2000;
