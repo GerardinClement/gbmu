@@ -123,10 +123,18 @@ impl<T: Mbc>  GameBoy<T> {
             // 1. Tick Timers
             self.bus.write().unwrap().tick_timers();
 
-            // 2. Tick CPU
+            // 2. Tick OAM DMA en M-Cycles
+            if cycles_elapsed % 4 == 0 {
+                let mut bus = self.bus.write().unwrap();
+                if bus.dma_index != 0xFF {
+                    bus.tick_dma();
+                }
+            }
+
+            // 3. Tick CPU
             self.cpu.tick();
 
-            // 3. Tick PPU
+            // 4. Tick PPU
             let vblank = self.ppu.tick(&mut self.image);
 
             if vblank {
