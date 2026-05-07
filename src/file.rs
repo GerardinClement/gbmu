@@ -1,91 +1,87 @@
 use std::path::PathBuf;
-use std::{fs::File, fs};
-use std::io::{BufRead, BufReader};
+use std::{fs, fs::File};
 use std::io::ErrorKind;
-
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
-// We could store the fd then we wouldn't have to open it everytime we wanna read/write but that'd be lame asf
-// Instead we just gonna update everytime there's a change inside one of these struct
-pub struct PlayedRoms {
-    last_launched: DateTime<Utc>,
-    rom_name: String,
-    rom_path: String
+#[derive(Serialize, Deserialize, Clone)]
+pub struct PlayedRom {
+    pub last_launched: DateTime<Utc>,
+    pub rom_name: String,
+    pub rom_path: PathBuf,
+    pub launch_count: u32,
 }
 
-pub struct GmbuFile {
-    path: PathBuf, //Path of the file, stored once to avoid having to home_dir() everytime
-    history: Vec<PlayedRoms>,
+#[derive(Serialize, Deserialize, Default)]
+pub struct GbmuFile {
+    pub history: Vec<PlayedRom>,
+
+    #[serde(skip)]
+    pub path: PathBuf,
 }
 
-impl Default for GmbuFile {
-	fn default() -> Self {
-		Self { history: vec![],  path: PathBuf::new()}
-	}
-}
+impl GbmuFile {
+    pub fn get_existing_or_new() -> Self {
+        let path = dirs::home_dir()
+            .expect("Could not find home directory")
+            .join(".gbmu/gbmu.json");
 
-impl GmbuFile {
-
-    fn new(path: PathBuf) -> Self {
-
-        println!("Creating new file!");
-
-        let dir = path.parent().expect("Path has no parent directory");
-        fs::create_dir_all(dir).expect("Could not create folder for storing the data!");
-        let _ = File::create(&path).expect("Could not create ~/.gbmu/gbmu!");
-        Self {
-            path: path,
-            ..Default::default()
+        match File::open(&path) {
+            Ok(file) => {
+                println!("Reading existing file!");
+                let mut gbmu: GbmuFile = serde_json::from_reader(file)
+                    .unwrap_or_else(|e| {
+                        eprintln!("Warning: Could not parse config, starting fresh: {e}");
+                        GbmuFile::default()
+                    });
+                gbmu.path = path;
+                gbmu
+            }
+            Err(e) if e.kind() == ErrorKind::NotFound => {
+                println!("Creating new file!");
+                let dir = path.parent().expect("Path has no parent directory");
+                fs::create_dir_all(dir).expect("Could not create ~/.gbmu/");
+                let mut gbmu = GbmuFile::default();
+                gbmu.path = path;
+                gbmu.persist(); // write empty JSON so the file exists
+                gbmu
+            }
+            Err(e) => panic!(
+                "Something went wrong opening ~/.gbmu/gbmu.json -> {e:?}.\n\
+                 If you think this is an error, delete it and restart to create a fresh config."
+            ),
         }
     }
 
-    fn read_existing(f: File, path: PathBuf) -> Self {
-        println!("Reading existing file!");
-
-        let reader = BufReader::new(f);
-        
-        let history = reader.lines()
-        .filter_map(|line| line.ok())
-        .filter_map(|line| {
-            let parts: Vec<&str> = line.split('|').collect();
-            if parts.len() < 3 {
-                return None
-            }
-            let last_launched = parts[0].parse::<DateTime<Utc>>().ok()?;
-            Some(PlayedRoms {
-                last_launched,
-                rom_name: parts[1].to_string(),
-                rom_path: parts[2].to_string(),
-            })
-        })
-        .collect();
-
-
-        Self { history, path }
+    pub fn record_launch(&mut self, rom_name: String, rom_path: PathBuf) {
+        if let Some(entry) = self.history.iter_mut().find(|r| r.rom_path == rom_path) {
+            entry.last_launched = Utc::now();
+            entry.launch_count += 1;
+        } else {
+            self.history.push(PlayedRom {
+                last_launched: Utc::now(),
+                rom_name,
+                rom_path,
+                launch_count: 1,
+            });
+        }
+        self.persist();
     }
 
-    pub fn get_existing_or_new() -> Self {
-        let path = dirs::home_dir()
-        .expect("Could not find home directory")
-        .join(".gbmu/gbmu");
+    // pub fn recent(&self) -> Vec<&PlayedRom> {
+    //     let mut sorted: Vec<&PlayedRom> = self.history.iter().collect();
+    //     sorted.sort_by(|a, b| b.last_launched.cmp(&a.last_launched));
+    //     sorted
+    // }
 
-        // -> If no file create a new one 
-        // -> if permissions are fucked or open fails for whatever reason, go nahui we shutdown and tell the user to delete everything
-        // -> if everything good we parse it
-        
-        let f_res = File::open(&path);
-        let file = match f_res { 
-            Ok(file) => file,
-            Err(error) => match error.kind() {
-                ErrorKind::NotFound =>  {
-                    return GmbuFile::new(path)
-                },
-                _ => {
-                    panic!("Something went wrong opening ~/.gbmu/gbmu -> {error:?}.\nIf you think this is an error, delete it and restart the program to create a fresh config.");
+    fn persist(&self) {
+        match serde_json::to_string_pretty(self) {
+            Ok(json) => {
+                if let Err(e) = fs::write(&self.path, json) {
+                    eprintln!("Warning: Could not write to {:?}: {e}", self.path);
                 }
             }
-        };
-        GmbuFile::read_existing(file, path)
+            Err(e) => eprintln!("Warning: Could not serialize config: {e}"),
+        }
     }
 }
-    

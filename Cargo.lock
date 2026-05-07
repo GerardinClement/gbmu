@@ -779,6 +779,7 @@ dependencies = [
  "iana-time-zone",
  "js-sys",
  "num-traits",
+ "serde",
  "wasm-bindgen",
  "windows-link",
 ]
@@ -1716,6 +1717,8 @@ dependencies = [
  "egui_extras",
  "flamegraph",
  "pixels",
+ "serde",
+ "serde_json",
  "tokio",
  "winit",
 ]
