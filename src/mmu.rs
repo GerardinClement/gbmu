@@ -76,7 +76,9 @@ pub struct Mmu<T: Mbc> {
     boot_rom: [u8; 0x0100],
     dpad_state: u8, // for joypad
     button_state: u8, // for joypad
-    accessed_oam_ram: u8 // for OAM Bug
+    accessed_oam_ram: u8, // for OAM Bug
+    dma_source: u16,
+    pub dma_index: u8,
 }
 
 impl<T: Mbc> Mmu<T> {
@@ -93,6 +95,8 @@ impl<T: Mbc> Mmu<T> {
             dpad_state: 0x0F,
             button_state: 0x0F,
             accessed_oam_ram: 0xFF, // 0xFF means we're not in OAM search mode
+            dma_source: 0x0,
+            dma_index: 0xFF, // 0xFF means a DMA isn't happening
         })
     }
 
@@ -114,7 +118,7 @@ impl<T: Mbc> Mmu<T> {
         if self.boot_enable && addr <= 0x00FF {
             return self.boot_rom[addr as usize];
         }
-
+        
         match MemoryRegion::from(addr) {
             MemoryRegion::Mbc | MemoryRegion::ERam => self.cart.read(addr),
             MemoryRegion::Mram => {
@@ -187,14 +191,8 @@ impl<T: Mbc> Mmu<T> {
                     // Do nothing, read-only
                 } else if addr == 0xFF46 {
                     self.data[addr as usize] = val;
-
-                    let src_addr = (val as u16) << 8;
-                    for i in 0..160 {
-                        let byte = self.read_byte(src_addr + i);
-
-                        let mut oam = self.oam.write().unwrap();
-                        oam.write(0xFE00 + i, byte);
-                    }
+                    self.dma_index = 0;
+                    self.dma_source = (val as u16) << 8;
                 } else {
                     self.data[addr as usize] = val;
                 }
@@ -284,6 +282,17 @@ impl<T: Mbc> Mmu<T> {
 
     pub fn trigger_oam_bug_read_increase(&mut self, offset: u8) {
         self.oam.write().unwrap().trigger_oam_bug_read_increase(offset);
+    }
+
+    pub fn tick_dma(&mut self) {
+        let byte = self.read_byte(self.dma_source + self.dma_index as u16);
+
+        let mut oam = self.oam.write().unwrap();
+        oam.write(0xFE00 + self.dma_index as u16, byte);
+
+        self.dma_index += 1;
+
+        if self.dma_index == 160 { self.dma_index = 0xFF; }
     }
 }
 
