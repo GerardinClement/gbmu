@@ -1,14 +1,14 @@
 use crate::gui::common::display_game;
 
 use eframe::egui::{
-    Align, Button, Color32, Context, DragValue, Grid, Layout, RichText, ScrollArea, SidePanel,
+    Align, Button, Color32, DragValue, Grid, Layout, RichText, ScrollArea, Panel,
     TextEdit, Ui,
 };
 
 use super::{DebuggingDataIn, DebuggingDataOut};
 
 pub fn display_interface(
-    ctx: &Context,
+    ui: &mut egui::Ui,
     _frame: &mut eframe::Frame,
     data: DebuggingDataIn,
 ) -> DebuggingDataOut {
@@ -21,11 +21,11 @@ pub fn display_interface(
         nb_instruction_requested,
         hex_string,
         register_new_addr,
-    ): (bool, bool, bool, bool, bool, u8, String, bool) = SidePanel::right("debug_panel")
+    ): (bool, bool, bool, bool, bool, u8, String, bool) = Panel::right("debug_panel")
         .resizable(true)
-        .default_width(400.0)
-        .min_width(300.0)
-        .show(ctx, |ui| {
+        .default_size(400.0)
+        .min_size(300.0)
+        .show_inside(ui, |ui| {
             ScrollArea::vertical()
                 .show(ui, |ui| {
                     let close_button_is_clicked: bool = ui
@@ -93,7 +93,7 @@ pub fn display_interface(
         .inner;
 
     if let Some(sized_texture) = data.sized_texture {
-        display_game(sized_texture, ctx);
+        display_game(sized_texture, ui);
     }
 
     DebuggingDataOut {
@@ -121,7 +121,7 @@ fn step_button(ui: &mut Ui) -> bool {
     ui.button("Next Step").clicked()
 }
 
-fn get_registers(ui: &mut Ui, Debugging_data: &DebuggingDataIn) -> bool {
+fn get_registers(ui: &mut Ui, debugging_data: &DebuggingDataIn) -> bool {
     // Button to refresh registers
     let refresh_button_is_clicked = ui
         .horizontal(|ui| ui.button("🔄 Refresh Registers").clicked())
@@ -143,12 +143,12 @@ fn get_registers(ui: &mut Ui, Debugging_data: &DebuggingDataIn) -> bool {
             ui.end_row();
 
             let registers_8bit = [
-                ("A", Debugging_data.registers.0),
-                ("B", Debugging_data.registers.1),
-                ("C", Debugging_data.registers.2),
-                ("D", Debugging_data.registers.3),
-                ("E", Debugging_data.registers.4),
-                ("H", Debugging_data.registers.5),
+                ("A", debugging_data.registers.0),
+                ("B", debugging_data.registers.1),
+                ("C", debugging_data.registers.2),
+                ("D", debugging_data.registers.3),
+                ("E", debugging_data.registers.4),
+                ("H", debugging_data.registers.5),
             ];
 
             for (name, value) in registers_8bit.iter() {
@@ -179,9 +179,9 @@ fn get_registers(ui: &mut Ui, Debugging_data: &DebuggingDataIn) -> bool {
 
             // 16-bit registers
             let registers_16bit = [
-                ("L", Debugging_data.registers.6 as u16),
-                ("HL", Debugging_data.registers.7),
-                ("SP", Debugging_data.registers.8),
+                ("L", debugging_data.registers.6 as u16),
+                ("HL", debugging_data.registers.7),
+                ("SP", debugging_data.registers.8),
             ];
 
             for (name, value) in registers_16bit.iter() {
@@ -219,7 +219,7 @@ fn get_next_instructions(ui: &mut Ui, data: &DebuggingDataIn) -> (u8, bool) {
                 ui.add(
                     DragValue::new(&mut nb_instructions)
                         .speed(1.0)
-                        .clamp_range(0..=255)
+                        .range(0..=255)
                         .prefix("Dec: "),
                 );
 

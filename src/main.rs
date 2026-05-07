@@ -7,6 +7,7 @@ mod gameboy;
 mod gui;
 mod mmu;
 mod ppu;
+mod file;
 
 use gui::GraphicalApp;
 
@@ -14,6 +15,8 @@ use crate::{cli::EmulatorArguments, gui::EmulationAppOptions};
 
 #[tokio::main]
 async fn main() {
+
+    
     let arguments = EmulatorArguments::get();
 
     let options = eframe::NativeOptions {
@@ -37,7 +40,6 @@ async fn main() {
     let _ = eframe::run_native(
         "egui Demo",
         options,
-        Box::new(|_cc| Box::new(app)),
+        Box::new(|_cc| Ok(Box::new(app))),
     );
 }
-

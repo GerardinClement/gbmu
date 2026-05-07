@@ -4,7 +4,6 @@ use crate::debugger::debbuger;
 use crate::gui::{AppState, DebuggingDevice, WatchedAdresses};
 
 use eframe::egui::load::SizedTexture;
-use eframe::egui::Context;
 
 use display::display_interface;
 
@@ -64,16 +63,16 @@ impl DebuggingDevice {
         OutState::Debugging
     }
 
-    pub fn debug_view(mut self, ctx: &Context, _frame: &mut eframe::Frame) -> AppState {
-        let debugging_data_in = self.update_and_get_debugging_data(ctx);
-        let actions_to_perform = display_interface(ctx, _frame, debugging_data_in);
+    pub fn debug_view(mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) -> AppState {
+        let debugging_data_in = self.update_and_get_debugging_data(ui);
+        let actions_to_perform = display_interface(ui, _frame, debugging_data_in);
         println!("{actions_to_perform:?}");
         let next_state = self.execute_changes(actions_to_perform);
         self.switch_state(next_state)
     }
 
-    fn update_and_get_debugging_data(&mut self, ctx: &Context) -> DebuggingDataIn<'_> {
-        self.core_game.update_and_size_image(ctx);
+    fn update_and_get_debugging_data(&mut self, ui: &mut egui::Ui) -> DebuggingDataIn<'_> {
+        self.core_game.update_and_size_image(ui);
         debbuger::update_info_struct(self);
 
         let error_message = if let Some(value) = &self.error_message {

@@ -6,9 +6,8 @@ use std::sync::{Arc, RwLock};
 use std::sync::Mutex;
 
 use crate::cpu::Cpu;
-use crate::cpu::registers::{R8, Registers};
+use crate::cpu::registers::{R8};
 use crate::gui::KeyInput;
-use crate::mmu::interrupt::Interrupt;
 use crate::mmu::mbc::Mbc;
 use crate::mmu::Mmu;
 use crate::ppu::Ppu;

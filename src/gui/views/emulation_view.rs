@@ -1,24 +1,23 @@
 use crate::gui::{
-        AppState, CoreGameDevice, CoreGameOptions, DebuggingDevice, EmulationAppOptions, EmulationDevice, SelectionDevice, WatchedAdresses
+        AppState, CoreGameDevice, CoreGameOptions, DebuggingDevice, EmulationDevice, SelectionDevice, WatchedAdresses
     };
-use eframe::egui::{Context};
 
 use std::sync::atomic::Ordering;
 
 use std::time::{Instant};
 
 impl EmulationDevice {
-    pub fn emulation_view(mut self, ctx: &Context, _frame: &mut eframe::Frame) -> AppState {
+    pub fn emulation_view(mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) -> AppState {
         let debut = Instant::now();
-        self.core_game.update_and_size_image(ctx);
+        self.core_game.update_and_size_image(ui);
         let duration = debut.elapsed();
         //println!("update and size image: Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
-        let input = self.core_game.capture_input(ctx);
+        let input = self.core_game.capture_input(ui);
 
-        let _ = self.core_game.input_sender.try_send(input);
+        _ = self.core_game.input_sender.try_send(input);
 
-        eframe::egui::CentralPanel::default()
-            .show(ctx, |ui| {
+        egui::CentralPanel::default()
+            .show_inside(ui, |ui| {
                 ui.vertical_centered(|ui| {
                     if let Some(texture) = self.core_game.sized_image {
                         ui.image(texture);
@@ -59,13 +58,13 @@ impl From<EmulationDevice> for DebuggingDevice {
 
 impl From<SelectionDevice> for EmulationDevice {
     fn from(original: SelectionDevice) -> Self {
-        let rom_path = original.path;
+       let rom_path = original.path;
         let options = CoreGameOptions {
             rom_path,
             boot_rom: true,
         };
         let core_game = CoreGameDevice::new(options);
-        EmulationDevice { core_game }
+        Self { core_game}
     }
 }
 

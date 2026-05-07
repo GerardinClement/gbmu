@@ -5,22 +5,26 @@
 mod common;
 mod views;
 
+use crate::file::GmbuFile;
+use std::path::{Path, PathBuf};
+use egui_file_dialog::{FileDialog, Filter};
 use crate::mmu::mbc::{Mbc1, Mbc2, Mbc3, RomOnly};
 use crate::ppu;
 use eframe::egui::{Key, TextureHandle};
-use eframe::egui::{load::SizedTexture, vec2, ColorImage, Context, TextureOptions};
+use eframe::egui::{load::SizedTexture, vec2, ColorImage, TextureOptions};
 use std::collections::HashSet;
 
 use std::sync::atomic::Ordering;
 
 use std::time::Instant;
 
-#[derive(Default)]
 pub struct GraphicalApp {
     app_state: AppState,
+    gmbu_file: GmbuFile
 }
 
 use crate::app::GameApp;
+pub mod themes;
 use eframe::egui;
 use tokio::time::{self, Duration as TokioDuration};
 use std::sync::Mutex;
@@ -32,18 +36,21 @@ use tokio::task::JoinHandle;
 use std::sync::{Arc, atomic::AtomicBool};
 
 impl eframe::App for GraphicalApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {}
+
+    fn ui(&mut self, _ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let debut = Instant::now();
         self.app_state = match std::mem::replace(&mut self.app_state, AppState::Default) {
-            AppState::StartingHub(device) => device.starting_view(ctx, _frame),
-            AppState::SelectionHub(device) => device.selection_view(ctx, _frame),
-            AppState::EmulationHub(device) => device.emulation_view(ctx, _frame),
-            AppState::DebuggingHub(device) => device.debug_view(ctx, _frame),
+            AppState::StartingHub(device) => device.starting_view(_ui, _frame),
+            AppState::SelectionHub(device) => device.selection_view(_ui, _frame),
+            AppState::EmulationHub(device) => device.emulation_view(_ui, _frame),
+            AppState::DebuggingHub(device) => device.debug_view(_ui, _frame),
             AppState::Default => unreachable!(),
         };
         let duration = debut.elapsed();
         //println!("egui : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
-        ctx.request_repaint();
+        _ui.ctx().request_repaint();
     }
 }
 
@@ -74,14 +81,29 @@ impl EmulationAppOptions {
     }
 }
 
+impl Default for GraphicalApp {
+    fn default() -> Self {
+        let file = GmbuFile::get_existing_or_new();
+
+        Self {
+            app_state: AppState::default(),
+            gmbu_file: file
+        }
+    }
+}
+
 impl GraphicalApp {
     pub fn create_emulation_app(options: EmulationAppOptions) -> Self {
+
+        let file = GmbuFile::get_existing_or_new();
+
         Self {
             app_state: AppState::EmulationHub(
                 EmulationDevice {
                     core_game: CoreGameDevice::new(options.into())
                 }
-            )
+            ),
+            gmbu_file: file
         }
     }
 }
@@ -302,7 +324,7 @@ impl Drop for CoreGameDevice {
 
 impl CoreGameDevice {
 
-    pub fn update_and_size_image(&mut self, ctx: &Context) {
+    pub fn update_and_size_image(&mut self, ui: &mut egui::Ui) {
         if  self.updated_image_boolean.load(Ordering::Relaxed) {
             
             let loaded_image;
@@ -313,7 +335,7 @@ impl CoreGameDevice {
             if let Some(th) = &mut self.texture_handler {
                 th.set(loaded_image, TextureOptions::NEAREST);
             } else {
-                self.texture_handler = Some(ctx.load_texture("gb_frame", loaded_image, TextureOptions::NEAREST));
+                self.texture_handler = Some(ui.ctx().load_texture("gb_frame", loaded_image, TextureOptions::NEAREST));
             }
             if let Some(th) = &self.texture_handler {
                 let scaled_size = vec2(ppu::WIN_SIZE_X as f32 * 4., ppu::WIN_SIZE_Y as f32 * 4.);
@@ -324,8 +346,8 @@ impl CoreGameDevice {
         }
     }
 
-    pub fn capture_input(&self, ctx: &Context) -> KeyInput {
-        let keys_down= ctx.input(|i| {
+    pub fn capture_input(&self, ui: &mut egui::Ui) -> KeyInput {
+        let keys_down= ui.ctx().input(|i| {
             i.keys_down.clone()
         });
         self.key_mapping.generate_key_input(keys_down)
@@ -367,8 +389,10 @@ impl CoreGameDevice {
 
 pub struct SelectionDevice {
     path: String,
-    files: Vec<String>,
+    files: Vec<String>, 
     selected_file: Option<usize>,
+    file_dialog: FileDialog,
+    picked_file: Option<PathBuf>,
 }
 
 impl Default for SelectionDevice {
@@ -377,6 +401,12 @@ impl Default for SelectionDevice {
             path: String::from("./"),
             files: Vec::<String>::default(),
             selected_file: None,
+            picked_file: None,
+            file_dialog: FileDialog::new()
+            .default_size([600.0, 400.0])
+            .set_file_icon("🎮", Filter::new(|path: &Path| path.extension().unwrap_or_default() == "gb" || path.extension().unwrap_or_default() == "gbc"))
+            .add_file_filter("GameBoy ROMS", Filter::new(|path: &Path| path.extension().unwrap_or_default() == "gb" || path.extension().unwrap_or_default() == "gbc"))
+            .default_file_filter("GameBoy ROMS")
         }
     }
 }
