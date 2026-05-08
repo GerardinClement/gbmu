@@ -1,5 +1,6 @@
 use crate::gui::{
         AppState, CoreGameDevice, CoreGameOptions, DebuggingDevice, EmulationDevice, SelectionDevice, WatchedAdresses
+        AppState, CoreGameDevice, CoreGameOptions, DebuggingDevice, EmulationDevice, SelectionDevice, WatchedAdresses
     };
 
 use std::sync::atomic::Ordering;
@@ -11,9 +12,13 @@ impl EmulationDevice {
         let debut = Instant::now();
         self.core_game.update_and_size_image(ui);
         let duration = debut.elapsed();
+        let input = self.core_game.capture_input(ctx);
         //println!("update and size image: Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
         let input = self.core_game.capture_input(ui);
 
+        let _send_return = self.core_game.input_sender.blocking_send(input);
+        
+        // TODO Manage Error
         _ = self.core_game.input_sender.try_send(input);
 
         egui::CentralPanel::default()
