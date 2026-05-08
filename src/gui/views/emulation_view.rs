@@ -46,7 +46,7 @@ impl From<EmulationDevice> for DebuggingDevice {
             watched_adress: WatchedAdresses {
                 addresses_n_values: Vec::new(),
             },
-            registers: (0, 0, 0, 0, 0, 0, 0, 0, 0),
+            registers: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
             is_step: false,
             watched_address_value: 0,
             nb_instruction: 0,

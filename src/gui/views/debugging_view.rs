@@ -10,7 +10,7 @@ use display::display_interface;
 struct DebuggingDataIn<'a> {
     is_step: bool,
     watched_address: &'a WatchedAdresses,
-    registers: &'a (u8, u8, u8, u8, u8, u8, u8, u16, u16),
+    registers: &'a (u8, u8, u8, u8, u8, u8, u8, u16, u16, u16),
     nb_instruction: u8,
     next_instructions: &'a Vec<u16>,
     hex_string: &'a String,

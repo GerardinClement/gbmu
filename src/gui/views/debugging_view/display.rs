@@ -182,6 +182,7 @@ fn get_registers(ui: &mut Ui, debugging_data: &DebuggingDataIn) -> bool {
                 ("L", debugging_data.registers.6 as u16),
                 ("HL", debugging_data.registers.7),
                 ("SP", debugging_data.registers.8),
+                ("PC", debugging_data.registers.9),
             ];
 
             for (name, value) in registers_16bit.iter() {
