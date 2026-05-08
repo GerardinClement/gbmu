@@ -1,12 +1,8 @@
-#![allow(unused_variables)]
-#![allow(dead_code)]
-
 pub mod debbuger {
 
     use crate::gui::{DebugCommandQueries, DebugResponse, DebuggingDevice};
 
     pub fn update_info_struct(game: &mut DebuggingDevice) {
-        let count = 0;
         while let Ok(debug) = game.core_game.debug_response_receiver.try_recv() {
             match debug {
                 DebugResponse::AddressesWatched(wa) => {
@@ -38,12 +34,12 @@ pub mod debbuger {
     }
 
     impl DebuggingDevice {
-        pub fn execute_instruction(&self, instr: u8) {
-            let _ = self
-                .core_game
-                .command_query_sender
-                .try_send(DebugCommandQueries::ExecuteInstruction(instr));
-        }
+        // pub fn execute_instruction(&self, instr: u8) {
+            // let _ = self
+            //     .core_game
+            //     .command_query_sender
+            //     .try_send(DebugCommandQueries::ExecuteInstruction(instr));
+        // }
 
         pub fn get_next_instructions(&self, instr_nb: u8) {
             let _ = self
@@ -73,18 +69,18 @@ pub mod debbuger {
                 .try_send(DebugCommandQueries::ExecuteNextInstructions(nb_instru));
         }
 
-        pub fn request_watch_address(&self, address: u16) {
-            let _ = self
-                .core_game
-                .command_query_sender
-                .try_send(DebugCommandQueries::WatchAddress(address));
-        }
+        // pub fn request_watch_address(&self, address: u16) {
+        //     let _ = self
+        //         .core_game
+        //         .command_query_sender
+        //         .try_send(DebugCommandQueries::WatchAddress(address));
+        // }
 
-        fn get_watched_addresses(&self) {
-            let _ = self
-                .core_game
-                .command_query_sender
-                .try_send(DebugCommandQueries::GetAddresses);
-        }
+        // fn get_watched_addresses(&self) {
+        //     let _ = self
+        //         .core_game
+        //         .command_query_sender
+        //         .try_send(DebugCommandQueries::GetAddresses);
+        // }
     }
 }

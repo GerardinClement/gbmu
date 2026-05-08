@@ -52,7 +52,7 @@ impl Timers {
         }
     }
     pub fn read_byte(&self, addr: u16) -> u8 {
-        let a_box = Box::new(18);
+        let _a_box = Box::new(18);
         match addr {
             DIV_ADDR => (self.div >> 8) as u8,
             TIMA_ADDR => self.tima,
@@ -210,14 +210,13 @@ mod tests {
 
     #[test]
     fn test_timer_overflowing_reset_tima_to_tma() {
-        let test_value = 0x53;
         let mut timers = Timers {
             tima: 0xFF,
             tma: 0x53,
             ..Default::default()
         };
         timers.write_byte(TAC_ADDR, 0b101);
-        for a in 0..=15 {
+        for _a in 0..=15 {
             timers.tick();
         }
         assert_eq!(timers.tima, timers.tma);

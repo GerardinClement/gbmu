@@ -244,7 +244,7 @@ pub struct Mbc3 {
 
 impl Mbc3 {
     fn get_time_value(&self, rtc_select: &u8) -> u8 {
-        let time = if let Some(latched_time) = &self.latched_time_value {
+        let _time = if let Some(latched_time) = &self.latched_time_value {
             latched_time.clone()
         } else {
             self.get_actual_time()

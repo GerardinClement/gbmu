@@ -326,7 +326,7 @@ fn watch_address(ui: &mut Ui, data: &DebuggingDataIn) -> (String, bool) {
 
                     // Hex input with better formatting
                     h_ui.label("(0x)");
-                    let response_changed = h_ui
+                    let _response_changed = h_ui
                         .add(
                             TextEdit::singleline(&mut hex_string)
                                 .desired_width(60.0)

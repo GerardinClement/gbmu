@@ -4,13 +4,10 @@ use crate::gui::{
 
 use std::sync::atomic::Ordering;
 
-use std::time::{Instant};
 
 impl EmulationDevice {
     pub fn emulation_view(mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) -> AppState {
-        let debut = Instant::now();
         self.core_game.update_and_size_image(ui);
-        let duration = debut.elapsed();
         //println!("update and size image: Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
         let input = self.core_game.capture_input(ui);
 

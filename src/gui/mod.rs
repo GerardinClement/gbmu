@@ -1,11 +1,8 @@
 #![cfg_attr(test, allow(clippy::all))]
-#![allow(unused_variables)]
-#![allow(dead_code)]
 
 mod common;
 mod views;
 
-use crate::file::GmbuFile;
 use std::path::{Path, PathBuf};
 use egui_file_dialog::{FileDialog, Filter};
 use crate::mmu::mbc::{Mbc1, Mbc2, Mbc3, RomOnly};
@@ -16,11 +13,8 @@ use std::collections::HashSet;
 
 use std::sync::atomic::Ordering;
 
-use std::time::Instant;
-
 pub struct GraphicalApp {
     app_state: AppState,
-    gmbu_file: GmbuFile
 }
 
 use crate::app::GameApp;
@@ -37,10 +31,9 @@ use std::sync::{Arc, atomic::AtomicBool};
 
 impl eframe::App for GraphicalApp {
     
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {}
+    fn update(&mut self, _ctx: &egui::Context, _frame: &mut eframe::Frame) {}
 
     fn ui(&mut self, _ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        let debut = Instant::now();
         self.app_state = match std::mem::replace(&mut self.app_state, AppState::Default) {
             AppState::StartingHub(device) => device.starting_view(_ui, _frame),
             AppState::SelectionHub(device) => device.selection_view(_ui, _frame),
@@ -48,8 +41,6 @@ impl eframe::App for GraphicalApp {
             AppState::DebuggingHub(device) => device.debug_view(_ui, _frame),
             AppState::Default => unreachable!(),
         };
-        let duration = debut.elapsed();
-        //println!("egui : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
         _ui.ctx().request_repaint();
     }
 }
@@ -83,19 +74,12 @@ impl EmulationAppOptions {
 
 impl Default for GraphicalApp {
     fn default() -> Self {
-        let file = GmbuFile::get_existing_or_new();
-
-        Self {
-            app_state: AppState::default(),
-            gmbu_file: file
-        }
+        Self { app_state: AppState::default() }
     }
 }
 
 impl GraphicalApp {
     pub fn create_emulation_app(options: EmulationAppOptions) -> Self {
-
-        let file = GmbuFile::get_existing_or_new();
 
         Self {
             app_state: AppState::EmulationHub(
@@ -103,7 +87,6 @@ impl GraphicalApp {
                     core_game: CoreGameDevice::new(options.into())
                 }
             ),
-            gmbu_file: file
         }
     }
 }
@@ -267,12 +250,9 @@ async fn launch_game(
 
 pub enum DebugCommandQueries {
     SetStepMode,
-    ExecuteInstruction(u8),
     ExecuteNextInstructions(usize),
     GetNextInstructions(u8),
     GetRegisters,
-    WatchAddress(u16),
-    GetAddresses,
 }
 
 pub enum DebugResponse {

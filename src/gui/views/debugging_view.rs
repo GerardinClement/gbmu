@@ -59,7 +59,7 @@ impl DebuggingDevice {
         }
 
         self.hex_string = data.hex_string;
-        if let Ok(result) = u16::from_str_radix(self.hex_string.as_ref(), 16) {}
+        if let Ok(_result) = u16::from_str_radix(self.hex_string.as_ref(), 16) {}
         OutState::Debugging
     }
 

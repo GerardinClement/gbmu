@@ -115,13 +115,6 @@ impl<T: Mbc> GameApp<T> {
         if is_debug {
             while let Ok(debug) = self.debug_receiver.try_recv() {
                 match debug {
-                    DebugCommandQueries::ExecuteInstruction(instruction) => {
-                        println!("execute instruction received! {instruction}");
-                        self.gameboy.cpu.debug_step(instruction);
-                        let _ = self
-                            .debug_sender
-                            .try_send(DebugResponse::InstructionsExecuted(instruction as usize));
-                    }
                     DebugCommandQueries::GetNextInstructions(instr_nb) => {
                         println!("get next instruction received! {instr_nb}");
                         self.nb_next_intruction = instr_nb;
@@ -139,30 +132,9 @@ impl<T: Mbc> GameApp<T> {
                             .debug_sender
                             .try_send(DebugResponse::StepModeSet(self.is_step_mode));
                     }
-                    DebugCommandQueries::WatchAddress(addr) => {
-                        if !self
-                            .watched_adress
-                            .addresses_n_values
-                            .iter()
-                            .any(|(a, _)| *a == addr)
-                        {
-                            self.watched_adress.addresses_n_values.push((addr, 0));
-                        } else if let Some(index) = self
-                            .watched_adress
-                            .addresses_n_values
-                            .iter()
-                            .position(|(address, _)| *address == addr)
-                        {
-                            self.watched_adress.addresses_n_values.remove(index);
-                        }
-                        self.send_watched_address();
-                    }
                     DebugCommandQueries::ExecuteNextInstructions(nb_instruction) => {
                         instruction_to_execute = nb_instruction;
                         println!("execute next instruction received! {nb_instruction}");
-                    }
-                    DebugCommandQueries::GetAddresses => {
-                        self.send_watched_address();
                     }
                 }
             }

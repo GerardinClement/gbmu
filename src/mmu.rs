@@ -1,6 +1,3 @@
-#![allow(unused_variables)]
-#![allow(dead_code)]
-
 pub mod interrupt;
 pub mod mbc;
 pub mod timers;
