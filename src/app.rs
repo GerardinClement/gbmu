@@ -1,4 +1,5 @@
 use crate::gameboy::GameBoy;
+use crate::ppu;
 use crate::gui::{DebugCommandQueries, DebugResponse, KeyInput, WatchedAdresses};
 use crate::mmu::mbc::Mbc;
 use std::sync::Mutex;
