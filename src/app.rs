@@ -87,7 +87,8 @@ impl<T: Mbc> GameApp<T> {
             self.gameboy.cpu.registers.get_d(),
             self.gameboy.cpu.registers.get_e(),
             self.gameboy.cpu.registers.get_h(),
-            self.gameboy.cpu.registers.get_flags_u8(),
+            self.gameboy.cpu.registers.get_l(),
+            self.gameboy.cpu.registers.get_flags_u8() as u16,
             self.gameboy.cpu.registers.get_sp(),
             self.gameboy.cpu.pc,
         ));

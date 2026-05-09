@@ -29,9 +29,9 @@ pub mod debbuger {
                     println!("DebugResponse::InstructionsExecuted=> {s}");
                     todo!();
                 }
-                DebugResponse::Registers(a, b, c, d, e, h, l, hl, sp) => {
+                DebugResponse::Registers(a, b, c, d, e, h, l, hl, sp, pc) => {
                     println!("DebugResponse::registers=> {a}");
-                    game.registers = (a, b, c, d, e, h, l, hl, sp);
+                    game.registers = (a, b, c, d, e, h, l, hl, sp, pc);
                 }
             }
         }

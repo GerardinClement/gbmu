@@ -280,7 +280,7 @@ pub enum DebugResponse {
     InstructionsExecuted(usize),
     NextInstructions(Vec<u16>),
     AddressesWatched(WatchedAdresses),
-    Registers(u8, u8, u8, u8, u8, u8, u8, u16, u16),
+    Registers(u8, u8, u8, u8, u8, u8, u8, u16, u16, u16),
 }
 
 pub struct WatchedAdresses {
@@ -423,7 +423,7 @@ pub struct DebuggingDevice {
     */
     pub next_instructions: Vec<u16>,
     pub watched_adress: WatchedAdresses,
-    pub registers: (u8, u8, u8, u8, u8, u8, u8, u16, u16),
+    pub registers: (u8, u8, u8, u8, u8, u8, u8, u16, u16, u16),
     pub is_step: bool,
     pub watched_address_value: u16,
     pub nb_instruction: usize,
