@@ -12,7 +12,6 @@ mod oam_fetcher;
 
 use std::sync::Mutex;
 use std::sync::{Arc, RwLock};
-use std::thread::current;
 
 use crate::mmu::mbc::Mbc;
 use crate::mmu::MemoryRegion;
@@ -339,7 +338,7 @@ impl<T: Mbc> Ppu<T> {
 
     fn mode_oam_search(&mut self) -> bool {
         if self.dots == 1 {
-            self.bus.write().unwrap().update_accessed_oam_row(0);
+            self.bus.write().unwrap().set_accessed_oam_row(0);
             self.oam_scan_index = 0;
             self.visible_sprites_count = 0;
             self.visible_sprites = [None; 10];
@@ -381,7 +380,7 @@ impl<T: Mbc> Ppu<T> {
             }
 
             self.update_ppu_mode(PpuMode::PixelTransfer);
-            self.bus.write().unwrap().update_accessed_oam_row(0xFF);
+            self.bus.write().unwrap().set_accessed_oam_row(0xFF);
         }
 
         false
