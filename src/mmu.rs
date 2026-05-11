@@ -272,12 +272,12 @@ impl<T: Mbc> Mmu<T> {
         self.data[0xFF44] = val;
     }
 
+    pub fn set_accessed_oam_row(&mut self, val: u8) {
+        self.accessed_oam_ram = val;
+    }
+
     pub fn update_accessed_oam_row(&mut self, val: u8) {
-        if val == 0 || val == 0xFF {
-            self.accessed_oam_ram = val;
-        } else {
-            self.accessed_oam_ram += val;
-        }
+        self.accessed_oam_ram += val;
     }
 
     pub fn trigger_oam_bug_read_increase(&mut self, offset: u8) {
