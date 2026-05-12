@@ -67,10 +67,9 @@ impl<T: Mbc> GameApp<T> {
                 addresses_n_values: Vec::new(),
             };
             for (addr, _) in self.watched_adress.addresses_n_values.iter() {
-                if let Ok(bus) = self.gameboy.bus.read() {
-                    let value = bus.read_byte(*addr);
-                    values.addresses_n_values.push((*addr, value as u16));
-                }
+                let bus = self.gameboy.bus.borrow_mut();
+                let value = bus.read_byte(*addr);
+                values.addresses_n_values.push((*addr, value as u16));
             }
             let _ = self
                 .debug_sender
@@ -100,8 +99,7 @@ impl<T: Mbc> GameApp<T> {
             v.push(
                 self.gameboy
                     .bus
-                    .read()
-                    .unwrap()
+                    .borrow_mut()
                     .read_byte(self.gameboy.cpu.pc.wrapping_add(current_instruction as u16))
                     as u16,
             );

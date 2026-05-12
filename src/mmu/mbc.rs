@@ -112,7 +112,6 @@ impl Mbc for Mbc1 {
                 ]
             },
             0xA000..0xC000 => {
-                println!("read to ram");
                 if self.ram_gate_register {
                     self.ram_banks[
                         self.mode_register as usize * self.bank_register_2 as usize
@@ -132,7 +131,6 @@ impl Mbc for Mbc1 {
             0x4000..0x6000 => self.bank_register_2 = val & 0b11,
             0x6000..0x8000 => self.mode_register = (val & 0b1) == 0b1,
             0xA000..0xC000 => {
-                println!("write to ram");
                 if self.ram_gate_register {
                     self.ram_banks[
                         self.mode_register as usize * self.bank_register_2 as usize

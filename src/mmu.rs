@@ -1,6 +1,8 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::sync::{RwLock, RwLockReadGuard};
 
 pub mod interrupt;
@@ -69,6 +71,12 @@ impl MemoryRegion {
             MemoryRegion::Audio => 0xFF10,
             MemoryRegion::WavePatternRam => 0xFF30,
         }
+    }
+}
+
+impl<T: Mbc> Into<Rc<RefCell<Mmu<T>>>> for Mmu<T> {
+    fn into(self) -> Rc<RefCell<Mmu<T>>> {
+        Rc::new(RefCell::new(self))
     }
 }
 

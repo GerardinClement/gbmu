@@ -24,7 +24,6 @@ pub struct GraphicalApp {
 use crate::app::GameApp;
 pub mod themes;
 use eframe::egui;
-use tokio::time::{self, Duration as TokioDuration};
 use std::sync::Mutex;
 use std::fs;
 use std::process; use tokio::sync::mpsc::{Receiver, Sender, channel};
@@ -205,8 +204,20 @@ impl AnyGameApp {
     }
 }
 
+async fn async_launch_game(
+    rom_path: String,
+    boot_rom: bool,
+    input_receiver: Receiver<KeyInput>,
+    updated_image_boolean: Arc<AtomicBool>,
+    command_query_receiver: Receiver<DebugCommandQueries>,
+    debug_response_sender: Sender<DebugResponse>,
+    global_is_debug: Arc<AtomicBool>,
+    image_to_change: Arc<Mutex<Vec<u8>>>,
+) -> Result<(), String> {
+    launch_game(rom_path, boot_rom, input_receiver, updated_image_boolean, command_query_receiver, debug_response_sender, global_is_debug, image_to_change)
+}
 
-async fn launch_game(
+fn launch_game(
     rom_path: String,
     boot_rom: bool,
     mut input_receiver: Receiver<KeyInput>,
@@ -240,11 +251,6 @@ async fn launch_game(
     let mut input = KeyInput::default();
 
     loop {
-        time::sleep(TokioDuration::from_millis(1)).await;
-        // Ceci pourra etre enleve quand on fera
-        // du multitask dans le cpu
-        // Cela permet de checker si la tache n'a pas ete annule
-
         while let Ok(new_input) = input_receiver.try_recv(){
             input = new_input;
         }
@@ -359,7 +365,7 @@ impl CoreGameDevice {
             input_sender,
             command_query_sender,
             debug_response_receiver,
-            handler: tokio::spawn(launch_game(
+            handler: tokio::spawn(async_launch_game(
                 options.rom_path,
                 options.boot_rom,
                 input_receiver,

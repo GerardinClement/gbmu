@@ -11,7 +11,10 @@ mod pixel_fetcher;
 mod oam_fetcher;
 
 use std::sync::Mutex;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
+
+use std::cell::RefCell;
+use std::rc::Rc;
 
 use crate::mmu::mbc::Mbc;
 use crate::mmu::MemoryRegion;
@@ -50,7 +53,7 @@ const HBLANK_DOTS: u32 = 204; // can change between 87 and 204, to handle later
 const SCANLINE_DOTS: u32 = 456; // always 456
 
 pub struct Ppu<T: Mbc> {
-    pub bus: Arc<RwLock<Mmu<T>>>,
+    pub bus: Rc<RefCell<Mmu<T>>>,
     pub dots: u32,
     lcd_status: LcdStatus, // LCD Status register
     wly: u8,               // Window internal line counter
@@ -79,7 +82,7 @@ pub struct Ppu<T: Mbc> {
 }
 
 impl<T: Mbc> Ppu<T> {
-    pub fn new(bus: Arc<RwLock<Mmu<T>>>) -> Self {
+    pub fn new(bus: Rc<RefCell<Mmu<T>>>) -> Self {
         Ppu {
             bus,
             dots: 0,
@@ -114,9 +117,7 @@ impl<T: Mbc> Ppu<T> {
     pub fn display_vram(&self) {
         for i in 0..0x2000 {
             let byte = self
-                .bus
-                .read()
-                .unwrap()
+                .bus.borrow_mut()
                 .read_byte(VRAM.to_address() + i as u16);
             print!("{byte:02X} ");
             if (i + 1) % 16 == 0 {
@@ -134,8 +135,7 @@ impl<T: Mbc> Ppu<T> {
             for byte_index in 0..16 {
                 let byte = self
                     .bus
-                    .read()
-                    .unwrap()
+                    .borrow_mut()
                     .read_byte(tile_address + byte_index as u16);
                 print!("{byte:02X} ");
             }
@@ -151,8 +151,7 @@ impl<T: Mbc> Ppu<T> {
                 let offset = (y * 32 + x) as u16;
                 let tile_number = self
                     .bus
-                    .read()
-                    .unwrap()
+                    .borrow_mut()
                     .read_byte(tile_map_address + offset);
                 print!("{tile_number:02X} ");
             }
@@ -188,7 +187,7 @@ impl<T: Mbc> Ppu<T> {
         let mut tile_data = [0; 16];
 
         for (i, byte) in tile_data.iter_mut().enumerate() {
-            *byte = self.bus.read().unwrap().read_byte(tile_address + i as u16);
+            *byte = self.bus.borrow_mut().read_byte(tile_address + i as u16);
         }
 
         tile_data
@@ -235,8 +234,7 @@ impl<T: Mbc> Ppu<T> {
         let offset = (y * 32 + x) as u16;
         let tile_number = self
             .bus
-            .read()
-            .unwrap()
+            .borrow_mut()
             .read_byte(tilemap_base.start + offset);
         match self.read_lcdc().bg_window_tile_data_area() {
             // Unsigned mode: simple multiplication
@@ -260,7 +258,7 @@ impl<T: Mbc> Ppu<T> {
         } else {
             8
         };
-        let mmu = self.bus.read().unwrap();
+        let mmu = self.bus.borrow_mut();
         let oam  = mmu.get_oam();
         let mut i: usize = 0;
         for (oam_index, sprite) in oam.sprites.iter().enumerate() {
@@ -282,7 +280,7 @@ impl<T: Mbc> Ppu<T> {
     }
 
     fn apply_background_palette(&self, color_index: u8) -> Color {
-        let palette = self.bus.read().unwrap().read_byte(BGP_ADDR);
+        let palette = self.bus.borrow_mut().read_byte(BGP_ADDR);
 
         let index = (palette >> (color_index * 2)) & 0b11;
 
@@ -310,7 +308,7 @@ impl<T: Mbc> Ppu<T> {
 
     fn apply_sprite_palette(&self, color_index: u8, palette_attribute: bool) -> Color {
         let palette_addr = if palette_attribute { OBP1_ADDR } else { OBP0_ADDR };
-        let palette = self.bus.read().unwrap().read_byte(palette_addr);
+        let palette = self.bus.borrow_mut().read_byte(palette_addr);
 
         let index = (palette >> (color_index * 2)) & 0b11;
 
@@ -338,7 +336,7 @@ impl<T: Mbc> Ppu<T> {
 
     fn mode_oam_search(&mut self) -> bool {
         if self.dots == 1 {
-            self.bus.write().unwrap().set_accessed_oam_row(0);
+            self.bus.borrow_mut().set_accessed_oam_row(0);
             self.oam_scan_index = 0;
             self.visible_sprites_count = 0;
             self.visible_sprites = [None; 10];
@@ -350,7 +348,7 @@ impl<T: Mbc> Ppu<T> {
         }
 
         if self.dots % 2 == 0 && self.oam_scan_index < 40 {
-            let mmu = self.bus.read().unwrap();
+            let mmu = self.bus.borrow_mut();
             let oam = mmu.get_oam();
 
             let mut sprite = oam.sprites[self.oam_scan_index as usize];
@@ -368,7 +366,7 @@ impl<T: Mbc> Ppu<T> {
 
         // accessed_oam_row count in M-cycles
         if self.dots % 4 == 0 {
-            self.bus.write().unwrap().update_accessed_oam_row(8);
+            self.bus.borrow_mut().update_accessed_oam_row(8);
         }
 
         if self.dots >= OAM_DOTS {
@@ -380,7 +378,7 @@ impl<T: Mbc> Ppu<T> {
             }
 
             self.update_ppu_mode(PpuMode::PixelTransfer);
-            self.bus.write().unwrap().set_accessed_oam_row(0xFF);
+            self.bus.borrow_mut().set_accessed_oam_row(0xFF);
         }
 
         false
@@ -616,7 +614,7 @@ impl<T: Mbc> Ppu<T> {
             if self.ly >= WIN_SIZE_Y as u8 {
                 self.update_ppu_mode(PpuMode::VBlank);
 
-                self.bus.write().unwrap().interrupts_request(Interrupt::VBlank);
+                self.bus.borrow_mut().interrupts_request(Interrupt::VBlank);
 
                 return true;
             } else {
@@ -726,7 +724,7 @@ impl<T: Mbc> Ppu<T> {
         self.write_stat_to_mmu();
         
         // if self.lcd_status.get_lyc_equals_ly() {
-        //     self.bus.write().unwrap().interrupts_request(Interrupt::LcdStat);
+        //     self.bus.borrow_mut().interrupts_request(Interrupt::LcdStat);
         // }
     }
 
@@ -739,7 +737,7 @@ impl<T: Mbc> Ppu<T> {
         let current_line = self.lcd_status.stat_interrupt_line();
 
         if !self.stat_interrupt_line && current_line {
-            self.bus.write().unwrap().interrupts_request(Interrupt::LcdStat);
+            self.bus.borrow_mut().interrupts_request(Interrupt::LcdStat);
         }
 
         self.stat_interrupt_line = current_line;
@@ -748,7 +746,7 @@ impl<T: Mbc> Ppu<T> {
 
     fn read_lcd_status(&mut self) {
         let stat_byte = {
-            let bus = self.bus.read().unwrap();
+            let bus = self.bus.borrow_mut();
             bus.read_byte(STAT_ADDR)
         };
 
@@ -756,44 +754,44 @@ impl<T: Mbc> Ppu<T> {
     }
 
     fn read_scy(&self) -> u8 {
-        let bus = self.bus.read().unwrap();
+        let bus = self.bus.borrow_mut();
         bus.read_byte(SCY_ADDR)
     }
 
     fn read_scx(&self) -> u8 {
-        let bus = self.bus.read().unwrap();
+        let bus = self.bus.borrow_mut();
         bus.read_byte(SCX_ADDR)
     }
 
     fn read_wy(&self) -> u8 {
-        let bus = self.bus.read().unwrap();
+        let bus = self.bus.borrow_mut();
         bus.read_byte(WY_ADDR)
     }
 
     fn read_wx(&self) -> u8 {
-        let bus = self.bus.read().unwrap();
+        let bus = self.bus.borrow_mut();
         bus.read_byte(WX_ADDR)
     }
 
     fn read_lyc(&self) -> u8 {
-        let bus = self.bus.read().unwrap();
+        let bus = self.bus.borrow_mut();
         bus.read_byte(LYC_ADDR)
     }
 
     fn read_lcdc(&self) -> LcdControl {
-        let bus = self.bus.read().unwrap();
+        let bus = self.bus.borrow_mut();
         let byte = bus.read_byte(LCD_CONTROL_ADDR);
 
         LcdControl::from_byte(byte)
     }
 
     fn write_ly_to_mmu(&mut self) {
-        let mut bus = self.bus.write().unwrap();
+        let mut bus = self.bus.borrow_mut();
         bus.set_ly_from_ppu(self.ly);
     }
 
     fn write_stat_to_mmu(&mut self) {
-        let mut bus = self.bus.write().unwrap();
+        let mut bus = self.bus.borrow_mut();
         bus.set_stat_byte_from_ppu(self.lcd_status.struct_to_byte());
     }
 }

@@ -8,7 +8,7 @@ use crate::mmu::oam::Sprite;
 use crate::ppu::lcd_control::LcdControl;
 use crate::ppu::obj_piso::ObjPiso;
 
-use std::sync::{Arc, RwLock};
+use std::{cell::RefCell, rc::Rc};
 
 const OBP0_ADDR: u16 = 0xFF48; // Object Palette 0
 const OBP1_ADDR: u16 = 0xFF49; // Object Palette 1
@@ -34,7 +34,7 @@ pub struct OamFetcher {
 }
 
 impl OamFetcher {
-    pub fn tick<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, sprite: &Sprite, piso: &mut ObjPiso, ly: u8, lcd_control: &LcdControl, height: u8, scanline_x: usize) -> bool {
+    pub fn tick<T: Mbc>(&mut self, bus: &Rc<RefCell<Mmu<T>>>, sprite: &Sprite, piso: &mut ObjPiso, ly: u8, lcd_control: &LcdControl, height: u8, scanline_x: usize) -> bool {
         self.dot_counter = self.dot_counter.wrapping_add(1);
 
         if self.dot_counter % 2 == 0 {
@@ -83,22 +83,22 @@ impl OamFetcher {
         tile_index
     }
 
-    fn get_tile_data_low<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>) -> u8 {
+    fn get_tile_data_low<T: Mbc>(&mut self, bus: &Rc<RefCell<Mmu<T>>>) -> u8 {
         let tile_address = VRAM.to_address()
             + (self.tile_id as u16 * 16)
             + (self.actual_sprite_line % 8 * 2) as u16;
 
-        let data = bus.read().unwrap().read_byte(tile_address as u16);
+        let data = bus.borrow_mut().read_byte(tile_address as u16);
 
         data
     }
 
-    fn get_tile_data_high<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>) -> u8 {
+    fn get_tile_data_high<T: Mbc>(&mut self, bus: &Rc<RefCell<Mmu<T>>>) -> u8 {
         let tile_address = VRAM.to_address()
             + (self.tile_id as u16 * 16)
             + (self.actual_sprite_line % 8 * 2) as u16;
 
-        let data = bus.read().unwrap().read_byte(tile_address as u16 + 1);
+        let data = bus.borrow_mut().read_byte(tile_address as u16 + 1);
 
         data
     }
@@ -112,11 +112,11 @@ impl OamFetcher {
         )
     }
 
-    fn push_pixel<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, piso: &mut ObjPiso, sprite: &Sprite, scanline_x: usize) {
+    fn push_pixel<T: Mbc>(&mut self, bus: &Rc<RefCell<Mmu<T>>>, piso: &mut ObjPiso, sprite: &Sprite, scanline_x: usize) {
         let (priority, _, x_flip, palette_attribute) = self.extract_attributes(sprite.attributes);
 
         let palette_addr = if palette_attribute { OBP1_ADDR } else { OBP0_ADDR };
-        let palette = bus.read().unwrap().read_byte(palette_addr);
+        let palette = bus.borrow_mut().read_byte(palette_addr);
 
         piso.merge(self.tile_data_low, self.tile_data_high, sprite.x, x_flip, palette, sprite.oam_index, priority, scanline_x);
     }
@@ -128,12 +128,10 @@ mod tests {
     use crate::mmu::Mmu;
     use crate::mmu::mbc::RomOnly;
 
-    use std::sync::{Arc, RwLock};
+    use std::{cell::RefCell, rc::Rc};
 
-    fn setup_bus() -> Arc<RwLock<Mmu<RomOnly>>> {
-        Arc::new(RwLock::new(
-            Mmu::<RomOnly>::new(&[]).unwrap()
-        ))
+    fn setup_bus() -> Rc<RefCell<Mmu<RomOnly>>> {
+        Mmu::<RomOnly>::new(&[]).unwrap().into()
     }
 
     #[test]
