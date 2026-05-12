@@ -294,6 +294,17 @@ impl<T: Mbc> Mmu<T> {
 
         if self.dma_index == 160 { self.dma_index = 0xFF; }
     }
+
+    pub fn dump_memory(&mut self) {
+        self.data
+            .iter()
+            .enumerate()
+            .for_each(|(i, f)| {
+                let bytes = f.to_be_bytes();
+                bytes.iter().for_each(|bit| print!("{:02x}", bit));
+
+        });
+    }
 }
 
 impl<T: Mbc> Default for Mmu<T> {

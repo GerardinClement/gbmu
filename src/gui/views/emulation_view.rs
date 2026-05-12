@@ -24,6 +24,7 @@ impl EmulationDevice {
                     }
                     ui.add_space(10.0);
                 });
+
                 if ui.button("🐛 Open Debug Panel").clicked() {
                     AppState::DebuggingHub(self.into())
                 } else {

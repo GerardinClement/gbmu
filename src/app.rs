@@ -166,6 +166,9 @@ impl<T: Mbc> GameApp<T> {
                     DebugCommandQueries::GetAddresses => {
                         self.send_watched_address();
                     }
+                    DebugCommandQueries::DumpMemory => {
+                        self.gameboy.bus.write().unwrap().dump_memory();
+                    }
                 }
             }
         }

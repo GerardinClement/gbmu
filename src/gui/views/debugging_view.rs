@@ -37,6 +37,7 @@ enum OutState {
 
 impl DebuggingDevice {
     fn execute_changes(&mut self, data: DebuggingDataOut) -> OutState {
+
         if data.close_btn_clicked {
             return OutState::Emulating;
         }
@@ -48,7 +49,7 @@ impl DebuggingDevice {
         self.nb_instruction = data.nb_instruction_requested as usize;
         if data.step_clicked {
             self.executed_next_step(1);
-        }
+        }        
 
         if data.instructions_are_requested {
             self.get_next_instructions(data.nb_instruction_requested);
@@ -57,6 +58,11 @@ impl DebuggingDevice {
         if data.refresh_register_clicked {
             self.request_registers();
         }
+
+        let _ = self
+                .core_game
+                .command_query_sender
+                .try_send(crate::gui::DebugCommandQueries::DumpMemory);
 
         self.hex_string = data.hex_string;
         if let Ok(result) = u16::from_str_radix(self.hex_string.as_ref(), 16) {}

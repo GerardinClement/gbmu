@@ -258,6 +258,7 @@ async fn launch_game(
 }
 
 pub enum DebugCommandQueries {
+    DumpMemory,
     SetStepMode,
     ExecuteInstruction(u8),
     ExecuteNextInstructions(usize),

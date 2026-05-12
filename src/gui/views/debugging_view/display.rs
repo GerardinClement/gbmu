@@ -232,7 +232,8 @@ fn get_next_instructions(ui: &mut Ui, data: &DebuggingDataIn) -> (u8, bool) {
         })
         .inner;
 
-    ui.add_space(8.0);
+
+
 
     // Display instructions
     if data.nb_instruction > 0 && !data.next_instructions.is_empty() {
