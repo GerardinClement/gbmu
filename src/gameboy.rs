@@ -1,7 +1,9 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
-use std::sync::{Arc, RwLock};
+use std::cell::RefCell;
+use std::rc::Rc;
+use std::sync::Arc;
 
 use std::sync::Mutex;
 
@@ -20,16 +22,16 @@ const VBLANK_SIZE: usize = 10; // VBlank size in lines
 pub struct GameBoy<T: Mbc> {
     pub cpu: Cpu<T>,
     pub ppu: Ppu<T>,
-    pub bus: Arc<RwLock<Mmu<T>>>,
+    pub bus: Rc<RefCell<Mmu<T>>>,
     pub image: Arc<Mutex<Vec<u8>>>,
 }
 
 impl<T: Mbc>  GameBoy<T> {
     pub fn new(rom: Vec<u8>, boot_rom: Option<[u8; 0x0100]>, image: Arc<Mutex<Vec<u8>>>) -> Result<GameBoy<T>, String> {
-        let bus_ref = Arc::new(RwLock::new(Mmu::<T>::new(&rom)?));
+        let bus_ref = Rc::new(RefCell::new(Mmu::<T>::new(&rom)?));
 
         if let Some(boot_rom) = boot_rom {
-            let mut mmu = bus_ref.write().unwrap();
+            let mut mmu = bus_ref.borrow_mut();
             mmu.load_boot_rom(boot_rom);
         }
 
@@ -50,7 +52,7 @@ impl<T: Mbc>  GameBoy<T> {
         self.cpu.pc = 0x0100;
         self.cpu.registers.set_sp(0xFFFE);
 
-        let mut bus = self.bus.write().unwrap();
+        let mut bus = self.bus.borrow_mut();
 
         bus.write_byte(0xFF00, 0xCF);
         bus.write_byte(0xFF01, 0x00);
@@ -110,7 +112,7 @@ impl<T: Mbc>  GameBoy<T> {
         if key_input.a_pushed       { buttons &= 0b1111_1110; }
 
 
-        let mut bus = self.bus.write().unwrap();
+        let mut bus = self.bus.borrow_mut();
         bus.update_keys(dpad, buttons);
     }
 
@@ -121,11 +123,11 @@ impl<T: Mbc>  GameBoy<T> {
         self.manage_input(key_input);
         while cycles_elapsed < FRAME_CYCLES {
             // 1. Tick Timers
-            self.bus.write().unwrap().tick_timers();
+            self.bus.borrow_mut().tick_timers();
 
             // 2. Tick OAM DMA en M-Cycles
             if cycles_elapsed % 4 == 0 {
-                let mut bus = self.bus.write().unwrap();
+                let mut bus = self.bus.borrow_mut();
                 if bus.dma_index != 0xFF {
                     bus.tick_dma();
                 }

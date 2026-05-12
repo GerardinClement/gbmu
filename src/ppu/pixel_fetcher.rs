@@ -7,7 +7,8 @@ use crate::ppu::lcd_control::LcdControl;
 use crate::ppu::pixel::Pixel;
 use crate::ppu::colors_palette::Color;
 use crate::ppu::pixel_fifo::PixelFifo;
-use std::sync::{Arc, RwLock};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 const BGP_ADDR: u16 = 0xFF47; // Background Palette
 const TILE_DATA_1_START: u16 = 0x8000;
@@ -35,7 +36,7 @@ pub struct PixelFetcher {
 }
 
 impl PixelFetcher {
-    pub fn tick<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, fifo: &PixelFifo, ly: u8, scx: u8, scy: u8, wly: u8, lcd_control: &LcdControl, use_window: bool) -> Option<[Pixel; 8]> {
+    pub fn tick<T: Mbc>(&mut self, bus: &Rc<RefCell<Mmu<T>>>, fifo: &PixelFifo, ly: u8, scx: u8, scy: u8, wly: u8, lcd_control: &LcdControl, use_window: bool) -> Option<[Pixel; 8]> {
         self.dot_counter = self.dot_counter.wrapping_add(1);
 
         if self.fetcher_state == FetcherState::PushPixel && fifo.is_empty() {
@@ -48,19 +49,19 @@ impl PixelFetcher {
         } else if self.dot_counter % 2 == 0 {
             match self.fetcher_state {
                 FetcherState::GetTileId => {
-                    self.tile_id = self.get_tile_id(bus, ly, scx, scy, wly, lcd_control, use_window);
+                    self.tile_id = self.get_tile_id(&bus, ly, scx, scy, wly, lcd_control, use_window);
                     self.fetcher_state = FetcherState::GetLowData;
 
                     return None
                 },
                 FetcherState::GetLowData => {
-                    self.tile_data_low = self.get_tile_data_low(bus, ly, scy, wly, lcd_control, use_window);
+                    self.tile_data_low = self.get_tile_data_low(&bus, ly, scy, wly, lcd_control, use_window);
                     self.fetcher_state = FetcherState::GetHighData;
 
                     return None
                 },
                 FetcherState::GetHighData => {
-                    self.tile_data_high = self.get_tile_data_high(bus, ly, scy, wly, lcd_control, use_window);
+                    self.tile_data_high = self.get_tile_data_high(&bus, ly, scy, wly, lcd_control, use_window);
 
                     if self.first_fetch_done {
                         if fifo.is_empty() {
@@ -109,7 +110,7 @@ impl PixelFetcher {
         self.fetcher_state = FetcherState::GetTileId;
     }
 
-    fn get_tile_id<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, ly: u8, scx: u8, scy: u8, wly: u8, lcd_control: &LcdControl, use_window: bool) -> u8 {
+    fn get_tile_id<T: Mbc>(&mut self, bus: &Rc<RefCell<Mmu<T>>>, ly: u8, scx: u8, scy: u8, wly: u8, lcd_control: &LcdControl, use_window: bool) -> u8 {
         let tilemap_base: std::ops::Range<u16> = if use_window {
             lcd_control.window_tile_map_area()
         } else {
@@ -132,14 +133,13 @@ impl PixelFetcher {
         let offset = (y * 32 + x) as u16;
 
         let tile_number = bus
-            .read()
-            .unwrap()
+            .borrow_mut()
             .read_byte(tilemap_base.start + offset);
 
         tile_number
     }
 
-    fn get_tile_data_low<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, ly: u8, scy: u8, wly: u8, lcd_control: &LcdControl, use_window: bool) -> u8 {
+    fn get_tile_data_low<T: Mbc>(&mut self, bus: &Rc<RefCell<Mmu<T>>>, ly: u8, scy: u8, wly: u8, lcd_control: &LcdControl, use_window: bool) -> u8 {
         let y = if use_window {
             wly as usize
         } else {
@@ -152,8 +152,7 @@ impl PixelFetcher {
             let tilemap_base = TILE_DATA_1_START + (self.tile_id as u16) * 16;
 
             let tile_low = bus
-                .read()
-                .unwrap()
+                .borrow_mut()
                 .read_byte(tilemap_base + correct_byte as u16);
 
             tile_low
@@ -164,8 +163,7 @@ impl PixelFetcher {
             let tilemap_base = base.wrapping_add_signed(offset);
 
             let tile_low = bus
-                .read()
-                .unwrap()
+                .borrow_mut()
                 .read_byte(tilemap_base + correct_byte as u16);
 
             tile_low
@@ -175,7 +173,7 @@ impl PixelFetcher {
     }
 
 
-    fn get_tile_data_high<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>, ly: u8, scy: u8, wly: u8, lcd_control: &LcdControl, use_window:bool) -> u8 {
+    fn get_tile_data_high<T: Mbc>(&mut self, bus: &Rc<RefCell<Mmu<T>>>, ly: u8, scy: u8, wly: u8, lcd_control: &LcdControl, use_window:bool) -> u8 {
         let y = if use_window {
             wly as usize
         } else {
@@ -187,10 +185,7 @@ impl PixelFetcher {
         if lcd_control.bg_window_tile_data_area().start == TILE_DATA_1_START {
             let tilemap_base = TILE_DATA_1_START + (self.tile_id as u16) * 16;
 
-            let tile_low = bus
-                .read()
-                .unwrap()
-                .read_byte(tilemap_base + correct_byte as u16);
+            let tile_low = bus.borrow_mut().read_byte(tilemap_base + correct_byte as u16);
 
             tile_low
             
@@ -199,10 +194,7 @@ impl PixelFetcher {
             let offset = (self.tile_id as i8) as i16 * 16;
             let tilemap_base = base.wrapping_add_signed(offset);
 
-            let tile_low = bus
-                .read()
-                .unwrap()
-                .read_byte(tilemap_base + correct_byte as u16);
+            let tile_low = bus.borrow_mut().read_byte(tilemap_base + correct_byte as u16);
 
             tile_low
         } else {
@@ -210,15 +202,15 @@ impl PixelFetcher {
         }
     }
 
-    fn apply_background_palette<T: Mbc>(&self, bus: &Arc<RwLock<Mmu<T>>>, color_index: u8) -> Color {
-        let palette = bus.read().unwrap().read_byte(BGP_ADDR);
+    fn apply_background_palette<T: Mbc>(&self, bus: &Rc<RefCell<Mmu<T>>>, color_index: u8) -> Color {
+        let palette = bus.borrow_mut().read_byte(BGP_ADDR);
 
         let index = (palette >> (color_index * 2)) & 0b11;
 
         Color::from_index(index)
     }
 
-    fn push_pixel<T: Mbc>(&mut self, bus: &Arc<RwLock<Mmu<T>>>) -> Option<[Pixel; 8]> {
+    fn push_pixel<T: Mbc>(&mut self, bus: &Rc<RefCell<Mmu<T>>>) -> Option<[Pixel; 8]> {
         let mut tile_pixels = [Pixel::default(); 8];
 
         for i in 0..8 {
@@ -228,7 +220,7 @@ impl PixelFetcher {
             let high_weight_bit = (self.tile_data_high >> bit_index) & 1;
 
             let color_index = (high_weight_bit << 1) | low_weight_bit;
-            let bgp = self.apply_background_palette(bus, color_index);
+            let bgp = self.apply_background_palette(&bus, color_index);
 
             let pixel = Pixel::new_bg(bgp, color_index);
             
@@ -247,16 +239,12 @@ mod tests {
     use crate::ppu::pixel_fifo::PixelFifo;
     use crate::ppu::lcd_control::LcdControl;
 
-    use std::sync::{Arc, RwLock};
-
-    fn setup_bus() -> Arc<RwLock<Mmu<RomOnly>>> {
-        Arc::new(RwLock::new(
-            Mmu::<RomOnly>::new(&[]).unwrap()
-        ))
+    fn setup_bus() -> Rc<RefCell<Mmu<RomOnly>>> {
+        Mmu::<RomOnly>::new(&[]).unwrap().into()
     }
 
-    fn write(bus: &Arc<RwLock<Mmu<RomOnly>>>, addr: u16, val: u8) {
-        bus.write().unwrap().write_byte(addr, val);
+    fn write(bus: Rc<RefCell<Mmu<RomOnly>>>, addr: u16, val: u8) {
+        bus.borrow_mut().write_byte(addr, val);
     }
 
     fn setup_fetcher() -> (PixelFetcher, PixelFifo, LcdControl) {

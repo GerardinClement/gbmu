@@ -148,7 +148,7 @@ pub fn execute_instruction_block3<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) -> 
 }
 
 fn add_a_imm8<T: Mbc>(cpu: &mut Cpu<T>, with_carry: bool) -> u8 {
-    let imm8 = cpu.bus.read().unwrap().read_byte(cpu.pc + 1);
+    let imm8 = cpu.bus.borrow_mut().read_byte(cpu.pc + 1);
 
     cpu.registers.add_to_r8(R8::A, imm8, with_carry);
     cpu.pc = cpu.pc.wrapping_add(2);
@@ -156,7 +156,7 @@ fn add_a_imm8<T: Mbc>(cpu: &mut Cpu<T>, with_carry: bool) -> u8 {
 }
 
 fn sub_a_imm8<T: Mbc>(cpu: &mut Cpu<T>, with_carry: bool) -> u8 {
-    let imm8 = cpu.bus.read().unwrap().read_byte(cpu.pc + 1);
+    let imm8 = cpu.bus.borrow_mut().read_byte(cpu.pc + 1);
 
     cpu.registers.sub_to_r8(R8::A, imm8, with_carry);
     cpu.pc = cpu.pc.wrapping_add(2);
@@ -164,7 +164,7 @@ fn sub_a_imm8<T: Mbc>(cpu: &mut Cpu<T>, with_carry: bool) -> u8 {
 }
 
 fn and_a_imm8<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
-    let imm8 = cpu.bus.read().unwrap().read_byte(cpu.pc + 1);
+    let imm8 = cpu.bus.borrow_mut().read_byte(cpu.pc + 1);
     let a_value = cpu.get_r8_value(R8::A);
 
     let new_value = a_value & imm8;
@@ -180,7 +180,7 @@ fn and_a_imm8<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
 }
 
 fn xor_a_imm8<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
-    let imm8 = cpu.bus.read().unwrap().read_byte(cpu.pc + 1);
+    let imm8 = cpu.bus.borrow_mut().read_byte(cpu.pc + 1);
     let a_value = cpu.get_r8_value(R8::A);
 
     let new_value = a_value ^ imm8;
@@ -196,7 +196,7 @@ fn xor_a_imm8<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
 }
 
 fn or_a_imm8<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
-    let imm8 = cpu.bus.read().unwrap().read_byte(cpu.pc + 1);
+    let imm8 = cpu.bus.borrow_mut().read_byte(cpu.pc + 1);
     let a_value = cpu.get_r8_value(R8::A);
 
     let new_value = a_value | imm8;
@@ -212,7 +212,7 @@ fn or_a_imm8<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
 }
 
 fn cp_a_imm8<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
-    let imm8 = cpu.bus.read().unwrap().read_byte(cpu.pc + 1);
+    let imm8 = cpu.bus.borrow_mut().read_byte(cpu.pc + 1);
     let a_value = cpu.get_r8_value(R8::A);
 
     let value = a_value.wrapping_sub(imm8);
@@ -238,7 +238,7 @@ fn ret<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8, with_cond: bool) -> u8 {
 
     if cpu.registers.check_condition(cond) || !with_cond {
         ticking_value += 12;
-        cpu.pc = cpu.registers.pop_sp(&cpu.bus.write().unwrap());
+        cpu.pc = cpu.registers.pop_sp(&cpu.bus.borrow_mut());
     } else {
         cpu.pc = cpu.pc.wrapping_add(1);
     }
@@ -246,7 +246,7 @@ fn ret<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8, with_cond: bool) -> u8 {
 }
 
 fn reti<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
-    cpu.pc = cpu.registers.pop_sp(&cpu.bus.write().unwrap());
+    cpu.pc = cpu.registers.pop_sp(&cpu.bus.borrow_mut());
     cpu.ime = true;
     cpu.ime_delay = false;
     16
@@ -287,7 +287,7 @@ fn call_imm16<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8, with_cond: bool) -> u8 
 
     if cpu.registers.check_condition(cond) || !with_cond {
         cpu.registers
-            .push_sp(&mut cpu.bus.write().unwrap(), cpu.pc.wrapping_add(3));
+            .push_sp(&mut cpu.bus.borrow_mut(), cpu.pc.wrapping_add(3));
         cpu.pc = imm16;
         20
     } else {
@@ -300,21 +300,21 @@ fn rst_tgt3<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) -> u8 {
     let tgt3_index = (instruction & TGT3_MASK) >> 3;
     let tgt3_address = RST_VEC[tgt3_index as usize] as u16;
 
-    cpu.registers.push_sp(&mut cpu.bus.write().unwrap(), cpu.pc.wrapping_add(1));
+    cpu.registers.push_sp(&mut cpu.bus.borrow_mut(), cpu.pc.wrapping_add(1));
     cpu.pc = tgt3_address;
     16
 }
 
 fn pop_r16<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) -> u8 {
     let r16 = utils::convert_index_to_r16(instruction);
-    let value = cpu.registers.pop_sp(&cpu.bus.write().unwrap());
+    let value = cpu.registers.pop_sp(&cpu.bus.borrow_mut());
     cpu.registers.set_r16_value(r16, value);
     cpu.pc = cpu.pc.wrapping_add(1);
     12
 }
 
 fn pop_af<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
-    let value = cpu.registers.pop_sp(&cpu.bus.write().unwrap());
+    let value = cpu.registers.pop_sp(&cpu.bus.borrow_mut());
     cpu.registers.set_af(value);
     cpu.pc = cpu.pc.wrapping_add(1);
     12
@@ -323,20 +323,20 @@ fn pop_af<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
 fn push_r16<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) -> u8 {
     let r16 = utils::convert_index_to_r16(instruction);
     let value = cpu.registers.get_r16_value(r16);
-    cpu.registers.push_sp(&mut cpu.bus.write().unwrap(), value);
+    cpu.registers.push_sp(&mut cpu.bus.borrow_mut(), value);
     cpu.pc = cpu.pc.wrapping_add(1);
     16
 }
 
 fn push_af<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
     let value = cpu.registers.get_af();
-    cpu.registers.push_sp(&mut cpu.bus.write().unwrap(), value);
+    cpu.registers.push_sp(&mut cpu.bus.borrow_mut(), value);
     cpu.pc = cpu.pc.wrapping_add(1);
     16
 }
 
 fn prefix<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
-    let next_instruction = cpu.bus.read().unwrap().read_byte(cpu.pc + 1);
+    let next_instruction = cpu.bus.borrow_mut().read_byte(cpu.pc + 1);
     block_prefix::execute_instruction_block_prefix(cpu, next_instruction)
     // cpu.pc = cpu.pc.wrapping_add(1);
 }
@@ -346,17 +346,17 @@ fn ldh_c_a<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
     let c_value = cpu.get_r8_value(R8::C);
 
     let address = 0xFF00 + (c_value as u16);
-    cpu.bus.write().unwrap().write_byte(address, a_value);
+    cpu.bus.borrow_mut().write_byte(address, a_value);
     cpu.pc = cpu.pc.wrapping_add(1);
     8
 }
 
 fn ldh_imm8_a<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
     let a_value = cpu.get_r8_value(R8::A);
-    let imm8 = cpu.bus.read().unwrap().read_byte(cpu.pc + 1);
+    let imm8 = cpu.bus.borrow_mut().read_byte(cpu.pc + 1);
 
     let address = 0xFF00 + (imm8 as u16);
-    cpu.bus.write().unwrap().write_byte(address, a_value);
+    cpu.bus.borrow_mut().write_byte(address, a_value);
     cpu.pc = cpu.pc.wrapping_add(2);
     12
 }
@@ -365,7 +365,7 @@ fn ld_imm16_a<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
     let a_value = cpu.get_r8_value(R8::A);
     let imm16 = utils::get_imm16(cpu);
 
-    cpu.bus.write().unwrap().write_byte(imm16, a_value);
+    cpu.bus.borrow_mut().write_byte(imm16, a_value);
     cpu.pc = cpu.pc.wrapping_add(3);
     16
 }
@@ -373,7 +373,7 @@ fn ld_imm16_a<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
 fn ldh_a_c<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
     let c_value = cpu.get_r8_value(R8::C);
     let address = 0xFF00 + (c_value as u16);
-    let value = cpu.bus.read().unwrap().read_byte(address);
+    let value = cpu.bus.borrow_mut().read_byte(address);
 
     cpu.set_r8_value(R8::A, value);
     cpu.pc = cpu.pc.wrapping_add(1);
@@ -381,9 +381,9 @@ fn ldh_a_c<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
 }
 
 fn ldh_a_imm8<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
-    let imm8 = cpu.bus.read().unwrap().read_byte(cpu.pc + 1);
+    let imm8 = cpu.bus.borrow_mut().read_byte(cpu.pc + 1);
     let address = 0xFF00 + (imm8 as u16);
-    let value = cpu.bus.read().unwrap().read_byte(address);
+    let value = cpu.bus.borrow_mut().read_byte(address);
 
     cpu.set_r8_value(R8::A, value);
     cpu.pc = cpu.pc.wrapping_add(2);
@@ -392,7 +392,7 @@ fn ldh_a_imm8<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
 
 fn ld_a_imm16<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
     let imm16 = utils::get_imm16(cpu);
-    let value = cpu.bus.read().unwrap().read_byte(imm16);
+    let value = cpu.bus.borrow_mut().read_byte(imm16);
 
     cpu.set_r8_value(R8::A, value);
     cpu.pc = cpu.pc.wrapping_add(3);
@@ -400,7 +400,7 @@ fn ld_a_imm16<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
 }
 
 fn add_sp_imm8<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
-    let offset = cpu.bus.read().unwrap().read_byte(cpu.pc + 1) as i8;
+    let offset = cpu.bus.borrow_mut().read_byte(cpu.pc + 1) as i8;
 
     cpu.registers.add_sp_i8(offset);
     cpu.pc = cpu.pc.wrapping_add(2);
@@ -408,7 +408,7 @@ fn add_sp_imm8<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
 }
 
 fn ld_hl_sp_add_imm8<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
-    let imm8 = cpu.bus.read().unwrap().read_byte(cpu.pc + 1) as i8;
+    let imm8 = cpu.bus.borrow_mut().read_byte(cpu.pc + 1) as i8;
     let sp = cpu.registers.get_sp();
 
     let result = sp.wrapping_add(imm8 as u16);
@@ -457,7 +457,7 @@ mod tests {
         let mut cpu = Cpu::<RomOnly>::default();
         cpu.pc = 0x8000;
         cpu.set_r8_value(R8::A, 0x10);
-        cpu.bus.write().unwrap().write_byte(cpu.pc + 1, 0x20);
+        cpu.bus.borrow_mut().write_byte(cpu.pc + 1, 0x20);
         execute_instruction_block3(&mut cpu, 0xC6); // ADD A, imm8
 
         assert_eq!(cpu.get_r8_value(R8::A), 0x30);
@@ -469,7 +469,7 @@ mod tests {
         let mut cpu = Cpu::<RomOnly>::default();
         cpu.pc = 0x8000;
         cpu.set_r8_value(R8::A, 0x10);
-        cpu.bus.write().unwrap().write_byte(cpu.pc + 1, 0x20);
+        cpu.bus.borrow_mut().write_byte(cpu.pc + 1, 0x20);
         cpu.registers.set_carry_flag(true);
         execute_instruction_block3(&mut cpu, 0xCE); // ADC A, imm8
 
@@ -482,7 +482,7 @@ mod tests {
         let mut cpu = Cpu::<RomOnly>::default();
         cpu.pc = 0x8000;
         cpu.set_r8_value(R8::A, 0x30);
-        cpu.bus.write().unwrap().write_byte(cpu.pc + 1, 0x10);
+        cpu.bus.borrow_mut().write_byte(cpu.pc + 1, 0x10);
         execute_instruction_block3(&mut cpu, 0xD6); // SUB A, imm8
 
         assert_eq!(cpu.get_r8_value(R8::A), 0x20);
@@ -494,7 +494,7 @@ mod tests {
         let mut cpu = Cpu::<RomOnly>::default();
         cpu.pc = 0x8000;
         cpu.set_r8_value(R8::A, 0x30);
-        cpu.bus.write().unwrap().write_byte(cpu.pc + 1, 0x10);
+        cpu.bus.borrow_mut().write_byte(cpu.pc + 1, 0x10);
         cpu.registers.set_carry_flag(true);
         execute_instruction_block3(&mut cpu, 0xDE); // SBC A, imm8
 
@@ -507,7 +507,7 @@ mod tests {
         let mut cpu = Cpu::<RomOnly>::default();
         cpu.pc = 0x8000;
         cpu.set_r8_value(R8::A, 0b1100);
-        cpu.bus.write().unwrap().write_byte(cpu.pc + 1, 0b1010);
+        cpu.bus.borrow_mut().write_byte(cpu.pc + 1, 0b1010);
         execute_instruction_block3(&mut cpu, 0xE6); // AND A, imm8
 
         assert_eq!(cpu.get_r8_value(R8::A), 0b1000);
@@ -519,7 +519,7 @@ mod tests {
         let mut cpu = Cpu::<RomOnly>::default();
         cpu.pc = 0x8000;
         cpu.set_r8_value(R8::A, 0b1100);
-        cpu.bus.write().unwrap().write_byte(cpu.pc + 1, 0b1010);
+        cpu.bus.borrow_mut().write_byte(cpu.pc + 1, 0b1010);
         execute_instruction_block3(&mut cpu, 0xEE); // XOR A, imm8
 
         assert_eq!(cpu.get_r8_value(R8::A), 0b0110);
@@ -531,7 +531,7 @@ mod tests {
         let mut cpu = Cpu::<RomOnly>::default();
         cpu.pc = 0x8000;
         cpu.set_r8_value(R8::A, 0b1100);
-        cpu.bus.write().unwrap().write_byte(cpu.pc + 1, 0b1010);
+        cpu.bus.borrow_mut().write_byte(cpu.pc + 1, 0b1010);
         execute_instruction_block3(&mut cpu, 0xF6); // OR A, imm8
 
         assert_eq!(cpu.get_r8_value(R8::A), 0b1110);
@@ -543,7 +543,7 @@ mod tests {
         let mut cpu = Cpu::<RomOnly>::default();
         cpu.pc = 0x8000;
         cpu.set_r8_value(R8::A, 0x20);
-        cpu.bus.write().unwrap().write_byte(cpu.pc + 1, 0x20);
+        cpu.bus.borrow_mut().write_byte(cpu.pc + 1, 0x20);
         execute_instruction_block3(&mut cpu, 0xFE); // CP A, imm8
 
         assert!(cpu.registers.get_zero_flag());
@@ -554,8 +554,8 @@ mod tests {
     fn test_jp_imm16() {
         let mut cpu = Cpu::<RomOnly>::default();
         cpu.pc = 0x8000;
-        cpu.bus.write().unwrap().write_byte(cpu.pc + 1, 0x34); // LSB
-        cpu.bus.write().unwrap().write_byte(cpu.pc + 2, 0x12); // MSB
+        cpu.bus.borrow_mut().write_byte(cpu.pc + 1, 0x34); // LSB
+        cpu.bus.borrow_mut().write_byte(cpu.pc + 2, 0x12); // MSB
         execute_instruction_block3(&mut cpu, 0xC3); // JP imm16
 
         assert_eq!(cpu.pc, 0x1234);
@@ -565,8 +565,8 @@ mod tests {
     fn test_jp_cond_true() {
         let mut cpu = Cpu::<RomOnly>::default();
         cpu.pc = 0x8000;
-        cpu.bus.write().unwrap().write_byte(cpu.pc + 1, 0x34); // LSB
-        cpu.bus.write().unwrap().write_byte(cpu.pc + 2, 0x12); // MSB
+        cpu.bus.borrow_mut().write_byte(cpu.pc + 1, 0x34); // LSB
+        cpu.bus.borrow_mut().write_byte(cpu.pc + 2, 0x12); // MSB
         cpu.registers.set_zero_flag(true); // Condition Z = true
         execute_instruction_block3(&mut cpu, 0xCA); // JP Z, imm16
 
@@ -577,8 +577,8 @@ mod tests {
     fn test_jp_cond_false() {
         let mut cpu = Cpu::<RomOnly>::default();
         cpu.pc = 0x8000;
-        cpu.bus.write().unwrap().write_byte(cpu.pc + 1, 0x34); // LSB
-        cpu.bus.write().unwrap().write_byte(cpu.pc + 2, 0x12); // MSB
+        cpu.bus.borrow_mut().write_byte(cpu.pc + 1, 0x34); // LSB
+        cpu.bus.borrow_mut().write_byte(cpu.pc + 2, 0x12); // MSB
         cpu.registers.set_zero_flag(false); // Condition Z = false
         execute_instruction_block3(&mut cpu, 0xCA); // JP Z, imm16
 
@@ -599,33 +599,33 @@ mod tests {
     fn test_call_imm16() {
         let mut cpu = Cpu::<RomOnly>::default();
         cpu.pc = 0x8000;
-        cpu.bus.write().unwrap().write_byte(cpu.pc + 1, 0x34); // LSB
-        cpu.bus.write().unwrap().write_byte(cpu.pc + 2, 0x12); // MSB
+        cpu.bus.borrow_mut().write_byte(cpu.pc + 1, 0x34); // LSB
+        cpu.bus.borrow_mut().write_byte(cpu.pc + 2, 0x12); // MSB
         execute_instruction_block3(&mut cpu, 0xCD); // CALL imm16
 
         assert_eq!(cpu.pc, 0x1234);
-        assert_eq!(cpu.registers.pop_sp(&cpu.bus.write().unwrap()), 0x8003);
+        assert_eq!(cpu.registers.pop_sp(&cpu.bus.borrow_mut()), 0x8003);
     }
 
     #[test]
     fn test_call_cond_true() {
         let mut cpu = Cpu::<RomOnly>::default();
         cpu.pc = 0x8000;
-        cpu.bus.write().unwrap().write_byte(cpu.pc + 1, 0x34); // LSB
-        cpu.bus.write().unwrap().write_byte(cpu.pc + 2, 0x12); // MSB
+        cpu.bus.borrow_mut().write_byte(cpu.pc + 1, 0x34); // LSB
+        cpu.bus.borrow_mut().write_byte(cpu.pc + 2, 0x12); // MSB
         cpu.registers.set_carry_flag(true); // Condition C = true
         execute_instruction_block3(&mut cpu, 0xDC); // CALL C, imm16
 
         assert_eq!(cpu.pc, 0x1234);
-        assert_eq!(cpu.registers.pop_sp(&cpu.bus.write().unwrap()), 0x8003);
+        assert_eq!(cpu.registers.pop_sp(&cpu.bus.borrow_mut()), 0x8003);
     }
 
     #[test]
     fn test_call_cond_false() {
         let mut cpu = Cpu::<RomOnly>::default();
         cpu.pc = 0x8000;
-        cpu.bus.write().unwrap().write_byte(cpu.pc + 1, 0x34); // LSB
-        cpu.bus.write().unwrap().write_byte(cpu.pc + 2, 0x12); // MSB
+        cpu.bus.borrow_mut().write_byte(cpu.pc + 1, 0x34); // LSB
+        cpu.bus.borrow_mut().write_byte(cpu.pc + 2, 0x12); // MSB
         cpu.registers.set_carry_flag(false); // Condition C = false
         execute_instruction_block3(&mut cpu, 0xDC); // CALL C, imm16
 
@@ -645,7 +645,7 @@ mod tests {
     fn test_pop_r16() {
         let mut cpu = Cpu::<RomOnly>::default();
         cpu.pc = 0x8000;
-        cpu.registers.push_sp(&mut cpu.bus.write().unwrap(), 0x1234);
+        cpu.registers.push_sp(&mut cpu.bus.borrow_mut(), 0x1234);
         execute_instruction_block3(&mut cpu, 0xC1); // POP BC
 
         assert_eq!(cpu.registers.get_r16_value(R16::BC), 0x1234);
@@ -656,10 +656,10 @@ mod tests {
         let mut cpu = Cpu::<RomOnly>::default();
         cpu.pc = 0x8000;
         cpu.registers.set_r16_value(R16::DE, 0x5678);
-        cpu.registers.push_sp(&mut cpu.bus.write().unwrap(), 0x0100);
+        cpu.registers.push_sp(&mut cpu.bus.borrow_mut(), 0x0100);
         execute_instruction_block3(&mut cpu, 0xD5); // PUSH DE
 
-        assert_eq!(cpu.registers.pop_sp(&cpu.bus.write().unwrap()), 0x5678);
+        assert_eq!(cpu.registers.pop_sp(&cpu.bus.borrow_mut()), 0x5678);
     }
 
     #[test]
@@ -667,7 +667,7 @@ mod tests {
         let mut cpu = Cpu::<RomOnly>::default();
         cpu.pc = 0x8000;
         cpu.registers.set_sp(0xFFF0);
-        cpu.bus.write().unwrap().write_byte(cpu.pc + 1, 0x10); // imm8 = +16
+        cpu.bus.borrow_mut().write_byte(cpu.pc + 1, 0x10); // imm8 = +16
         execute_instruction_block3(&mut cpu, 0xE8); // ADD SP, imm8
 
         assert_eq!(cpu.registers.get_sp(), 0x0000); // Overflow
@@ -678,7 +678,7 @@ mod tests {
         let mut cpu = Cpu::<RomOnly>::default();
         cpu.pc = 0x8000;
         cpu.registers.set_sp(0x0005);
-        cpu.bus.write().unwrap().write_byte(cpu.pc + 1, 0xFB); // imm8 = -5 (0xFB = -5 en i8)
+        cpu.bus.borrow_mut().write_byte(cpu.pc + 1, 0xFB); // imm8 = -5 (0xFB = -5 en i8)
         execute_instruction_block3(&mut cpu, 0xE8); // ADD SP, imm8
 
         assert_eq!(cpu.registers.get_sp(), 0x0000);
@@ -689,7 +689,7 @@ mod tests {
         let mut cpu = Cpu::<RomOnly>::default();
         cpu.pc = 0x8000;
         cpu.registers.set_sp(0xFFF0);
-        cpu.bus.write().unwrap().write_byte(cpu.pc + 1, 0x10); // imm8 = +16
+        cpu.bus.borrow_mut().write_byte(cpu.pc + 1, 0x10); // imm8 = +16
         execute_instruction_block3(&mut cpu, 0xF8); // LD HL, SP + imm8
 
         assert_eq!(cpu.registers.get_r16_value(R16::HL), 0x0000); // Overflow
@@ -710,7 +710,7 @@ mod tests {
         let mut cpu = Cpu::<RomOnly>::default();
         cpu.pc = 0x8000;
         cpu.set_r8_value(R8::C, 0x10);
-        cpu.bus.write().unwrap().write_byte(0xFF10, 0x42);
+        cpu.bus.borrow_mut().write_byte(0xFF10, 0x42);
         execute_instruction_block3(&mut cpu, 0xF2); // LDH A, [C]
 
         assert_eq!(cpu.get_r8_value(R8::A), 0x42);
@@ -723,7 +723,7 @@ mod tests {
         cpu.pc = 0x8000;
         cpu.registers.set_sp(0xC000);
         // Pousse une valeur sur la pile
-        cpu.registers.push_sp(&mut cpu.bus.write().unwrap(), 0x1234);
+        cpu.registers.push_sp(&mut cpu.bus.borrow_mut(), 0x1234);
 
         // Exécute l'instruction POP AF
         execute_instruction_block3(&mut cpu, 0xF1); // POP AF
