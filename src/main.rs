@@ -10,13 +10,16 @@ mod ppu;
 mod file;
 
 use gui::GraphicalApp;
+use crate::{cli::EmulatorArguments, file::{GbmuFile}, gui::EmulationAppOptions};
+use std::sync::{LazyLock, Mutex};
 
-use crate::{cli::EmulatorArguments, gui::EmulationAppOptions};
-
+static GBMU_FILE: LazyLock<Mutex<GbmuFile>> =
+    LazyLock::new(|| Mutex::new(GbmuFile::get_existing_or_new()));
+    
 #[tokio::main]
+
 async fn main() {
 
-    
     let arguments = EmulatorArguments::get();
 
     let options = eframe::NativeOptions {
