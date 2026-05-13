@@ -230,11 +230,11 @@ impl Mbc for RomOnly{
 }
 
 pub struct Mbc3 {
-    rtc_register: u8,
     ram_timer_enable: bool,
+    latch_clock_data: bool,
+    rtc_register: u8,
     rom_bank_nb: u8,
     ram_rtc_select: u8,
-    latch_clock_data: u8,
     latched_time_value: Option<DateTime<Local>>,
     rom_banks: Vec<[u8; ROM_BANK_SIZE]>,
     ram_banks: Vec<[u8; RAM_BANK_SIZE]>,
@@ -289,11 +289,13 @@ impl Mbc for Mbc3 {
             },
             0x4000..0x6000 => self.ram_rtc_select = val,
             0x6000..0x8000 => {
-                if self.latch_clock_data == 0b00 && val == 0b01 {
+                let new_bit = (val & 0b0000_0001) == 1;
+
+                if !self.latch_clock_data && new_bit {
                     self.latched_time_value = Some(self.get_actual_time());
-                } else {
-                    self.latched_time_value = None;
                 }
+
+                self.latch_clock_data = new_bit;
             },
             0xA000..0xC000 => {
                 self.ram_banks[
@@ -314,12 +316,12 @@ impl Mbc for Mbc3 {
             Mbc3 {
                 rom_banks,
                 ram_banks,
-                rtc_register: 0,
                 ram_timer_enable: false,
+                latch_clock_data: false,
+                rtc_register: 0,
                 rom_bank_nb: 0,
                 ram_rtc_select: 0,
                 latched_time_value: None,
-                latch_clock_data: 0,
 
             }
         )
