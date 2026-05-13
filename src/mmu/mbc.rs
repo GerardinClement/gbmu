@@ -126,7 +126,7 @@ impl Mbc for Mbc1 {
 
     fn write(&mut self, addr: u16, val: u8) {
         match addr {
-            0x0000..0x2000 => self.ram_gate_register = (val & 0b1010) == 0b1010,
+            0x0000..0x2000 => self.ram_gate_register = (val & 0x0F) == 0b1010,
             0x2000..0x4000 => self.bank_register_1 = val & 0b11111,
             0x4000..0x6000 => self.bank_register_2 = val & 0b11,
             0x6000..0x8000 => self.mode_register = (val & 0b1) == 0b1,
@@ -173,7 +173,7 @@ impl Mbc for Mbc2 {
         match addr {
             0x0000..0x4000 => {
                 if addr & 0b1_0000_0000 == 0b1_0000_0000 {
-                    self.ram_gate_register = val & 0b1010 == 0b1010
+                    self.ram_gate_register = (val & 0x0F) == 0b1010
                 } else {
                     let new_value = val & 0b1111;
                     self.rom_bank_register = (new_value == 0) as u8 + new_value;
@@ -278,9 +278,10 @@ impl Mbc for Mbc3 {
             _ => unreachable!(),
         }
     }
+
     fn write(&mut self, addr: u16, val: u8) {
         match addr {
-            0x0000..0x2000 => self.ram_timer_enable = val == 0b1010,
+            0x0000..0x2000 => self.ram_timer_enable = (val & 0x0F) == 0b1010,
             0x2000..0x4000 => self.rom_bank_nb = (val != 0) as u8 * val + (val == 0) as u8,
             0x4000..0x6000 => self.ram_rtc_select = val,
             0x6000..0x8000 => {
