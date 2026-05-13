@@ -6,6 +6,8 @@ mod common;
 mod views;
 
 use std::path::{Path, PathBuf};
+use std::time::Duration;
+use std::thread;
 use egui_file_dialog::{FileDialog, Filter};
 use crate::mmu::mbc::{Mbc1, Mbc2, Mbc3, RomOnly};
 use crate::ppu;
@@ -32,6 +34,8 @@ use tokio::task::JoinHandle;
 
 use std::sync::{Arc, atomic::AtomicBool};
 
+const UI_REFRESH_PERIOD_IN_MILLIS: u64 = 30;
+
 impl eframe::App for GraphicalApp {
     
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {}
@@ -45,8 +49,12 @@ impl eframe::App for GraphicalApp {
             AppState::DebuggingHub(device) => device.debug_view(_ui, _frame),
             AppState::Default => unreachable!(),
         };
-        let duration = debut.elapsed();
-        //println!("egui : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
+
+        let wanted_duration = Duration::from_millis(UI_REFRESH_PERIOD_IN_MILLIS);
+        let duration_elapsed = debut.elapsed();
+        if wanted_duration > duration_elapsed {
+            thread::sleep(wanted_duration - duration_elapsed);
+        }
         _ui.ctx().request_repaint();
     }
 }
