@@ -282,7 +282,11 @@ impl Mbc for Mbc3 {
     fn write(&mut self, addr: u16, val: u8) {
         match addr {
             0x0000..0x2000 => self.ram_timer_enable = (val & 0x0F) == 0b1010,
-            0x2000..0x4000 => self.rom_bank_nb = (val != 0) as u8 * val + (val == 0) as u8,
+            0x2000..0x4000 => {
+                let masked_val = val & 0b0111_1111;
+
+                self.rom_bank_nb = (masked_val != 0) as u8 * masked_val + (masked_val == 0) as u8
+            },
             0x4000..0x6000 => self.ram_rtc_select = val,
             0x6000..0x8000 => {
                 if self.latch_clock_data == 0b00 && val == 0b01 {
